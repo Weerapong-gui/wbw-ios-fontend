@@ -4,6 +4,7 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
+    @ObservedObject var noti: NotiStore
     @State private var showProfile = false
 
     private var name: String { profile.me?.displayName ?? (session.user?.username ?? "ผู้เข้าร่วม") }
@@ -27,6 +28,25 @@ struct HomeView: View {
                         .foregroundStyle(Color.wbwInk)
                 }
                 Spacer()
+
+                Button {
+                    NotificationCenter.default.post(name: .openNotificationsTab, object: nil)
+                } label: {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Color.wbwInk)
+                        .frame(width: 44, height: 44)
+                        .modifier(GlassRing())
+                        .overlay(alignment: .topTrailing) {
+                            if noti.unreadCount > 0 {
+                                Text("\(noti.unreadCount)")
+                                    .font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                                    .padding(5).background(Color.red, in: Circle())
+                                    .offset(x: 4, y: -4)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 22)
             .padding(.top, 8)

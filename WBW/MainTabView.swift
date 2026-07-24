@@ -9,6 +9,7 @@ struct MainTabView: View {
     @StateObject private var noti = NotiStore()
     @State private var tab = 0
     @State private var chatOpen = false
+    @State private var showNotifications = false
 
     init() {
         #if DEBUG
@@ -19,10 +20,9 @@ struct MainTabView: View {
     var body: some View {
         ZStack {
             TabView(selection: $tab) {
-                Tab(value: 0) { HomeView() } label: { Image(systemName: "house.fill") }
+                Tab(value: 0) { HomeView(noti: noti) } label: { Image(systemName: "house.fill") }
                 Tab(value: 1) { MapScreen() } label: { Image(systemName: "map.fill") }
-                Tab(value: 2) { NotificationsView(store: noti, token: session.token ?? "") } label: { Image(systemName: "newspaper.fill") }
-                    .badge(noti.unreadCount)
+                Tab(value: 2) { SURunView() } label: { Image(systemName: "figure.run") }
                 Tab(value: 3) {
                     GroupTabView(onBack: { tab = 0 }, onOpenChat: { chatOpen = true })
                 } label: {
@@ -41,7 +41,7 @@ struct MainTabView: View {
                 #endif
             }
             .onReceive(NotificationCenter.default.publisher(for: .openNotificationsTab)) { _ in
-                tab = 2  // แตะ push → เปิดแท็บประกาศ
+                showNotifications = true   // noti ไม่มี tab แล้ว → เปิดเป็น sheet
             }
 
             // แชทกลุ่ม — overlay เลื่อนขึ้นจากล่าง (navbar หายแบบเด้งๆ)
@@ -53,6 +53,9 @@ struct MainTabView: View {
             }
         }
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: chatOpen)
+        .sheet(isPresented: $showNotifications) {
+            NotificationsView(store: noti, token: session.token ?? "")
+        }
     }
 }
 
