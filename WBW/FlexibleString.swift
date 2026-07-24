@@ -14,10 +14,15 @@ struct FlexibleString: Codable, Equatable {
             wrappedValue = s
         } else if let i = try? c.decode(Int64.self) {
             wrappedValue = String(i)
-        } else if let d = try? c.decode(Double.self) {
-            wrappedValue = String(Int64(d))
+        } else if let d = try? c.decode(Double.self), let i = Int64(exactly: d.rounded()) {
+            // integral JSON numbers written as e.g. 123.0; Int64(exactly:) returns nil
+            // (never traps) when out of range, so we fall through to the throw below
+            wrappedValue = String(i)
         } else {
-            wrappedValue = ""
+            throw DecodingError.dataCorruptedError(
+                in: c,
+                debugDescription: "FlexibleString: id is neither a string nor a representable integer"
+            )
         }
     }
 
