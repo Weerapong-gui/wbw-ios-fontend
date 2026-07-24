@@ -1,0 +1,14 @@
+# Xcode / build
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# XcodeGen output (project.yml is the source of truth)
+WBW.xcodeproj/
+
+# Secrets
+WBW/GoogleService-Info.plist
+
+# macOS
+.DS_Store
