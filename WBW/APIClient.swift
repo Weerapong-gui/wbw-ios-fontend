@@ -47,7 +47,7 @@ struct APIClient {
 
     /// โปรไฟล์ผู้ใช้ปัจจุบัน (ต้องมี token)
     func me(token: String) async throws -> Me {
-        guard let url = URL(string: "\(Config.apiBase)/auth/me") else {
+        guard let url = URL(string: "\(Config.apiBase)\(Config.mePath)") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
         var req = URLRequest(url: url)
@@ -121,7 +121,7 @@ struct APIClient {
 
     /// อัปเดตรูปโปรไฟล์ตัวเอง (base64 data URL)
     func updatePhoto(token: String, photoUrl: String) async throws {
-        guard let url = URL(string: "\(Config.apiBase)/auth/me") else { throw AppError.message("URL ไม่ถูกต้อง") }
+        guard let url = URL(string: "\(Config.apiBase)\(Config.mePath)") else { throw AppError.message("URL ไม่ถูกต้อง") }
         var req = URLRequest(url: url)
         req.httpMethod = "PATCH"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

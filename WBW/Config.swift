@@ -1,9 +1,33 @@
 import Foundation
 
+/// backend ปลายทาง — สลับทั้งแอปทีเดียว (JWT คนละ secret ต่อ backend)
+enum Backend {
+    case prodNode   // Node เดิม (ใช้งานได้จริงตอนนี้)
+    case susLocal   // Student-Union-Server รันในเครื่อง
+    case susProd    // SUS ที่ deploy แล้ว (รอ URL จากเพื่อน)
+
+    var apiBase: String {
+        switch self {
+        case .prodNode: return "https://wbw.sumfu.store"
+        case .susLocal: return "http://localhost:8080/wbw"
+        case .susProd:  return "https://TODO-set-sus-host/wbw"
+        }
+    }
+
+    /// โปรไฟล์ผู้ใช้ปัจจุบัน — Node อยู่ที่ /auth/me, SUS อยู่ที่ /me
+    var mePath: String {
+        switch self {
+        case .prodNode:            return "/auth/me"
+        case .susLocal, .susProd:  return "/me"
+        }
+    }
+}
+
 enum Config {
-    /// backend ที่ deploy จริง (public ผ่าน Cloudflare tunnel บน archlinux) — ทุก client เข้าได้ทุกที่
-    /// dev local: เปลี่ยนเป็น http://localhost:4000 (sim) หรือ LAN IP (เครื่องจริง)
-    static let apiBase = "https://wbw.sumfu.store"
+    /// เปลี่ยนค่าเดียวนี้เพื่อสลับ backend
+    static let backend: Backend = .prodNode
+    static var apiBase: String { backend.apiBase }
+    static var mePath: String { backend.mePath }
 }
 
 /// สีธีม (DOI-APP)
