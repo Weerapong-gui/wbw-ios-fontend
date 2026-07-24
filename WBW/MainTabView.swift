@@ -28,8 +28,8 @@ struct MainTabView: View {
                 } label: {
                     Image(systemName: profile.me?.groupId == nil ? "sharedwithyou" : "message.fill")
                 }
-                // QR แยกเป็นปุ่มเดี่ยว (role .search) — เว้นว่างไว้ก่อน (จะทำ QR scanner ทีหลัง)
-                Tab(value: 4, role: .search) { ForestBlank() } label: { Image(systemName: "qrcode") }
+                // QR แยกเป็นปุ่มเดี่ยว (role .search) — My QR Code สำหรับเช็คอิน
+                Tab(value: 4, role: .search) { MyQRCodeView() } label: { Image(systemName: "qrcode") }
             }
             .tint(Color.wbwGold)
             .task {
