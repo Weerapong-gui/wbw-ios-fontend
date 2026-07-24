@@ -120,7 +120,7 @@ struct CheckinResult: Codable {
 // ===== ประกาศ / แจ้งเตือน =====
 // หมายเหตุ: id มาเป็น string (PG bigint → node ส่ง string)
 struct NotificationItem: Codable, Identifiable {
-    let id: String
+    @FlexibleString var id: String
     let type: String?
     let title: String
     let body: String?
@@ -193,7 +193,7 @@ struct GroupMembersResponse: Codable {
 
 /// ข้อความจาก server (id เป็น string เพราะ PG bigint)
 struct MessageDTO: Codable {
-    let id: String
+    @FlexibleString var id: String
     let groupId: Int
     let senderId: String
     let clientId: String

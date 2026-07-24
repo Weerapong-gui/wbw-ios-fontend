@@ -37,10 +37,26 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: NJL4K64JX5
         ENABLE_USER_SCRIPT_SANDBOXING: YES
+  WBWTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - WBWTests
+    dependencies:
+      - target: WBW
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: th.ac.mfu.wbwSwiftTests
+        GENERATE_INFOPLIST_FILE: YES
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        SWIFT_VERSION: "5.0"
 schemes:
   WBW:
     build:
       targets:
         WBW: all
+    test:
+      targets:
+        - WBWTests
     run:
       config: Debug
