@@ -52,6 +52,8 @@ enum ChatRowBuilder {
         }
 
         // ข้อความแรกที่ยังไม่อ่านและไม่ใช่ของเรา
+        // serverId เป็น nil ได้เฉพาะข้อความที่เรายังไม่ส่งเอง (ChatStore การันตี) — ข้อความของคนอื่น
+        // มี serverId เสมอ ดังนั้น ?? 0 ตรงนี้ไม่มีทางทำให้ข้อความคนอื่นถูกนับว่ายังไม่อ่านผิดๆ
         let firstUnread = msgs.firstIndex {
             $0.senderId != myId && ($0.serverId ?? 0) > myLastReadId
         }

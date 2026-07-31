@@ -74,6 +74,26 @@ final class ChatRowTests: XCTestCase {
         XCTAssertEqual(layouts.map(\.isFirstInGroup), [true, true])
     }
 
+    func testBreaksGroupOnDayChangeEvenWithinFiveMinutes() {
+        // ห่างกันแค่ 3 นาที (ในหน้าต่างจับกลุ่ม) แต่ข้ามเที่ยงคืน — ต้องเริ่มชุดใหม่เพราะเงื่อนไข sameDay
+        let rows = ChatRowBuilder.build([
+            msg(1, "a", date("2026-07-30T23:58:00+07:00")),
+            msg(2, "a", date("2026-07-31T00:01:00+07:00")),
+        ], myLastReadId: 99, myId: me, calendar: cal)
+        let layouts = rows.compactMap { if case let .message(_, l) = $0 { return l } else { return nil } }
+        XCTAssertEqual(layouts.map(\.isFirstInGroup), [true, true])
+    }
+
+    func testGroupsAtExactlyFiveMinuteBoundary() {
+        // ห่างกันพอดี 300 วินาที — เงื่อนไข <= ต้องยังนับว่าจับกลุ่มกัน
+        let rows = ChatRowBuilder.build([
+            msg(1, "a", date("2026-07-31T09:00:00+07:00")),
+            msg(2, "a", date("2026-07-31T09:05:00+07:00")),
+        ], myLastReadId: 99, myId: me, calendar: cal)
+        let layouts = rows.compactMap { if case let .message(_, l) = $0 { return l } else { return nil } }
+        XCTAssertEqual(layouts.map(\.isFirstInGroup), [true, false])
+    }
+
     func testUnreadMarkSitsBeforeFirstUnreadFromOthers() {
         let rows = ChatRowBuilder.build([
             msg(1, "a", date("2026-07-31T09:00:00+07:00")),
