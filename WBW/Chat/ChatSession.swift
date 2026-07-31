@@ -119,14 +119,14 @@ final class ChatSession: ObservableObject {
                               senderName: senderName, state: .pending)
         context.insert(msg)
         try? context.save()
-        messages = sorted(messages + [msg])
+        messages = Self.sorted(messages + [msg])
         Task { await flushOutbox() }
     }
 
     func retry(_ m: ChatMessage) {
         m.state = .pending
         try? context?.save()
-        messages = sorted(messages)
+        messages = Self.sorted(messages)
         Task { await flushOutbox() }
     }
 
@@ -157,7 +157,7 @@ final class ChatSession: ObservableObject {
     private func loadCache() {
         guard let context, let gid = groupId else { return }
         let desc = FetchDescriptor<ChatMessage>(predicate: #Predicate { $0.groupId == gid })
-        messages = sorted((try? context.fetch(desc)) ?? [])
+        messages = Self.sorted((try? context.fetch(desc)) ?? [])
         recomputeUnread()
     }
 
@@ -259,7 +259,7 @@ final class ChatSession: ObservableObject {
         }
         UserDefaults.standard.set(Int(cursor), forKey: cursorKey)
         try? context.save()
-        messages = sorted(messages)
+        messages = Self.sorted(messages)
         return fresh
     }
 
@@ -280,13 +280,13 @@ final class ChatSession: ObservableObject {
                     UserDefaults.standard.set(Int(cursor), forKey: cursorKey)
                 }
                 try? context.save()
-                messages = sorted(messages)
+                messages = Self.sorted(messages)
             } catch AppError.offline {
                 break
             } catch {
                 m.state = .failed
                 try? context.save()
-                messages = sorted(messages)
+                messages = Self.sorted(messages)
             }
         }
     }
@@ -295,11 +295,16 @@ final class ChatSession: ObservableObject {
         unreadCount = Self.unreadCount(messages: messages, myLastReadId: myLastReadId, myId: myId)
     }
 
-    // เรียงตาม serverId (นาฬิกาเครื่องเพี้ยนได้ — pending ต่อท้าย)
-    private func sorted(_ arr: [ChatMessage]) -> [ChatMessage] {
+    // เรียงตาม displayTime (เวลาเดียวกับที่ ChatRowBuilder ใช้จับกลุ่ม/ป้ายวัน) — createdAt คือเวลาที่ server
+    // ประทับให้ ไม่ใช่นาฬิกาเครื่องที่เพี้ยนได้ (นาฬิกาเครื่องเหลือบทบาทแค่ deviceTime ตอนยังไม่มี createdAt)
+    // เท่ากันเป๊ะค่อย tiebreak ด้วย serverId ให้เสถียร — pending (serverId เป็น nil) ต่อท้ายเสมอเหมือนเดิม
+    // nonisolated: ฟังก์ชันบริสุทธิ์ ไม่แตะ state ของ actor — ให้เทสเรียกตรงๆ แบบ sync ได้ ไม่ต้อง await
+    nonisolated static func sorted(_ arr: [ChatMessage]) -> [ChatMessage] {
         arr.sorted { a, b in
             switch (a.serverId, b.serverId) {
-            case let (x?, y?): return x < y
+            case let (x?, y?):
+                if a.displayTime != b.displayTime { return a.displayTime < b.displayTime }
+                return x < y
             case (_?, nil):    return true
             case (nil, _?):    return false
             case (nil, nil):   return a.deviceTime < b.deviceTime

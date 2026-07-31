@@ -46,7 +46,8 @@ enum ChatRowBuilder {
         for i in 1..<msgs.count {
             let prev = msgs[i - 1], cur = msgs[i]
             let sameSender = prev.senderId == cur.senderId
-            let close = cur.displayTime.timeIntervalSince(prev.displayTime) <= groupingWindow
+            let interval = cur.displayTime.timeIntervalSince(prev.displayTime)
+            let close = interval >= 0 && interval <= groupingWindow
             let sameDay = calendar.isDate(prev.displayTime, inSameDayAs: cur.displayTime)
             starts[i] = !(sameSender && close && sameDay)
         }
@@ -59,13 +60,13 @@ enum ChatRowBuilder {
         }
 
         var rows: [ChatRow] = []
-        var lastDay: Date?
+        var seenDays = Set<Date>()
         for i in msgs.indices {
             let m = msgs[i]
             let day = calendar.startOfDay(for: m.displayTime)
-            if lastDay != day {
+            if !seenDays.contains(day) {
                 rows.append(.day(day))
-                lastDay = day
+                seenDays.insert(day)
             }
             if i == firstUnread { rows.append(.unreadMark) }
             let isLast = (i == msgs.count - 1) || starts[i + 1]

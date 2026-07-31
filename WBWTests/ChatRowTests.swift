@@ -127,6 +127,42 @@ final class ChatRowTests: XCTestCase {
         XCTAssertEqual(rows.compactMap { if case .message = $0 { return true } else { return nil } }.count, 1)
     }
 
+    // ===== อินพุตกลับหัว (ChatSession.sorted เคยพลาดได้ตาม id vs created_at) =====
+
+    func testOutOfOrderInputWithMidnightInversionDoesNotRepeatDayPill() {
+        // จำลองบั๊กจริง: transaction ของข้อความที่ 3 เริ่มก่อนข้อความที่ 2 (created_at เก่ากว่า)
+        // แต่ commit ทีหลัง (id สูงกว่า) เรียงตาม id เลยได้ลำดับ วัน 30, วัน 31, วัน 30 (กลับมาอีกที)
+        let dayA = date("2026-07-30T23:50:00+07:00")
+        let dayB = date("2026-07-31T00:05:00+07:00")
+        let dayAAgain = date("2026-07-30T23:55:00+07:00")   // เวลาจริงอยู่ก่อนแถวที่ 2 แต่โผล่มาทีหลัง
+        let rows = ChatRowBuilder.build([
+            msg(1, "a", dayA),
+            msg(2, "a", dayB),
+            msg(3, "a", dayAAgain),
+        ], myLastReadId: 99, myId: me, calendar: cal)
+
+        let dayPillDates = rows.compactMap { row -> Date? in
+            if case let .day(d) = row { return d } else { return nil }
+        }
+        let expectedDayA = cal.startOfDay(for: dayA)
+        XCTAssertEqual(dayPillDates.filter { $0 == expectedDayA }.count, 1,
+                       "ป้ายวันที่ 30 ต้องขึ้นครั้งเดียว แม้อินพุตจะย้อนกลับมาวันเดิมอีกที")
+        XCTAssertEqual(dayPillDates.count, 2, "มีแค่ 2 วันจริง (30, 31) ไม่ใช่ 3 ป้าย")
+    }
+
+    func testOutOfOrderSingleSenderWithinWindowStartsNewRun() {
+        // จำลองบั๊กจริง: ข้อความที่ 2 (id เก่ากว่า) เวลาจริงอยู่ "ก่อน" ข้อความที่ 1 (id ใหม่กว่า) 2 นาที
+        // เดิมเช็คระยะห่างแบบไม่มีขอบล่าง (interval <= groupingWindow เฉยๆ) ค่าติดลบก็ผ่านเงื่อนไข
+        // เลยจับกลุ่มกันทั้งที่กลับหัว ต้องเริ่มชุดใหม่แทน
+        let rows = ChatRowBuilder.build([
+            msg(2, "a", date("2026-07-31T09:05:00+07:00")),
+            msg(1, "a", date("2026-07-31T09:03:00+07:00")),   // ก่อนแถวแรกจริง 2 นาที แต่โผล่มาทีหลังในลิสต์
+        ], myLastReadId: 99, myId: me, calendar: cal)
+        let layouts = rows.compactMap { if case let .message(_, l) = $0 { return l } else { return nil } }
+        XCTAssertEqual(layouts.map(\.isFirstInGroup), [true, true],
+                       "ข้อความที่กลับหัว (เวลาจริงเก่ากว่าแถวก่อนหน้า) ต้องเริ่มชุดใหม่ ไม่รวมชุดเดิม")
+    }
+
     // ===== ป้ายวัน / เวลา =====
 
     func testDayLabelToday() {
