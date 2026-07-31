@@ -6,6 +6,8 @@ import FirebaseMessaging
 extension Notification.Name {
     /// โพสต์เมื่อผู้ใช้แตะ push — ให้ MainTabView สลับไปแท็บประกาศ
     static let openNotificationsTab = Notification.Name("openNotificationsTab")
+    /// โพสต์เมื่อผู้ใช้แตะ push ของแชท — ให้ MainTabView เปิดจอแชท
+    static let openGroupChat = Notification.Name("openGroupChat")
 }
 
 /// จัดการ push ผ่าน Firebase (FCM ครอบ APNs)
@@ -79,22 +81,29 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
         PushManager.shared.updateFcmToken(fcmToken)
     }
 
-    // แสดง banner ตอนแอปเปิดอยู่ (foreground)
+    // แสดง banner ตอนแอปเปิดอยู่ (foreground) — ยกเว้นแชท ซึ่งใช้ toast ในแอปแทน
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        let info = notification.request.content.userInfo
+        if (info["type"] as? String) == "chat" {
+            completionHandler([])   // in-app toast ของเราเด้งเอง ไม่ให้ซ้อน
+            return
+        }
         completionHandler([.banner, .sound, .badge])
     }
 
-    // แตะ notification → เปิดแท็บประกาศ
+    // แตะ notification → เปิดหน้าที่ตรงกับชนิด
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        NotificationCenter.default.post(name: .openNotificationsTab, object: nil)
+        let info = response.notification.request.content.userInfo
+        let name: Notification.Name = (info["type"] as? String) == "chat" ? .openGroupChat : .openNotificationsTab
+        NotificationCenter.default.post(name: name, object: nil)
         completionHandler()
     }
 }

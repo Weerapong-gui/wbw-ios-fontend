@@ -30,6 +30,7 @@ struct MainTabView: View {
                 } label: {
                     Image(systemName: profile.me?.groupId == nil ? "sharedwithyou" : "message.fill")
                 }
+                .badge(chat.unreadCount)
                 // QR แยกเป็นปุ่มเดี่ยว (role .search) — My QR Code สำหรับเช็คอิน
                 Tab(value: 4, role: .search) { MyQRCodeView() } label: { Image(systemName: "qrcode") }
             }
@@ -56,6 +57,11 @@ struct MainTabView: View {
             .onReceive(NotificationCenter.default.publisher(for: .openNotificationsTab)) { _ in
                 showNotifications = true   // noti ไม่มี tab แล้ว → เปิดเป็น sheet
             }
+            .onReceive(NotificationCenter.default.publisher(for: .openGroupChat)) { _ in
+                guard profile.me?.groupId != nil else { return }
+                tab = 3
+                chatOpen = true
+            }
             .onChange(of: profile.me?.groupId) { _, gid in
                 chat.configure(groupId: gid, token: session.token ?? "",
                                myId: profile.me?.userId ?? "", context: context)
@@ -71,8 +77,28 @@ struct MainTabView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(1)
             }
+
+            // แบนเนอร์ในแอป — เฉพาะตอนไม่ได้เปิดจอแชท
+            if let m = chat.incoming, !chatOpen {
+                VStack {
+                    ChatToast(message: m, photoUrl: nil, onTap: {
+                        chat.incoming = nil
+                        tab = 3
+                        chatOpen = true
+                    })
+                    Spacer()
+                }
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(2)
+                .task(id: m.clientId) {
+                    try? await Task.sleep(nanoseconds: 3_500_000_000)
+                    chat.incoming = nil
+                }
+            }
         }
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: chatOpen)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: chat.incoming?.clientId)
         .sheet(isPresented: $showNotifications) {
             NotificationsView(store: noti, token: session.token ?? "")
         }
