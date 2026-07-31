@@ -101,6 +101,7 @@ final class ChatSession: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
                 guard let self, !Task.isCancelled else { return }
+                NSLog("[chat] heartbeat read=\(self.myLastReadId)")
                 await self.postRead(self.myLastReadId)
             }
         }
@@ -167,26 +168,34 @@ final class ChatSession: ObservableObject {
                 continue
             }
             do {
+                NSLog("[chat] sync→ group=\(gid) after=\(cursor) wait=25")
                 let r = try await APIClient.shared.chatSync(token: token, groupId: gid,
                                                             after: cursor, wait: 25)
-                apply(r)
+                NSLog("[chat] sync← group=\(gid) messages=\(r.messages.count) sinceId=\(r.sinceId)")
+                apply(r, for: gid)
                 if messages.contains(where: { $0.state == .pending }) { await flushOutbox() }
                 backoff = 1                     // สำเร็จ = วนต่อทันที (หมดเวลา = messages ว่าง ไม่ใช่ error)
             } catch AppError.notInGroup {
+                NSLog("[chat] sync group=\(gid): ไม่ได้อยู่ในกลุ่มแล้ว — หยุด loop")
                 purgeAll()
                 return                          // โดนเอาออกจากกลุ่ม — หยุด loop
             } catch {
+                NSLog("[chat] sync group=\(gid) error: \(error) — backoff \(backoff)s")
                 try? await Task.sleep(nanoseconds: backoff * 1_000_000_000)
                 backoff = min(backoff * 2, 10)
             }
         }
     }
 
-    private func apply(_ r: ChatSyncResponse) {
+    /// requestGroupId = กลุ่มตอนยิง request ออกไป — long-poll ค้างได้ถึง 25s ระหว่างนั้น configure()
+    /// อาจสลับกลุ่มไปแล้ว (self.groupId เปลี่ยน) ถ้าไม่ตรงกันคือ response ของกลุ่มเก่า ทิ้งไปเลย
+    /// ไม่งั้นข้อความกลุ่มเก่าจะถูก tag เป็นกลุ่มใหม่ผิดๆ ตอน merge
+    private func apply(_ r: ChatSyncResponse, for requestGroupId: Int) {
+        guard requestGroupId == groupId else { return }
         if r.sinceId > 0 { purge(upTo: r.sinceId) }
         memberCount = r.memberCount
         cursors = r.cursors
-        let fresh = merge(r.messages)
+        let fresh = merge(r.messages, groupId: requestGroupId)
         recomputeUnread()
         if !screenVisible, let last = fresh.last(where: { $0.senderId != myId }) {
             incoming = last            // ให้ MainTabView เด้ง toast
@@ -203,17 +212,22 @@ final class ChatSession: ObservableObject {
         messages = messages.filter { Self.survivesCutoff($0, sinceId: sinceId) }
     }
 
+    /// โดนเอาออกจากกลุ่ม — ล้าง state ทั้งหมดที่เป็นอนุพันธ์ของกลุ่มนั้น แล้วปล่อยให้ start() เริ่มใหม่ได้
+    /// (ไม่ nil syncTask ไม่ได้ — ค้างเป็น non-nil ต่อไป start() จะเข้าใจผิดว่ายังวิ่งอยู่ ไม่ยอมเริ่มลูปใหม่
+    /// จนกว่าจะมี background/foreground รอบถัดไปมาล้างให้ผ่าน stop())
     private func purgeAll() {
         guard let context else { return }
         for m in messages { context.delete(m) }
         try? context.save()
-        messages = []; cursors = []; unreadCount = 0
+        messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+        syncTask = nil
     }
 
     /// รวมข้อความจาก server — dedupe ตาม clientId. คืนเฉพาะอันที่เพิ่งเข้ามาใหม่จริงๆ
+    /// gid = requestGroupId จาก apply(_:for:) เสมอ ไม่อ่าน self.groupId สด (กันแท็กผิดกลุ่มตอนสลับกลุ่มกลางคัน)
     @discardableResult
-    private func merge(_ dtos: [MessageDTO]) -> [ChatMessage] {
-        guard let context, let gid = groupId else { return [] }
+    private func merge(_ dtos: [MessageDTO], groupId gid: Int) -> [ChatMessage] {
+        guard let context else { return [] }
         var fresh: [ChatMessage] = []
         for dto in dtos {
             guard let sid = Int64(dto.id) else { continue }

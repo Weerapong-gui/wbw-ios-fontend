@@ -3,22 +3,24 @@ import Foundation
 /// backend ปลายทาง — สลับทั้งแอปทีเดียว (JWT คนละ secret ต่อ backend)
 enum Backend {
     case prodNode   // Node เดิม (ใช้งานได้จริงตอนนี้)
+    case nodeLocal  // Node ตัวเดียวกัน แต่รัน docker stack ในเครื่อง (dev เทส long-poll ฯลฯ)
     case susLocal   // Student-Union-Server รันในเครื่อง
     case susProd    // SUS ที่ deploy แล้ว (รอ URL จากเพื่อน)
 
     var apiBase: String {
         switch self {
-        case .prodNode: return "https://wbw.sumfu.store"
-        case .susLocal: return "http://localhost:8080/wbw"
-        case .susProd:  return "https://TODO-set-sus-host/wbw"
+        case .prodNode:  return "https://wbw.sumfu.store"
+        case .nodeLocal: return "http://localhost:4000"
+        case .susLocal:  return "http://localhost:8080/wbw"
+        case .susProd:   return "https://TODO-set-sus-host/wbw"
         }
     }
 
     /// โปรไฟล์ผู้ใช้ปัจจุบัน — Node อยู่ที่ /auth/me, SUS อยู่ที่ /me
     var mePath: String {
         switch self {
-        case .prodNode:            return "/auth/me"
-        case .susLocal, .susProd:  return "/me"
+        case .prodNode, .nodeLocal: return "/auth/me"
+        case .susLocal, .susProd:   return "/me"
         }
     }
 }
