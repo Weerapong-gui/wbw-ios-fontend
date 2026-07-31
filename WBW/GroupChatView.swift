@@ -3,22 +3,15 @@ import SwiftData
 
 private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255)
 
-/// แชทกลุ่ม — เต็มจอ (navbar หายไป) + bubble + floating input · offline-first ผ่าน ChatStore
+/// แชทกลุ่ม — เต็มจอ (navbar หายไป) + bubble + floating input · offline-first ผ่าน ChatSession
 struct GroupChatView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
     @EnvironmentObject var groups: GroupStore
-    @StateObject private var store: ChatStore
-    let groupId: Int
+    @ObservedObject var store: ChatSession
     let onClose: () -> Void
     @State private var draft = ""
     @State private var members: [String: GroupMember] = [:]   // senderId → member (avatar)
-
-    init(groupId: Int, token: String, myId: String, context: ModelContext, onClose: @escaping () -> Void) {
-        self.groupId = groupId
-        self.onClose = onClose
-        _store = StateObject(wrappedValue: ChatStore(groupId: groupId, token: token, myId: myId, context: context))
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,11 +22,12 @@ struct GroupChatView: View {
         .background(bg.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { inputBar }
         .task {
-            store.open()
-            let ms = await groups.members(groupId: groupId, token: session.token ?? "")
+            store.setScreenVisible(true)
+            let gid = profile.me?.groupId ?? 0
+            let ms = await groups.members(groupId: gid, token: session.token ?? "")
             members = Dictionary(uniqueKeysWithValues: ms.map { ($0.userId, $0) })
         }
-        .onDisappear { store.close() }
+        .onDisappear { store.setScreenVisible(false) }
     }
 
     private var header: some View {
@@ -46,7 +40,7 @@ struct GroupChatView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("แชทกลุ่ม \(profile.me?.groupNumber.map(String.init) ?? "")")
                     .font(.system(size: 17, weight: .bold)).foregroundStyle(Color.wbwInk)
-                Text("\(members.count) คน").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("\(store.memberCount) คน").font(.system(size: 12)).foregroundStyle(.secondary)
             }
             Spacer()
         }
