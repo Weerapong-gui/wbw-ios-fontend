@@ -21,15 +21,30 @@ extension APIClient {
     }
 
     /// อ่านถึง id ไหน — ใช้เป็น heartbeat "กำลังดูจอแชทอยู่" ด้วย จึงยิงซ้ำค่าเดิมได้
-    func chatRead(token: String, groupId: Int, lastReadId: Int64) async throws {
+    /// ไม่ throw — ผู้เรียกทำอะไรกับความล้มเหลวไม่ได้อยู่แล้ว (ตัวถัดไปจะยิงซ้ำค่าเดิม/ค่าใหม่กว่าเอง)
+    /// พังแล้ว log ไว้เฉยๆ ให้ตามรอยได้ ไม่ใช่หายเงียบ
+    func chatRead(token: String, groupId: Int, lastReadId: Int64) async {
         guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/chat/read") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            NSLog("[chat] chatRead: URL ไม่ถูกต้อง (group \(groupId))")
+            return
+        }
+        guard let body = try? JSONSerialization.data(withJSONObject: ["last_read_id": Int(lastReadId)]) else {
+            NSLog("[chat] chatRead: เตรียม body ไม่สำเร็จ (group \(groupId))")
+            return
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["last_read_id": Int(lastReadId)])
-        _ = try? await Self.send(req)
+        req.httpBody = body
+        do {
+            let (_, resp) = try await Self.send(req)
+            let status = (resp as? HTTPURLResponse)?.statusCode ?? -1
+            if status != 200 {
+                NSLog("[chat] chatRead: server ตอบ \(status) (group \(groupId))")
+            }
+        } catch {
+            NSLog("[chat] chatRead: ส่งไม่สำเร็จ (group \(groupId)): \(error)")
+        }
     }
 }
