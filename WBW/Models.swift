@@ -213,11 +213,13 @@ enum AppError: LocalizedError {
     case message(String)
     case groupFull(String)
     case offline
+    case notInGroup
     var errorDescription: String? {
         switch self {
         case let .message(m): return m
         case let .groupFull(m): return m
         case .offline: return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"
+        case .notInGroup: return "ไม่ได้อยู่ในกลุ่มนี้แล้ว"
         }
     }
 }
