@@ -60,6 +60,11 @@ struct GroupChatView: View {
                              myId: profile.me?.userId ?? "")
     }
 
+    /// clientId ของข้อความล่าสุดที่เราส่งและส่งสำเร็จแล้ว — จุดที่โชว์สถานะอ่าน
+    private var statusAnchorId: String? {
+        store.messages.last { store.isMine($0) && $0.state == .sent }?.clientId
+    }
+
     private var messageList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -70,9 +75,16 @@ struct GroupChatView: View {
                     case .unreadMark:
                         ChatUnreadDivider()
                     case let .message(m, layout):
-                        ChatBubble(message: m, isMine: store.isMine(m), layout: layout,
-                                   photoUrl: members[m.senderId]?.photoUrl,
-                                   onRetry: { store.retry(m) })
+                        VStack(spacing: 0) {
+                            ChatBubble(message: m, isMine: store.isMine(m), layout: layout,
+                                       photoUrl: members[m.senderId]?.photoUrl,
+                                       onRetry: { store.retry(m) })
+                            if m.clientId == statusAnchorId {
+                                ChatReadStatusLine(
+                                    text: ChatReadStatus.text(readCount: store.readCount(for: m),
+                                                              memberCount: store.memberCount))
+                            }
+                        }
                     }
                 }
             }

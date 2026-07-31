@@ -117,3 +117,24 @@ struct ChatBubble: View {
         }
     }
 }
+
+/// ข้อความสถานะใต้ข้อความล่าสุดที่เราส่ง
+enum ChatReadStatus {
+    static func text(readCount: Int, memberCount: Int) -> String {
+        guard readCount > 0 else { return "ส่งแล้ว" }
+        let others = max(memberCount - 1, 0)   // ทุกคนยกเว้นเรา
+        return readCount >= others ? "อ่านแล้ว \(readCount) · ทั้งกลุ่ม" : "อ่านแล้ว \(readCount)"
+    }
+}
+
+struct ChatReadStatusLine: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.trailing, 4).padding(.top, 2).padding(.bottom, 6)
+            .animation(.easeOut(duration: 0.2), value: text)
+    }
+}

@@ -79,4 +79,13 @@ final class ChatSessionTests: XCTestCase {
         let sorted = ChatSession.sorted([sent, pending])
         XCTAssertEqual(sorted.map(\.serverId), [5, nil], "ข้อความยังไม่ส่งต้องอยู่ท้ายเสมอ แม้ deviceTime จะเก่ากว่า")
     }
+
+    func testReadStatusText() {
+        XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 10), "ส่งแล้ว")
+        XCTAssertEqual(ChatReadStatus.text(readCount: 3, memberCount: 10), "อ่านแล้ว 3")
+        // ครบทุกคนที่ไม่ใช่เรา = member_count - 1
+        XCTAssertEqual(ChatReadStatus.text(readCount: 9, memberCount: 10), "อ่านแล้ว 9 · ทั้งกลุ่ม")
+        // กลุ่มมีเราคนเดียว — ไม่มีใครให้อ่าน
+        XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 1), "ส่งแล้ว")
+    }
 }
