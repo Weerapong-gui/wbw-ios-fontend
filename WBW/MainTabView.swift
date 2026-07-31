@@ -42,6 +42,15 @@ struct MainTabView: View {
                                myId: profile.me?.userId ?? "", context: context)
                 #if DEBUG
                 if UserDefaults.standard.bool(forKey: "uitestChat") { chatOpen = true }
+                // ปิดแชทเองหลัง N วิ (แอปยัง foreground อยู่) — จำลอง "ผู้ใช้ปิดจอแชทแต่ไม่ได้ปิดแอป"
+                // แบบ headless เพราะไม่มี tap tooling ใช้เทส GroupChatView.onDisappear
+                let closeAfter = UserDefaults.standard.double(forKey: "uitestChatCloseAfter")
+                if closeAfter > 0 {
+                    Task {
+                        try? await Task.sleep(nanoseconds: UInt64(closeAfter * 1_000_000_000))
+                        chatOpen = false
+                    }
+                }
                 #endif
             }
             .onReceive(NotificationCenter.default.publisher(for: .openNotificationsTab)) { _ in

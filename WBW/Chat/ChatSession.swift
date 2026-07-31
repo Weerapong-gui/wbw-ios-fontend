@@ -101,7 +101,9 @@ final class ChatSession: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
                 guard let self, !Task.isCancelled else { return }
-                NSLog("[chat] heartbeat read=\(self.myLastReadId)")
+                #if DEBUG
+                NSLog("[chat] heartbeat read=\(self.myLastReadId)")   // จังหวะ ๆ นี้เท่านั้น ไม่ shipped ให้ user จริง
+                #endif
                 await self.postRead(self.myLastReadId)
             }
         }
@@ -168,18 +170,24 @@ final class ChatSession: ObservableObject {
                 continue
             }
             do {
-                NSLog("[chat] sync→ group=\(gid) after=\(cursor) wait=25")
+                #if DEBUG
+                NSLog("[chat] sync→ group=\(gid) after=\(cursor) wait=25")   // ต่อรอบ ๆ ไม่ shipped ให้ user จริง
+                #endif
                 let r = try await APIClient.shared.chatSync(token: token, groupId: gid,
                                                             after: cursor, wait: 25)
+                #if DEBUG
                 NSLog("[chat] sync← group=\(gid) messages=\(r.messages.count) sinceId=\(r.sinceId)")
+                #endif
                 apply(r, for: gid)
                 if messages.contains(where: { $0.state == .pending }) { await flushOutbox() }
                 backoff = 1                     // สำเร็จ = วนต่อทันที (หมดเวลา = messages ว่าง ไม่ใช่ error)
             } catch AppError.notInGroup {
+                // ทางพัง ไม่ใช่จังหวะปกติ — log ไว้จริงจัง (production เห็นได้ด้วย)
                 NSLog("[chat] sync group=\(gid): ไม่ได้อยู่ในกลุ่มแล้ว — หยุด loop")
                 purgeAll()
                 return                          // โดนเอาออกจากกลุ่ม — หยุด loop
             } catch {
+                // ทางพัง ไม่ใช่จังหวะปกติ — log ไว้จริงจัง (production เห็นได้ด้วย)
                 NSLog("[chat] sync group=\(gid) error: \(error) — backoff \(backoff)s")
                 try? await Task.sleep(nanoseconds: backoff * 1_000_000_000)
                 backoff = min(backoff * 2, 10)
