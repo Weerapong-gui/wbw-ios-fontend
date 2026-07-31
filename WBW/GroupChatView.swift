@@ -55,27 +55,31 @@ struct GroupChatView: View {
             .background(Color.gray)
     }
 
-    private var messageList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(store.messages) { m in
-                        MessageBubble(message: m, isMine: store.isMine(m),
-                                      photoUrl: members[m.senderId]?.photoUrl,
-                                      onRetry: { store.retry(m) })
-                            .id(m.clientId)
-                    }
-                }
-                .padding(.horizontal, 14).padding(.vertical, 10)
-            }
-            .onChange(of: store.messages.count) { _, _ in scrollToLast(proxy) }
-            .onAppear { scrollToLast(proxy) }
-        }
+    private var rows: [ChatRow] {
+        ChatRowBuilder.build(store.messages, myLastReadId: store.myLastReadId,
+                             myId: profile.me?.userId ?? "")
     }
 
-    private func scrollToLast(_ proxy: ScrollViewProxy) {
-        guard let last = store.messages.last else { return }
-        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last.clientId, anchor: .bottom) }
+    private var messageList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(rows) { row in
+                    switch row {
+                    case let .day(d):
+                        ChatDayPill(day: d)
+                    case .unreadMark:
+                        ChatUnreadDivider()
+                    case let .message(m, layout):
+                        ChatBubble(message: m, isMine: store.isMine(m), layout: layout,
+                                   photoUrl: members[m.senderId]?.photoUrl,
+                                   onRetry: { store.retry(m) })
+                    }
+                }
+            }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+        }
+        .defaultScrollAnchor(.bottom)
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var inputBar: some View {
@@ -99,44 +103,5 @@ struct GroupChatView: View {
     private func send() {
         store.send(draft, senderName: profile.me?.displayName ?? "ฉัน")
         draft = ""
-    }
-}
-
-/// ฟองข้อความ
-private struct MessageBubble: View {
-    let message: ChatMessage
-    let isMine: Bool
-    let photoUrl: String?
-    let onRetry: () -> Void
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 6) {
-            if isMine { Spacer(minLength: 40) }
-            if !isMine {
-                ProfileAvatar(name: message.senderName, photoUrl: photoUrl, size: 30)
-            }
-            VStack(alignment: isMine ? .trailing : .leading, spacing: 2) {
-                if !isMine {
-                    Text(message.senderName).font(.system(size: 11)).foregroundStyle(.secondary)
-                }
-                HStack(alignment: .bottom, spacing: 4) {
-                    Text(message.body)
-                        .font(.system(size: 15))
-                        .foregroundStyle(isMine ? .white : Color.wbwInk)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(isMine ? Color.wbwGold : Color.white, in: RoundedRectangle(cornerRadius: 16))
-                    if isMine { stateIcon }
-                }
-            }
-            if !isMine { Spacer(minLength: 40) }
-        }
-    }
-
-    @ViewBuilder private var stateIcon: some View {
-        switch message.state {
-        case .pending: Image(systemName: "clock").font(.system(size: 10)).foregroundStyle(.secondary)
-        case .sent:    Image(systemName: "checkmark").font(.system(size: 10)).foregroundStyle(.secondary)
-        case .failed:  Button(action: onRetry) { Image(systemName: "exclamationmark.circle.fill").font(.system(size: 12)).foregroundStyle(.red) }
-        }
     }
 }
