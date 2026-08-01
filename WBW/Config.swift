@@ -4,15 +4,15 @@ import Foundation
 enum Backend {
     case prodNode   // Node เดิม (ใช้งานได้จริงตอนนี้)
     case nodeLocal  // Node ตัวเดียวกัน แต่รัน docker stack ในเครื่อง (dev เทส long-poll ฯลฯ)
-    case susLocal   // Student-Union-Server รันในเครื่อง
-    case susProd    // SUS ที่ deploy แล้ว (รอ URL จากเพื่อน)
+    case susLocal   // Student-Union-Server รัน docker stack ในเครื่อง — เซิร์ฟเวอร์ทดสอบหลัก
+    case susProd    // SUS ที่ deploy แล้ว (named Cloudflare tunnel → backend:8080)
 
     var apiBase: String {
         switch self {
         case .prodNode:  return "https://wbw.sumfu.store"
         case .nodeLocal: return "http://localhost:4000"
         case .susLocal:  return "http://localhost:8080/wbw"
-        case .susProd:   return "https://TODO-set-sus-host/wbw"
+        case .susProd:   return "https://api.studentunion.social/wbw"
         }
     }
 
@@ -27,7 +27,12 @@ enum Backend {
 
 enum Config {
     /// เปลี่ยนค่าเดียวนี้เพื่อสลับ backend
-    static let backend: Backend = .prodNode
+    ///
+    /// สลับแล้ว **ต้องล้างข้อมูลแอป** ทุกครั้ง — cache แชท (SwiftData) กับ cursor ใน UserDefaults
+    /// ไม่ได้ผูกกับ backend ที่มันมาจาก แต่ละ backend เดิน `group_message.id` แยกกัน พอสลับแล้ว
+    /// แอปจะขอข้อความ "หลัง id" ที่ backend ใหม่ไม่เคยออกให้ ได้ 200 พร้อมลิสต์ว่างตลอด
+    /// แชทดูเหมือนค้างโดยไม่มี error ไม่มี log อะไรเลย · ดู docs/sus-test-backend.md
+    static let backend: Backend = .susLocal
     static var apiBase: String { backend.apiBase }
     static var mePath: String { backend.mePath }
 }
