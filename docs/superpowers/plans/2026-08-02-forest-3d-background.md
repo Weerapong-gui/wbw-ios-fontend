@@ -917,13 +917,24 @@ final class CheckinProgressStore: ObservableObject {
 }
 ```
 
-- [ ] **Step 6: Add the backend namespace**
+- [ ] **Step 6: Add the backend namespace — in a new file, not `Config.swift`**
 
-In `WBW/Config.swift`, add to `enum Backend`:
+`WBW/Config.swift` carries an uncommitted `Config.backend = .susLan` marked `ห้าม commit`. Touching that file would force a partial stage, and `git add -p` is interactive, which this environment does not support. So the property goes in its own file and `Config.swift` is never opened.
+
+Create `WBW/BackendCacheKey.swift`:
 
 ```swift
-    /// ชื่อสั้นๆ ไว้ทำ key ของ cache — cache ทุกตัวต้องแยกตาม backend
-    /// (id ของ checkpoint/message เดินคนละชุดต่อ backend · ดู docs/sus-test-backend.md)
+import Foundation
+
+/// ชื่อสั้นๆ ของแต่ละ backend ไว้ทำ key ของ cache
+///
+/// อยู่แยกไฟล์จาก Config.swift ตั้งใจ — Config.swift มีบรรทัด Config.backend ที่
+/// เปลี่ยนไปมาระหว่างทดสอบและห้าม commit การแยกไว้ทำให้แก้ไฟล์นี้แล้ว stage ได้เลย
+///
+/// cache ทุกตัวในแอปต้องแยกตาม backend: id ของ checkpoint/message เดินคนละชุดต่อ
+/// backend ถ้าใช้ key เดียวกัน สลับ backend แล้วได้ข้อมูลผิดโดยไม่มี error ไม่มี log
+/// (ดู docs/sus-test-backend.md)
+extension Backend {
     var cacheNamespace: String {
         switch self {
         case .prodNode:  return "prodNode"
@@ -933,9 +944,10 @@ In `WBW/Config.swift`, add to `enum Backend`:
         case .susLan:    return "susLan"
         }
     }
+}
 ```
 
-Adding this property does not change `Config.backend`, so `Config.swift` may now be staged for **this line only** — check `git diff WBW/Config.swift` and confirm the `backend` assignment is untouched before staging. If the working copy still has `.susLan`, stage with `git add -p` and accept only the `cacheNamespace` hunk.
+**Do not stage `WBW/Config.swift` in this task or any later task.**
 
 - [ ] **Step 7: Run the tests to verify they pass**
 
@@ -952,10 +964,12 @@ Expected: `** TEST SUCCEEDED **` with 6 tests passing.
 ```bash
 cd /Users/park/wbw-ios-fontend
 git add WBW/Models.swift WBW/APIClient.swift WBW/CheckinProgressStore.swift \
-        WBWTests/CheckinProgressStoreTests.swift
-git add -p WBW/Config.swift    # เอาเฉพาะ cacheNamespace ห้ามเอาบรรทัด backend
+        WBW/BackendCacheKey.swift WBWTests/CheckinProgressStoreTests.swift
+git status --short    # WBW/Config.swift ต้องยังขึ้น " M" คือยังไม่ถูก stage
 git commit -m "feat(progress): ดึงความคืบหน้าเช็คอิน + cache แยกตาม backend"
 ```
+
+Expected: `git status --short` shows ` M WBW/Config.swift` (unstaged) alongside the staged additions.
 
 ---
 
@@ -2047,7 +2061,24 @@ In `RootView`, turn it off for staff and when the app leaves the foreground. Add
 
 - [ ] **Step 5: Clear the cache on logout**
 
-In `Session.logout()`, clear the progress cache the same way the chat cache is purged, so the next account on the device does not inherit the previous participant's tree. Follow whatever pattern `logout()` already uses to reach shared stores; if it cannot reach the store directly, post a notification and have `CheckinProgressStore` observe it.
+`Session` holds no reference to any store (`Session.swift:46-53` only clears its own `UserDefaults` keys and calls `PushManager.shared.unregister()`), so it clears the cached bytes directly. Add to the end of `logout()`:
+
+```swift
+        // ต้นไม้ของบัญชีก่อนหน้าต้องไม่ตกทอดไปให้บัญชีถัดไปบนเครื่องเดียวกัน
+        // Session ไม่ได้ถือ store ไว้ จึงลบ cache ตรงๆ · ตัว store ในหน่วยความจำ
+        // ถูกล้างที่ MainTabView.onDisappear (ทางเดียวกับ chat.purgeForLogout)
+        UserDefaults.standard.removeObject(
+            forKey: CheckinProgressStore.cacheKey(for: Config.backend))
+```
+
+And in `MainTabView`, extend the existing `.onDisappear { chat.purgeForLogout() }` — which fires only on logout, per its own comment — to:
+
+```swift
+        .onDisappear {
+            chat.purgeForLogout()
+            progress.clear()
+        }
+```
 
 - [ ] **Step 6: Build and run the full test suite**
 
@@ -2092,8 +2123,7 @@ git commit -m "feat(scene): ทั้ง 5 จอใช้ฉากป่าเ�
 ## Task 10: Stage screenshots and the debug launch hook
 
 **Files:**
-- Modify: `WBW/Scene3D/ForestSceneHost.swift` (DEBUG override)
-- Modify: `WBW/HomeView.swift` (honour the override)
+- Modify: `WBW/HomeView.swift` (DEBUG override for the stage)
 - Create: `docs/forest-3d-verification.md`
 
 **Interfaces:**
@@ -2151,7 +2181,7 @@ Create `docs/forest-3d-verification.md` recording, with dates: the baked file si
 
 ```bash
 cd /Users/park/wbw-ios-fontend
-git add WBW/HomeView.swift WBW/Scene3D/ForestSceneHost.swift docs/forest-3d-verification.md
+git add WBW/HomeView.swift docs/forest-3d-verification.md
 git commit -m "test(scene): launch arg -uitestProgress + บันทึกสิ่งที่ยืนยันแล้วและยังไม่ได้ยืนยัน"
 ```
 
