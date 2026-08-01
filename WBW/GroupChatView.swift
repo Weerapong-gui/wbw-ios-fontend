@@ -12,6 +12,15 @@ struct GroupChatView: View {
     let onClose: () -> Void
     @State private var draft = ""
     @State private var members: [String: GroupMember] = [:]   // senderId → member (avatar)
+    @State private var atBottom = true
+    @State private var reveal: CGFloat = 0
+    @State private var sentTick = 0
+    /// จำนวนข้อความที่เข้ามาระหว่างเรากำลังเลื่อนอ่านย้อนหลัง
+    ///
+    /// นับเองแทนที่จะใช้ store.unreadCount เพราะ ChatSession เรียก markRead() ทุกครั้งที่
+    /// sync ได้ของใหม่ตอนจอแชทเปิดอยู่ (ตั้งใจ — "เปิดจออยู่ = อ่านแล้ว" ตาม spec และเป็นค่า
+    /// ที่คนอื่นเอาไปคิด "อ่านแล้ว N") unreadCount จึงถูกกดเป็น 0 ทันทีและ pill จะไม่มีวันโผล่
+    @State private var newBelow = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,6 +29,9 @@ struct GroupChatView: View {
             messageList
         }
         .background(bg.ignoresSafeArea())
+        .sensoryFeedback(.impact(weight: .light), trigger: sentTick)
+        .sensoryFeedback(.error, trigger: store.messages.filter { $0.state == .failed }.count)
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: newBelow > 0)
         .safeAreaInset(edge: .bottom) { inputBar }
         .task {
             store.setScreenVisible(true)
@@ -66,32 +78,90 @@ struct GroupChatView: View {
     }
 
     private var messageList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(rows) { row in
-                    switch row {
-                    case let .day(d):
-                        ChatDayPill(day: d)
-                    case .unreadMark:
-                        ChatUnreadDivider()
-                    case let .message(m, layout):
-                        VStack(spacing: 0) {
-                            ChatBubble(message: m, isMine: store.isMine(m), layout: layout,
-                                       photoUrl: members[m.senderId]?.photoUrl,
-                                       onRetry: { store.retry(m) })
-                            if m.clientId == statusAnchorId {
-                                ChatReadStatusLine(
-                                    text: ChatReadStatus.text(readCount: store.readCount(for: m),
-                                                              memberCount: store.memberCount))
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(rows) { row in
+                        switch row {
+                        case let .day(d):
+                            ChatDayPill(day: d)
+                        case .unreadMark:
+                            ChatUnreadDivider()
+                        case let .message(m, layout):
+                            VStack(spacing: 0) {
+                                ChatBubble(message: m, isMine: store.isMine(m), layout: layout,
+                                           photoUrl: members[m.senderId]?.photoUrl,
+                                           onRetry: { store.retry(m) },
+                                           revealOffset: reveal)
+                                if m.clientId == statusAnchorId {
+                                    ChatReadStatusLine(
+                                        text: ChatReadStatus.text(readCount: store.readCount(for: m),
+                                                                  memberCount: store.memberCount))
+                                }
                             }
+                            .id(m.clientId)
+                            .transition(.move(edge: .bottom).combined(with: .opacity)
+                                            .combined(with: .scale(scale: 0.92, anchor: .bottom)))
                         }
                     }
                 }
+                .padding(.horizontal, 14).padding(.vertical, 10)
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
+            .defaultScrollAnchor(.bottom)
+            .scrollDismissesKeyboard(.interactively)
+            .onScrollGeometryChange(for: Bool.self) { g in
+                g.contentOffset.y + g.containerSize.height >= g.contentSize.height - 40
+            } action: { _, isBottom in
+                atBottom = isBottom
+                if isBottom { newBelow = 0 }
+            }
+            // ปัดซ้ายค้าง = เผยเวลาทุกฟอง ปล่อยแล้วสปริงกลับ
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 12)
+                    .onChanged { v in
+                        guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                        reveal = min(max(-v.translation.width, 0), 56)
+                    }
+                    .onEnded { _ in
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { reveal = 0 }
+                    }
+            )
+            .overlay(alignment: .bottom) { newMessagePill(proxy) }
+            .onChange(of: store.messages.count) { old, new in
+                guard let last = store.messages.last else { return }
+                // ข้อความที่เราเพิ่งส่งเอง ตามลงไปเสมอ ไม่งั้นพิมพ์เสร็จแล้วไม่เห็นของตัวเอง
+                // อยู่ล่างสุดอยู่แล้วก็ตามลงไป — กำลังเลื่อนอ่านย้อนหลังห้ามกระชาก นับใส่ pill แทน
+                if store.isMine(last) || atBottom {
+                    scrollToBottom(proxy)
+                } else if new > old {
+                    newBelow += new - old
+                }
+            }
         }
-        .defaultScrollAnchor(.bottom)
-        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        guard let last = store.messages.last else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            proxy.scrollTo(last.clientId, anchor: .bottom)
+        }
+        newBelow = 0
+    }
+
+    @ViewBuilder
+    private func newMessagePill(_ proxy: ScrollViewProxy) -> some View {
+        if !atBottom && newBelow > 0 {
+            Button { scrollToBottom(proxy) } label: {
+                Label("ข้อความใหม่ \(newBelow)", systemImage: "arrow.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(Color.wbwGold, in: Capsule())
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+            }
+            .padding(.bottom, 10)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
     }
 
     private var inputBar: some View {
@@ -115,5 +185,6 @@ struct GroupChatView: View {
     private func send() {
         store.send(draft, senderName: profile.me?.displayName ?? "ฉัน")
         draft = ""
+        sentTick += 1
     }
 }

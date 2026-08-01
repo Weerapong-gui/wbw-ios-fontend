@@ -62,6 +62,8 @@ struct ChatBubble: View {
     let layout: ChatRow.Layout
     let photoUrl: String?
     let onRetry: () -> Void
+    /// ระยะที่แถวถูกลากไปทางซ้าย (ปัดซ้ายค้างเพื่อดูเวลาทุกฟอง)
+    var revealOffset: CGFloat = 0
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 6) {
@@ -98,6 +100,18 @@ struct ChatBubble: View {
             if !isMine { Spacer(minLength: 48) }
         }
         .padding(.vertical, layout.isFirstInGroup ? 5 : 1)
+        .offset(x: -revealOffset)
+        .overlay(alignment: .trailing) {
+            // ฟองที่โชว์เวลาอยู่แล้ว (ฟองท้ายชุด) ไม่ต้องซ้ำ — เผยเฉพาะฟองที่ปกติไม่มีเวลา
+            if revealOffset > 1 && !layout.showTime {
+                Text(ChatFormat.time(message.displayTime))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 48)
+                    .offset(x: 56 - revealOffset)
+                    .opacity(Double(revealOffset / 56))
+            }
+        }
     }
 
     private var timeLabel: some View {
