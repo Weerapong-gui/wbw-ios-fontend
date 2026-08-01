@@ -15,6 +15,10 @@ struct GroupChatView: View {
     @State private var atBottom = true
     @State private var reveal: CGFloat = 0
     @State private var sentTick = 0
+    /// สแนปช็อต myLastReadId ตอนเปิดจอ — ต้องอ่านค่าก่อน setScreenVisible(true) จะเรียก markRead() แล้วดัน
+    /// store.myLastReadId ขึ้นไปจนสุดทันที ถ้าเอา store.myLastReadId มาใช้ตรงๆ เส้น "ข้อความใหม่" จะไม่มีวันโผล่
+    /// เพราะ rows คำนวณใหม่ทุกครั้งที่ store เปลี่ยน (@ObservedObject) ค่าที่ใช้ก็ขยับตามไปในเฟรมเดียวกันพอดี
+    @State private var readSnapshot: Int64 = 0
     /// จำนวนข้อความที่เข้ามาระหว่างเรากำลังเลื่อนอ่านย้อนหลัง
     ///
     /// นับเองแทนที่จะใช้ store.unreadCount เพราะ ChatSession เรียก markRead() ทุกครั้งที่
@@ -30,16 +34,32 @@ struct GroupChatView: View {
         }
         .background(bg.ignoresSafeArea())
         .sensoryFeedback(.impact(weight: .light), trigger: sentTick)
-        .sensoryFeedback(.error, trigger: store.messages.filter { $0.state == .failed }.count)
+        // overload closure แทน .error ตรงๆ — ตัวเดิมสั่นทุกครั้งที่ค่าเปลี่ยนไม่ว่าทิศไหน แม้แต่ retry สำเร็จ
+        // (1 ล้มเหลว → 0) ก็นับว่า "เปลี่ยน" เหมือนกัน สั่น error ทั้งที่จริงๆ ส่งสำเร็จแล้ว
+        .sensoryFeedback(trigger: store.messages.filter { $0.state == .failed }.count) { old, new in
+            new > old ? .error : nil
+        }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: newBelow > 0)
+        // ของเดิมมีแค่ตัวข้างบน ซึ่งผูกกับ newBelow > 0 — ค่านั้นเปลี่ยนเฉพาะตอนเลื่อนขึ้นไปอ่านประวัติแล้วมี
+        // ข้อความใหม่เข้ามา กรณีปกติ (อยู่ล่างสุด) newBelow ค้างที่ 0 ทั้งก่อนและหลังข้อความมาถึง (markRead()
+        // กดกลับเป็น 0 ทันทีในเฟรมเดียวกัน) ค่าที่ .animation(value:) เฝ้าดูเลยไม่ขยับ ฟองใหม่จึง pop เข้ามา
+        // ทันทีไม่มี transition เลย ยืนยันด้วยตาจริงบนซิมูเลเตอร์แล้ว (เทียบ 2 ชุดภาพ burst: ไม่มี animation
+        // ผูกกับ count ฟองมาถึงสถานะสุดท้ายภายใน ~260ms เฟรมแรกหลังข้อความมาถึงกับเฟรมสุดท้ายพิกเซลเหมือนกันเป๊ะ
+        // ส่วนที่มี ฟองจางแล้วค่อยชัดขึ้นระหว่างทางชัดเจน) — ผูกกับจำนวนข้อความเพิ่มเพื่อให้ครอบกรณีอยู่ล่างสุด
+        // (กรณีปกติ) ด้วย ใช้สปริงตัวเดียวกับที่ scrollToBottom ใช้ ให้ความรู้สึกเป็นการเคลื่อนไหวชุดเดียวกัน
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: store.messages.count)
         .safeAreaInset(edge: .bottom) { inputBar }
         .task {
+            readSnapshot = store.myLastReadId   // ต้องสแนปก่อน setScreenVisible เปลี่ยนค่าจริงบรรทัดถัดไปเท่านั้น
             store.setScreenVisible(true)
             let gid = profile.me?.groupId ?? 0
             let ms = await groups.members(groupId: gid, token: session.token ?? "")
             members = Dictionary(uniqueKeysWithValues: ms.map { ($0.userId, $0) })
         }
-        .onDisappear { store.setScreenVisible(false) }
+        .onDisappear {
+            store.setScreenVisible(false)
+            readSnapshot = 0   // เปิดใหม่ครั้งหน้าคำนวณจากค่า ณ ตอนนั้นใหม่ทั้งหมด
+        }
     }
 
     private var header: some View {
@@ -68,7 +88,7 @@ struct GroupChatView: View {
     }
 
     private var rows: [ChatRow] {
-        ChatRowBuilder.build(store.messages, myLastReadId: store.myLastReadId,
+        ChatRowBuilder.build(store.messages, myLastReadId: readSnapshot,
                              myId: profile.me?.userId ?? "")
     }
 
