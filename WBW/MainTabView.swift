@@ -36,6 +36,12 @@ struct MainTabView: View {
             }
             .tint(Color.wbwGold)
             .task {
+                // push ที่แตะไว้ตอนแอปยังไม่ทันเปิด (cold launch) — didReceive มักโพสต์ก่อนหน้านี้จะติดตั้ง
+                // .onReceive ทัน (มีสแปลชคั่นก่อนถึงจะ mount MainTabView) โพสต์ทิ้งไปเงียบๆ ไม่มีคนรับ ดึงมา
+                // โพสต์ซ้ำตรงนี้ — .onReceive ติดมากับ body ก่อน .task เริ่มเสมอ รับได้แน่นอน
+                if let pending = PendingPush.consume() {
+                    NotificationCenter.default.post(name: pending, object: nil)
+                }
                 // โหลดจำนวนที่ยังไม่อ่านไว้โชว์ badge ตั้งแต่เข้าแอป
                 await noti.load(token: session.token ?? "")
                 await profile.load(token: session.token ?? "")
@@ -58,7 +64,10 @@ struct MainTabView: View {
                 showNotifications = true   // noti ไม่มี tab แล้ว → เปิดเป็น sheet
             }
             .onReceive(NotificationCenter.default.publisher(for: .openGroupChat)) { _ in
-                guard profile.me?.groupId != nil else { return }
+                // ไม่เช็ค profile.me?.groupId ตรงนี้ — cold launch: อาจถูกเรียกก่อน profile.load() (network
+                // round trip ใน .task) จะจบ เช็คแล้วจะเป็น false เสมอ ทำให้ push ถูกทิ้งไปเงียบๆ overlay เอง
+                // เช็คเงื่อนไขนี้ซ้ำอยู่แล้ว (ดูด้านล่าง) ซึ่ง re-evaluate เองเมื่อโปรไฟล์โหลดเสร็จภายหลัง —
+                // ถ้าไม่มีกลุ่มจริงๆ ก็แค่ลงแท็บ 3 เฉยๆ ไม่มี overlay โผล่มา
                 tab = 3
                 chatOpen = true
             }
@@ -67,8 +76,19 @@ struct MainTabView: View {
                                myId: profile.me?.userId ?? "", context: context)
             }
             .onChange(of: scenePhase) { _, phase in
-                // background = iOS แขวน connection อยู่ดี ปล่อยให้ push รับช่วง
-                phase == .active ? chat.start() : chat.stop()
+                // ตั้งใจแยก 2 เงื่อนไข ไม่ใช้ else — .inactive (Control Center, สายเรียกเข้า, app switcher)
+                // ไม่ได้แขวน socket จริง ต้องปล่อยให้ sync/heartbeat วิ่งต่อ มีแค่ .background เท่านั้นที่ iOS
+                // แขวน connection จริง — ปล่อยให้ push รับช่วงตอนนั้น
+                if phase == .active { chat.start() }
+                else if phase == .background { chat.stop() }
+            }
+            // โดนเอาออกจากกลุ่มระหว่าง sync (403) — ปิดจอแชท + โหลดโปรไฟล์ใหม่ (purge cache ทำใน
+            // ChatSession ไปแล้วก่อนตั้ง kickedOut)
+            .onChange(of: chat.kickedOut) { _, kicked in
+                guard kicked else { return }
+                chatOpen = false
+                chat.kickedOut = false
+                Task { await profile.load(token: session.token ?? "") }
             }
 
             // แชทกลุ่ม — overlay เลื่อนขึ้นจากล่าง (navbar หายแบบเด้งๆ)
@@ -102,11 +122,14 @@ struct MainTabView: View {
         .sheet(isPresented: $showNotifications) {
             NotificationsView(store: noti, token: session.token ?? "")
         }
-        // MainTabView หายทั้งจอ (ล็อกเอาต์/สลับเป็น staff) — logout() ไม่แตะ profile.me เลย
-        // ("ยังไม่ authenticated" แค่ session.user เป็น nil) ดังนั้น .onChange(of: profile.me?.groupId)
-        // ไม่มีทางจับจังหวะนี้ได้ ต้อง stop() ตรงนี้ ไม่งั้น syncLoop ที่กำลังวิ่งอยู่ (ถือ self ไว้แน่นระหว่าง
-        // await) ไม่มีวันถูกเก็บขยะ กลายเป็น orphan ยิง long-poll ด้วย token เก่าไปเรื่อยๆ
-        .onDisappear { chat.stop() }
+        // MainTabView หายทั้งจอ (ล็อกเอาต์เท่านั้น — RootView สลับ MainTabView/StaffScanView ตาม role บน
+        // session.user ตัวเดียวกัน ไปไม่ถึง role ใหม่ได้โดยไม่ผ่าน logout()+login ก่อน) — logout() ไม่แตะ
+        // profile.me เลย ("ยังไม่ authenticated" แค่ session.user เป็น nil) ดังนั้น
+        // .onChange(of: profile.me?.groupId) ไม่มีทางจับจังหวะนี้ได้ ต้องเรียก purgeForLogout() ตรงนี้แทน
+        // (stop() ตัวเองอยู่แล้วด้วย) ไม่งั้น syncLoop ที่กำลังวิ่งอยู่ (ถือ self ไว้แน่นระหว่าง await) ไม่มีวัน
+        // ถูกเก็บขยะ กลายเป็น orphan ยิง long-poll ด้วย token เก่าไปเรื่อยๆ — purge เพิ่มเพราะบัญชีที่ 2 ที่
+        // login เครื่องเดียวกันไม่ควรเห็นข้อความ/สืบทอด cursor ของบัญชีก่อนหน้า
+        .onDisappear { chat.purgeForLogout() }
     }
 }
 

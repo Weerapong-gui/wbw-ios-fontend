@@ -10,6 +10,21 @@ extension Notification.Name {
     static let openGroupChat = Notification.Name("openGroupChat")
 }
 
+/// เก็บ notification name ที่แตะไว้ชั่วคราว เผื่อ NotificationCenter.post ยิงไปตอนยังไม่มีใคร subscribe
+/// (cold launch: didReceive มักมาก่อน MainTabView จะติดตั้ง .onReceive ทัน เพราะมีหน้าสแปลชคั่นอยู่) —
+/// one-shot: MainTabView.task ดึงไปโพสต์ซ้ำแล้วเคลียร์ทันทีที่มีโอกาส (ดู consume())
+enum PendingPush {
+    private static var name: Notification.Name?
+
+    static func hold(_ n: Notification.Name) { name = n }
+
+    /// อ่านแล้วเคลียร์ในตาเดียว กันโดนดึงไปใช้ซ้ำสองรอบ
+    static func consume() -> Notification.Name? {
+        defer { name = nil }
+        return name
+    }
+}
+
 /// จัดการ push ผ่าน Firebase (FCM ครอบ APNs)
 /// ถ้าไม่มี GoogleService-Info.plist → ปิดแบบเงียบ (in-app poll ยังทำงาน)
 final class PushManager {
@@ -103,6 +118,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
     ) {
         let info = response.notification.request.content.userInfo
         let name: Notification.Name = (info["type"] as? String) == "chat" ? .openGroupChat : .openNotificationsTab
+        PendingPush.hold(name)   // เผื่อยังไม่มีใคร subscribe (cold launch) — MainTabView.task ดึงไปโพสต์ซ้ำเอง
         NotificationCenter.default.post(name: name, object: nil)
         completionHandler()
     }
