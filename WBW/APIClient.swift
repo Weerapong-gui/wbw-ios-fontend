@@ -226,13 +226,6 @@ struct APIClient {
         try await deviceCall(path: "/groups/leave", token: token, body: [:])
     }
 
-    /// ดึงข้อความ (poll) — after = id ล่าสุดที่มี
-    func messages(token: String, groupId: Int, after: String?, limit: Int = 50) async throws -> [MessageDTO] {
-        var path = "/groups/\(groupId)/messages?limit=\(limit)"
-        if let after, !after.isEmpty { path += "&after=\(after)" }
-        return try await getDecoded(path, token: token, [MessageDTO].self, error: "โหลดข้อความไม่สำเร็จ")
-    }
-
     /// ส่งข้อความ — idempotent ด้วย clientId
     func sendMessage(token: String, groupId: Int, clientId: String, body: String, deviceTime: String) async throws -> MessageDTO {
         guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/messages") else { throw AppError.message("URL ไม่ถูกต้อง") }

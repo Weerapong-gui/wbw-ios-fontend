@@ -53,7 +53,7 @@ enum ChatRowBuilder {
         }
 
         // ข้อความแรกที่ยังไม่อ่านและไม่ใช่ของเรา
-        // serverId เป็น nil ได้เฉพาะข้อความที่เรายังไม่ส่งเอง (ChatStore การันตี) — ข้อความของคนอื่น
+        // serverId เป็น nil ได้เฉพาะข้อความที่เรายังไม่ส่งเอง (ChatSession การันตี) — ข้อความของคนอื่น
         // มี serverId เสมอ ดังนั้น ?? 0 ตรงนี้ไม่มีทางทำให้ข้อความคนอื่นถูกนับว่ายังไม่อ่านผิดๆ
         let firstUnread = msgs.firstIndex {
             $0.senderId != myId && ($0.serverId ?? 0) > myLastReadId
@@ -80,24 +80,35 @@ enum ChatRowBuilder {
 
 /// ข้อความบนป้ายวัน + เวลาใต้ฟอง
 enum ChatFormat {
+    // แคช DateFormatter ไว้ระดับ static — สร้างใหม่ทุกครั้งแพง (locale/calendar lookup) ตอนลากซ้ายค้างดูเวลา
+    // ฟองที่โชว์อยู่ทุกฟองเรียก time(_:) รัวทุก touch event เปลี่ยนแค่ .timeZone/.dateFormat ต่อครั้งพอ ไม่ต้อง
+    // สร้างอินสแตนซ์ใหม่ — เรียกจาก main thread เสมอ (view rendering) จึงไม่ต้องกังวล concurrency ระหว่างเรียก
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "th_TH")   // ได้ พ.ศ. อัตโนมัติ
+        return f
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")   // กัน AM/PM ตาม locale เครื่อง
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
     static func dayLabel(for day: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
         if calendar.isDate(day, inSameDayAs: now) { return "วันนี้" }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
            calendar.isDate(day, inSameDayAs: yesterday) { return "เมื่อวาน" }
         let sameYear = calendar.component(.year, from: day) == calendar.component(.year, from: now)
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "th_TH")   // ได้ พ.ศ. อัตโนมัติ
-        f.timeZone = calendar.timeZone
-        f.dateFormat = sameYear ? "d MMM" : "d MMM yyyy"
-        return f.string(from: day)
+        dayFormatter.timeZone = calendar.timeZone
+        dayFormatter.dateFormat = sameYear ? "d MMM" : "d MMM yyyy"
+        return dayFormatter.string(from: day)
     }
 
     /// 24 ชั่วโมงเสมอ ไม่ตามการตั้งค่าเครื่อง (en_US_POSIX กัน AM/PM)
     static func time(_ date: Date, timeZone: TimeZone = .current) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = timeZone
-        f.dateFormat = "HH:mm"
-        return f.string(from: date)
+        timeFormatter.timeZone = timeZone
+        return timeFormatter.string(from: date)
     }
 }
