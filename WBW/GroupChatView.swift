@@ -18,7 +18,10 @@ struct GroupChatView: View {
     /// สแนปช็อต myLastReadId ตอนเปิดจอ — ต้องอ่านค่าก่อน setScreenVisible(true) จะเรียก markRead() แล้วดัน
     /// store.myLastReadId ขึ้นไปจนสุดทันที ถ้าเอา store.myLastReadId มาใช้ตรงๆ เส้น "ข้อความใหม่" จะไม่มีวันโผล่
     /// เพราะ rows คำนวณใหม่ทุกครั้งที่ store เปลี่ยน (@ObservedObject) ค่าที่ใช้ก็ขยับตามไปในเฟรมเดียวกันพอดี
-    @State private var readSnapshot: Int64 = 0
+    /// เริ่มที่ .max ไม่ใช่ 0 — rows ถูกคำนวณตั้งแต่เฟรมแรกก่อน .task จะทันรัน ถ้าเริ่มที่ 0 (= "ยังไม่อ่านอะไร
+    /// เลย") ChatRowBuilder จะมองว่าข้อความคนอื่นแทบทุกอันยังไม่อ่าน เส้นเลยไปโผล่ที่ข้อความเก่าสุดในเฟรมแรก
+    /// ก่อนวาบไปตำแหน่งจริงตอน .task เซ็ตค่า — "ยังไม่สแนป" ต้องแปลว่า "อ่านหมดแล้ว" ไม่ใช่ "ยังไม่อ่านเลย"
+    @State private var readSnapshot: Int64 = .max
     /// จำนวนข้อความที่เข้ามาระหว่างเรากำลังเลื่อนอ่านย้อนหลัง
     ///
     /// นับเองแทนที่จะใช้ store.unreadCount เพราะ ChatSession เรียก markRead() ทุกครั้งที่
@@ -58,7 +61,7 @@ struct GroupChatView: View {
         }
         .onDisappear {
             store.setScreenVisible(false)
-            readSnapshot = 0   // เปิดใหม่ครั้งหน้าคำนวณจากค่า ณ ตอนนั้นใหม่ทั้งหมด
+            readSnapshot = .max   // เปิดใหม่ครั้งหน้าคำนวณจากค่า ณ ตอนนั้นใหม่ทั้งหมด (ไม่ใช่ 0 — เหตุผลเดียวกับด้านบน)
         }
     }
 

@@ -25,6 +25,7 @@ final class ChatSession: ObservableObject {
     private var cursor: Int64 = 0            // serverId สูงสุดที่มีแล้ว
     private var screenVisible = false
     private var syncTask: Task<Void, Never>?
+    private var syncGeneration = 0           // รอบของ syncTask ปัจจุบัน — ให้ syncLoop() เช็คก่อนเคลียร์ตัวเอง (ดู syncLoop)
     private var heartbeatTask: Task<Void, Never>?
     private var readDebounce: Task<Void, Never>?
     private var flushing = false             // กัน flushOutbox ยิงซ้อนกัน (กดส่งรัว/ทริกเกอร์หลายทางชนกัน)
@@ -92,9 +93,11 @@ final class ChatSession: ObservableObject {
 
     func start() {
         guard groupId != nil, syncTask == nil else { return }
+        syncGeneration += 1
+        let generation = syncGeneration
         syncTask = Task { [weak self] in
             await self?.flushOutbox()
-            await self?.syncLoop()
+            await self?.syncLoop(generation: generation)
         }
         // กลับมา foreground ระหว่างจอแชทเปิดค้างอยู่ (screenVisible ไม่เคยถูกปิด — GroupChatView ไม่ได้หายไปไหน
         // .task เลยไม่รีรัน) heartbeat ที่ stop() ฆ่าไปตอน background ต้องถูกจุดใหม่ตรงนี้ ไม่งั้นตายไปเงียบๆ
@@ -191,8 +194,12 @@ final class ChatSession: ObservableObject {
         recomputeUnread()
     }
 
-    private func syncLoop() async {
-        defer { syncTask = nil }   // ทุกทางออกจากฟังก์ชันนี้ต้องเคลียร์ ไม่งั้น start() เข้าใจผิดว่ายังวิ่งอยู่ตลอดไป
+    private func syncLoop(generation: Int) async {
+        // เคลียร์เฉพาะตอน generation ยังตรงกับปัจจุบัน — configure() เรียก stop() ต่อ start() ทันทีไม่มีจังหวะ
+        // suspend คั่น ถ้า task เก่ายัง await ค้างตอนสลับ พอคลายตัวมาเจอ defer นี้ syncTask อาจชี้ไป task ใหม่
+        // ไปแล้ว เคลียร์เปล่าๆ แบบเดิมจะเคาะ task ใหม่ (ที่ยังวิ่งอยู่จริง) ทิ้งจน orphan — cancel ไม่ได้อีกเลย
+        // (ทุกทางออกยังต้องเคลียร์ตอน generation ตรงกันเหมือนเดิม ไม่งั้น start() เข้าใจผิดว่ายังวิ่งอยู่ตลอดไป)
+        defer { if syncGeneration == generation { syncTask = nil } }
         var backoff: UInt64 = 1
         while !Task.isCancelled {
             guard let gid = groupId, !token.isEmpty else { return }
@@ -323,30 +330,36 @@ final class ChatSession: ObservableObject {
         guard let gid = groupId, !token.isEmpty, let context, !flushing else { return }
         flushing = true
         defer { flushing = false }
-        let pending = messages.filter { $0.state == .pending }.sorted { $0.deviceTime < $1.deviceTime }
-        for m in pending {
-            do {
-                let dto = try await APIClient.shared.sendMessage(
-                    token: token, groupId: gid, clientId: m.clientId,
-                    body: m.body, deviceTime: iso(m.deviceTime))
-                m.serverId = Int64(dto.id) ?? m.serverId
-                m.createdAt = parseISO(dto.createdAt)
-                m.state = .sent
-                // gid == groupId: await ข้างบนอาจค้างข้าม configure() สลับกลุ่ม (เหมือน apply(_:for:) ที่กัน
-                // merge() ไว้แล้ว) ไม่งั้น cursor ของกลุ่มเก่าจะเขียนทับ cursorKey ของกลุ่มใหม่ (คำนวณจาก
-                // self.groupId สด) — id ข้อความเป็น global ค่าที่ยกมาผิดกลุ่มอาจสูงเกินจริงจนกลุ่มใหม่ข้ามประวัติ
-                if gid == groupId, let sid = m.serverId, sid > cursor {
-                    cursor = sid
-                    UserDefaults.standard.set(Int(cursor), forKey: cursorKey)
+        // สแกนซ้ำก่อนปล่อย flushing — caller คนที่ 2 (ส่งรัวๆ ชนกัน) โดน guard ด้านบนเตะออกไปเงียบๆ ตั้งแต่ต้น
+        // งานของมันเลยไม่ติดอยู่ใน pending ที่ snapshot ไปแล้วรอบแรก ถ้าไม่สแกนซ้ำต้องรอ trigger รอบหน้า (ปกติ
+        // คือ sync loop รอบถัดไป แต่ถ้า loop กำลัง error backoff อยู่อาจไปถึง 10 วิ)
+        while true {
+            let pending = messages.filter { $0.state == .pending }.sorted { $0.deviceTime < $1.deviceTime }
+            guard !pending.isEmpty else { return }
+            for m in pending {
+                do {
+                    let dto = try await APIClient.shared.sendMessage(
+                        token: token, groupId: gid, clientId: m.clientId,
+                        body: m.body, deviceTime: iso(m.deviceTime))
+                    m.serverId = Int64(dto.id) ?? m.serverId
+                    m.createdAt = parseISO(dto.createdAt)
+                    m.state = .sent
+                    // gid == groupId: await ข้างบนอาจค้างข้าม configure() สลับกลุ่ม (เหมือน apply(_:for:) ที่กัน
+                    // merge() ไว้แล้ว) ไม่งั้น cursor ของกลุ่มเก่าจะเขียนทับ cursorKey ของกลุ่มใหม่ (คำนวณจาก
+                    // self.groupId สด) — id ข้อความเป็น global ค่าที่ยกมาผิดกลุ่มอาจสูงเกินจริงจนกลุ่มใหม่ข้ามประวัติ
+                    if gid == groupId, let sid = m.serverId, sid > cursor {
+                        cursor = sid
+                        UserDefaults.standard.set(Int(cursor), forKey: cursorKey)
+                    }
+                    try? context.save()
+                    messages = Self.sorted(messages)
+                } catch AppError.offline {
+                    return
+                } catch {
+                    m.state = .failed
+                    try? context.save()
+                    messages = Self.sorted(messages)
                 }
-                try? context.save()
-                messages = Self.sorted(messages)
-            } catch AppError.offline {
-                break
-            } catch {
-                m.state = .failed
-                try? context.save()
-                messages = Self.sorted(messages)
             }
         }
     }

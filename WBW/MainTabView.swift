@@ -62,6 +62,9 @@ struct MainTabView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .openNotificationsTab)) { _ in
                 showNotifications = true   // noti ไม่มี tab แล้ว → เปิดเป็น sheet
+                // รับสดแล้ว (มีคน subscribe อยู่จริงตอน post) — เคลียร์ของที่ hold() พักไว้ กัน mount ถัดไป
+                // (เช่น login บัญชีอื่นหลัง logout) ดึงไปเล่นซ้ำทั้งที่ไม่เกี่ยวกับบัญชีนั้นเลย
+                PendingPush.clear()
             }
             .onReceive(NotificationCenter.default.publisher(for: .openGroupChat)) { _ in
                 // ไม่เช็ค profile.me?.groupId ตรงนี้ — cold launch: อาจถูกเรียกก่อน profile.load() (network
@@ -70,6 +73,7 @@ struct MainTabView: View {
                 // ถ้าไม่มีกลุ่มจริงๆ ก็แค่ลงแท็บ 3 เฉยๆ ไม่มี overlay โผล่มา
                 tab = 3
                 chatOpen = true
+                PendingPush.clear()   // รับสดแล้ว — เคลียร์กัน mount ถัดไปดึงไปเล่นซ้ำ (ดู PendingPush.clear())
             }
             .onChange(of: profile.me?.groupId) { _, gid in
                 chat.configure(groupId: gid, token: session.token ?? "",

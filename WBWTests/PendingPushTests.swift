@@ -26,4 +26,12 @@ final class PendingPushTests: XCTestCase {
         PendingPush.hold(.openGroupChat)   // แตะ push อันใหม่ก่อนอันเก่าจะถูก consume
         XCTAssertEqual(PendingPush.consume(), .openGroupChat, "ค่าล่าสุดต้องชนะ ไม่ใช่คิวสะสมหลายอัน")
     }
+
+    /// clear() คือส่วนที่ปิดช่องโหว่ warm-app: MainTabView.onReceive รับสดแล้วต้องล้างของที่ hold() พักไว้
+    /// เอง ไม่งั้น mount ถัดไป (login บัญชีอื่นหลัง logout) จะ consume() เจอของเก่าที่ไม่เกี่ยวกับบัญชีนั้น
+    func testClearRemovesHeldValueEvenIfNeverConsumed() {
+        PendingPush.hold(.openGroupChat)
+        PendingPush.clear()
+        XCTAssertNil(PendingPush.consume(), "clear() ต้องล้างของที่ hold() พักไว้ ไม่ให้ mount ถัดไปดึงไปเล่นซ้ำ")
+    }
 }

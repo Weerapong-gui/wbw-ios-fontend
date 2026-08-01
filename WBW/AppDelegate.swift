@@ -23,6 +23,11 @@ enum PendingPush {
         defer { name = nil }
         return name
     }
+
+    /// เคลียร์ทิ้งหลัง .onReceive รับสดไปแล้ว (มีคน subscribe อยู่จริงตอน post — ไม่ใช่ cold launch) กันของที่
+    /// hold() พักไว้ตอน didReceive ตกค้างข้าม mount ถัดไป (เช่น logout แล้ว login บัญชีอื่น) ทำให้ consume()
+    /// ตอน mount ใหม่ดึงของเก่าที่ไม่เกี่ยวกับบัญชีนั้นมาเล่นซ้ำ
+    static func clear() { name = nil }
 }
 
 /// จัดการ push ผ่าน Firebase (FCM ครอบ APNs)
