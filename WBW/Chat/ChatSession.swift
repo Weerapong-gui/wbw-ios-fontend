@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import UserNotifications
 
 /// เครื่องยนต์แชท — อายุเท่าแอป (MainTabView ถือไว้) ไม่ใช่เท่าจอแชท
 /// offline-first: cache + outbox (SwiftData), optimistic send, long-poll, flush ตอน reconnect
@@ -12,6 +13,8 @@ final class ChatSession: ObservableObject {
     @Published private(set) var myLastReadId: Int64 = 0
     /// ข้อความล่าสุดที่เพิ่งเข้ามาตอนไม่ได้เปิดจอแชท — ใช้เด้ง toast
     @Published var incoming: ChatMessage?
+    /// โดนเอาออกจากกลุ่มระหว่าง sync (403) — MainTabView ฟังค่านี้เพื่อปิดจอแชท + โหลดโปรไฟล์ใหม่
+    @Published var kickedOut = false
 
     let connectivity = Connectivity()
 
@@ -24,6 +27,7 @@ final class ChatSession: ObservableObject {
     private var syncTask: Task<Void, Never>?
     private var heartbeatTask: Task<Void, Never>?
     private var readDebounce: Task<Void, Never>?
+    private var flushing = false             // กัน flushOutbox ยิงซ้อนกัน (กดส่งรัว/ทริกเกอร์หลายทางชนกัน)
 
     private var cursorKey: String { "chat.cursor.\(groupId ?? 0)" }
     private var readKey: String { "chat.read.\(groupId ?? 0)" }
@@ -76,11 +80,29 @@ final class ChatSession: ObservableObject {
         start()
     }
 
+    #if DEBUG
+    /// สำหรับเทสหน่วยเท่านั้น — ตั้งค่าที่จำเป็นตรงๆ โดยไม่เรียก start() (กัน Task ยิง network จริงตอนเทส)
+    /// ต่างจาก configure() ตรงที่ configure() เรียก start() เสมอเมื่อ groupId ไม่ nil
+    func testSetup(groupId: Int?, myId: String = "me", context: ModelContext? = nil) {
+        if let context { self.context = context }
+        self.groupId = groupId
+        self.myId = myId
+    }
+    #endif
+
     func start() {
         guard groupId != nil, syncTask == nil else { return }
         syncTask = Task { [weak self] in
             await self?.flushOutbox()
             await self?.syncLoop()
+        }
+        // กลับมา foreground ระหว่างจอแชทเปิดค้างอยู่ (screenVisible ไม่เคยถูกปิด — GroupChatView ไม่ได้หายไปไหน
+        // .task เลยไม่รีรัน) heartbeat ที่ stop() ฆ่าไปตอน background ต้องถูกจุดใหม่ตรงนี้ ไม่งั้นตายไปเงียบๆ
+        // จนกว่าจะปิด-เปิดจอแชทเอง ระหว่างนั้น server เข้าใจผิดว่าไม่มีใครดูอยู่แล้ว push ทับซ้ำ
+        if screenVisible {
+            armHeartbeat()
+            let id = myLastReadId
+            Task { [weak self] in await self?.postRead(id) }   // ยิง read ทันที ไม่ต้องรอ heartbeat รอบแรก 10s
         }
     }
 
@@ -95,8 +117,16 @@ final class ChatSession: ObservableObject {
         screenVisible = visible
         heartbeatTask?.cancel(); heartbeatTask = nil
         guard visible else { return }
+        UNUserNotificationCenter.current().setBadgeCount(0)   // เปิดจอแชท = เคลียร์ badge ไอคอนแอป (ของเก่าที่ server คำนวณไว้)
         markRead()
-        // heartbeat: บอก server ว่ายังจ้อจออยู่ ไม่งั้นโดน push ทั้งที่กำลังอ่าน
+        armHeartbeat()
+    }
+
+    /// ตั้ง/จุดใหม่ heartbeat — บอก server ว่ายังจ้อจออยู่ ไม่งั้นโดน push ทั้งที่กำลังอ่าน
+    /// แยกออกมาเพื่อให้ start() จุดใหม่เองได้ตอนกลับมา foreground โดยไม่ต้องผ่าน setScreenVisible อีกรอบ
+    /// (setScreenVisible ทำ markRead() ด้วย ซึ่งไม่ควรเรียกซ้ำแค่เพราะแอป foreground กลับมา)
+    private func armHeartbeat() {
+        heartbeatTask?.cancel()
         heartbeatTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
@@ -162,6 +192,7 @@ final class ChatSession: ObservableObject {
     }
 
     private func syncLoop() async {
+        defer { syncTask = nil }   // ทุกทางออกจากฟังก์ชันนี้ต้องเคลียร์ ไม่งั้น start() เข้าใจผิดว่ายังวิ่งอยู่ตลอดไป
         var backoff: UInt64 = 1
         while !Task.isCancelled {
             guard let gid = groupId, !token.isEmpty else { return }
@@ -185,6 +216,7 @@ final class ChatSession: ObservableObject {
                 // ทางพัง ไม่ใช่จังหวะปกติ — log ไว้จริงจัง (production เห็นได้ด้วย)
                 NSLog("[chat] sync group=\(gid): ไม่ได้อยู่ในกลุ่มแล้ว — หยุด loop")
                 purgeAll()
+                kickedOut = true                // MainTabView ปิดจอแชท + โหลดโปรไฟล์ใหม่
                 return                          // โดนเอาออกจากกลุ่ม — หยุด loop
             } catch {
                 // ทางพัง ไม่ใช่จังหวะปกติ — log ไว้จริงจัง (production เห็นได้ด้วย)
@@ -198,7 +230,7 @@ final class ChatSession: ObservableObject {
     /// requestGroupId = กลุ่มตอนยิง request ออกไป — long-poll ค้างได้ถึง 25s ระหว่างนั้น configure()
     /// อาจสลับกลุ่มไปแล้ว (self.groupId เปลี่ยน) ถ้าไม่ตรงกันคือ response ของกลุ่มเก่า ทิ้งไปเลย
     /// ไม่งั้นข้อความกลุ่มเก่าจะถูก tag เป็นกลุ่มใหม่ผิดๆ ตอน merge
-    private func apply(_ r: ChatSyncResponse, for requestGroupId: Int) {
+    func apply(_ r: ChatSyncResponse, for requestGroupId: Int) {
         guard requestGroupId == groupId else { return }
         if r.sinceId > 0 { purge(upTo: r.sinceId) }
         memberCount = r.memberCount
@@ -212,7 +244,7 @@ final class ChatSession: ObservableObject {
     }
 
     /// server บอกว่าเห็นได้แค่ > sinceId → ของเก่าในเครื่องลบทิ้ง (เข้ากลุ่มใหม่ = ตัดประวัติ)
-    private func purge(upTo sinceId: Int64) {
+    func purge(upTo sinceId: Int64) {
         let stale = messages.filter { !Self.survivesCutoff($0, sinceId: sinceId) }
         guard !stale.isEmpty, let context else { return }
         for m in stale { context.delete(m) }
@@ -221,20 +253,42 @@ final class ChatSession: ObservableObject {
     }
 
     /// โดนเอาออกจากกลุ่ม — ล้าง state ทั้งหมดที่เป็นอนุพันธ์ของกลุ่มนั้น แล้วปล่อยให้ start() เริ่มใหม่ได้
-    /// (ไม่ nil syncTask ไม่ได้ — ค้างเป็น non-nil ต่อไป start() จะเข้าใจผิดว่ายังวิ่งอยู่ ไม่ยอมเริ่มลูปใหม่
-    /// จนกว่าจะมี background/foreground รอบถัดไปมาล้างให้ผ่าน stop())
-    private func purgeAll() {
-        guard let context else { return }
-        for m in messages { context.delete(m) }
-        try? context.save()
+    /// syncTask = nil load-bearing เสมอ (ค้างเป็น non-nil ต่อไป start() จะเข้าใจผิดว่ายังวิ่งอยู่ ไม่ยอมเริ่มลูป
+    /// ใหม่) จึงอยู่นอก guard ที่คุมเฉพาะส่วนที่ต้องใช้ context จริง — เดิม guard คลุมทั้งฟังก์ชัน context เป็น nil
+    /// (ไม่น่าเกิดแต่ป้องกันไว้) จะข้าม reset ที่เหลือทั้งหมดไปด้วย
+    func purgeAll() {
+        if let context {
+            for m in messages { context.delete(m) }
+            try? context.save()
+        }
         messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+        incoming = nil   // ข้อความที่ toast กำลังจะโชว์อาจเป็น @Model ที่เพิ่งลบไปแล้วข้างบน — render ต่อไม่ได้
+        UserDefaults.standard.removeObject(forKey: cursorKey)
+        UserDefaults.standard.removeObject(forKey: readKey)
         syncTask = nil
+    }
+
+    /// เรียกตอน logout — ล้างข้อความ "ทุกกลุ่ม" ที่เคยแคชไว้ในเครื่องนี้ (ไม่ใช่แค่กลุ่มปัจจุบันแบบ purgeAll)
+    /// พร้อม cursor ทุกตัว กันบัญชีที่ 2 ที่ login เครื่องเดียวกันเห็นข้อความ/สืบทอด cursor ของบัญชีก่อนหน้า
+    /// (Session.logout() ไม่รู้จัก ChatSession/ModelContext เอง — เรียกจาก MainTabView.onDisappear แทน)
+    func purgeForLogout() {
+        stop()
+        if let context {
+            let all = (try? context.fetch(FetchDescriptor<ChatMessage>())) ?? []
+            for m in all { context.delete(m) }
+            try? context.save()
+        }
+        messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+        incoming = nil
+        for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("chat.") {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
     }
 
     /// รวมข้อความจาก server — dedupe ตาม clientId. คืนเฉพาะอันที่เพิ่งเข้ามาใหม่จริงๆ
     /// gid = requestGroupId จาก apply(_:for:) เสมอ ไม่อ่าน self.groupId สด (กันแท็กผิดกลุ่มตอนสลับกลุ่มกลางคัน)
     @discardableResult
-    private func merge(_ dtos: [MessageDTO], groupId gid: Int) -> [ChatMessage] {
+    func merge(_ dtos: [MessageDTO], groupId gid: Int) -> [ChatMessage] {
         guard let context else { return [] }
         var fresh: [ChatMessage] = []
         for dto in dtos {
@@ -264,8 +318,11 @@ final class ChatSession: ObservableObject {
     }
 
     /// ส่ง pending ตามลำดับ — เน็ตล่ม=หยุด (retry รอบหน้า), 4xx=mark failed แล้วทำต่อ
+    /// flushing กัน caller หลายทาง (send/retry/start/reconnect/syncLoop) ยิงซ้อนกัน — กดส่งรัวๆ ไม่ POST ซ้ำ
     private func flushOutbox() async {
-        guard let gid = groupId, !token.isEmpty, let context else { return }
+        guard let gid = groupId, !token.isEmpty, let context, !flushing else { return }
+        flushing = true
+        defer { flushing = false }
         let pending = messages.filter { $0.state == .pending }.sorted { $0.deviceTime < $1.deviceTime }
         for m in pending {
             do {
@@ -275,7 +332,10 @@ final class ChatSession: ObservableObject {
                 m.serverId = Int64(dto.id) ?? m.serverId
                 m.createdAt = parseISO(dto.createdAt)
                 m.state = .sent
-                if let sid = m.serverId, sid > cursor {
+                // gid == groupId: await ข้างบนอาจค้างข้าม configure() สลับกลุ่ม (เหมือน apply(_:for:) ที่กัน
+                // merge() ไว้แล้ว) ไม่งั้น cursor ของกลุ่มเก่าจะเขียนทับ cursorKey ของกลุ่มใหม่ (คำนวณจาก
+                // self.groupId สด) — id ข้อความเป็น global ค่าที่ยกมาผิดกลุ่มอาจสูงเกินจริงจนกลุ่มใหม่ข้ามประวัติ
+                if gid == groupId, let sid = m.serverId, sid > cursor {
                     cursor = sid
                     UserDefaults.standard.set(Int(cursor), forKey: cursorKey)
                 }
