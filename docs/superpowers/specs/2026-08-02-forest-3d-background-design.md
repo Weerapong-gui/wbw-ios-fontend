@@ -6,7 +6,7 @@
   plus the Home growing-tree gimmick. Nothing else on those screens changes.
 - **Repos:** `wbw-ios-fontend` (iOS) **and** `~/Student-Union-Server` (SUS, Go)
 - **Not in this spec:** post-scan evaluation + feedback collection — that is
-  spec 2 (`2026-08-02-checkin-feedback-design.md`, to be written).
+  spec 2, `2026-08-02-checkin-feedback-design.md`.
 
 ## Context
 
@@ -231,6 +231,12 @@ ORDER BY c.sequence;
 
 `total` is `SELECT count(*) FROM checkpoint WHERE requires_checkin`, computed
 per request.
+
+**Spec 2 extends this same response** with `activity_name`, `answered`,
+`rating`, and `comment` per entry, and adds a 60 s foreground poll against it.
+Build the handler expecting those fields to be added here rather than in a
+second endpoint — the poll has to run anyway, and splitting would mean two
+requests per cycle against the same tables.
 
 Go placement: query in `internal/repository/wbw_checkpoint_repository.go` (it
 already owns checkpoint reads), new `internal/service/wbw_progress_service.go`
