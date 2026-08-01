@@ -112,6 +112,35 @@ Every route the app needs is present in the running binary: `/chat/sync`, `/chat
 `/checkin`, `/notifications`, and `GET`/`PATCH /me`. An unknown path under `/wbw` returns 404,
 so the 401s on those routes are real routing rather than a catch-all.
 
+## The website shares this backend
+
+`~/su-wbw-website` (Next.js 16, branch `main`) is the WBW web frontend, and it is pointed at
+the same SUS instance by design — `lib/apiBase.ts` says so outright: *"เว็บกับแอปมือถือใช้
+backend (Go) ตัวเดียวกัน"*.
+
+```bash
+cd ~/su-wbw-website && npm install && npm run dev   # http://localhost:3000
+```
+
+By default the browser calls `/api/*` and Next rewrites it to `http://localhost:8080/wbw`
+(`next.config.ts`, `API_UPSTREAM`), so no configuration is needed to line it up with the app —
+both already talk to the same server. Setting `NEXT_PUBLIC_API_BASE` makes the browser call the
+backend directly instead of hopping through Next; that needs the web's origin added to
+`CORS_ALLOWED_ORIGINS` on the backend.
+
+Two gotchas the config comments flag: `NEXT_PUBLIC_*` and `API_UPSTREAM` are both **baked in at
+build time**, so setting them at `next start` has no effect — set them for the build, or use
+`next dev`, which re-reads on restart.
+
+Verified 2026-08-02: `/` redirects to `/landing`, which renders (33 KB, correct title);
+`/announcements` and `/register` return 200; `/api/groups` through the proxy returns 401 and
+`/api/notifications/public` returns 200, so the proxy genuinely reaches SUS; and logging in as
+`6931900011` through the web proxy returns a token. (`/login` is 404 — the site does not have
+that route.)
+
+So the full local stack is: SUS + Postgres in docker, the website on `:3000`, and the iOS app
+in the simulator, all against one backend on `:8080`.
+
 ## Carrying changes to the real server
 
 The local stack and the deployed one run the same code from the same repo, so anything changed
