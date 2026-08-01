@@ -327,16 +327,21 @@ final class ChatSession: ObservableObject {
     /// ส่ง pending ตามลำดับ — เน็ตล่ม=หยุด (retry รอบหน้า), 4xx=mark failed แล้วทำต่อ
     /// flushing กัน caller หลายทาง (send/retry/start/reconnect/syncLoop) ยิงซ้อนกัน — กดส่งรัวๆ ไม่ POST ซ้ำ
     private func flushOutbox() async {
-        guard let gid = groupId, !token.isEmpty, let context, !flushing else { return }
+        guard groupId != nil, !token.isEmpty, let context, !flushing else { return }
         flushing = true
         defer { flushing = false }
         // สแกนซ้ำก่อนปล่อย flushing — caller คนที่ 2 (ส่งรัวๆ ชนกัน) โดน guard ด้านบนเตะออกไปเงียบๆ ตั้งแต่ต้น
         // งานของมันเลยไม่ติดอยู่ใน pending ที่ snapshot ไปแล้วรอบแรก ถ้าไม่สแกนซ้ำต้องรอ trigger รอบหน้า (ปกติ
         // คือ sync loop รอบถัดไป แต่ถ้า loop กำลัง error backoff อยู่อาจไปถึง 10 วิ)
         while true {
+            // อ่าน groupId สดทุกรอบ ไม่ใช้ gid ที่ freeze ไว้ตอนเข้าฟังก์ชัน — ลูปสแกนซ้ำอยู่ได้นานตราบที่ยังมีงาน
+            // ถ้า configure() สลับกลุ่มระหว่างนั้น ข้อความที่เพิ่งพิมพ์ให้กลุ่ม "ใหม่" จะถูก POST ไปกลุ่ม "เก่า"
+            // (ข้อความไปผิดห้อง ไม่ใช่แค่ cursor เพี้ยน) — กลุ่มเปลี่ยน = จบรอบนี้ ให้ trigger ถัดไปส่งต่อเอง
+            guard let gid = groupId else { return }
             let pending = messages.filter { $0.state == .pending }.sorted { $0.deviceTime < $1.deviceTime }
             guard !pending.isEmpty else { return }
             for m in pending {
+                guard gid == groupId else { return }
                 do {
                     let dto = try await APIClient.shared.sendMessage(
                         token: token, groupId: gid, clientId: m.clientId,
