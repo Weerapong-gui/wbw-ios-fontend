@@ -26,10 +26,16 @@ final class GyroParallax: ObservableObject {
     /// motion hardware จริง) เป็นข้อเท็จจริงของฮาร์ดแวร์ ไม่เปลี่ยนตลอดอายุ process รู้ได้ทันทีตั้งแต่
     /// เฟรมแรกโดยไม่ต้องรอ start()/callback แรกมาถึงก่อน — ForestSceneView ใช้ค่านี้ (ไม่ใช่ `running`)
     /// ตัดสินใจว่า TimelineView schedule ต้อง tick ต่อเฟรมไหมตอนยังไม่มีต้นไม้ในฉาก (ดูคอมเมนต์ที่
-    /// sceneShouldTick) เหตุผลที่ไม่ใช้ `running`: `running` เปลี่ยนค่า "หลัง" start() ถูกเรียกเท่านั้น
-    /// (เป็น side effect ของ onAppear/onChange ที่รันทีหลัง body) ถ้า SwiftUI ประเมิน body รอบแรกไปแล้ว
-    /// เห็น running=false เลยตัดสินใจ pause จะไม่มีอะไรมาปลุกให้ประเมินใหม่อีกเลย (`running` เป็น
-    /// private var ธรรมดา ไม่ publish) — isAvailable เลี่ยงปัญหานี้เพราะเป็นค่าที่ถูกต้องตั้งแต่แรกอยู่แล้ว
+    /// sceneShouldTick)
+    ///
+    /// แก้ไข (fix round 1, Finding 2): คอมเมนต์เดิมตรงนี้อ้างว่าถ้าใช้ `running` แทน จะ "ไม่มีอะไรมาปลุก
+    /// ให้ประเมินใหม่อีกเลย" — ผิด reviewer ชี้ให้ดู start() เอง: `running = true` ถูกตั้งแบบ synchronous
+    /// ที่ต้นฟังก์ชัน ก่อน motion.startDeviceMotionUpdates จะ arm callback async ด้วยซ้ำ พอ sample แรก
+    /// มาถึงจริงแล้ว publish `offset` (ผ่าน @StateObject → objectWillChange) บังคับ body ประเมินใหม่อยู่
+    /// แล้วโดยธรรมชาติ — ตอนนั้น `running` ก็เป็น true ไปแล้วตั้งแต่ก่อนหน้านั้น ถ้าใช้ running จริงๆ ผลคือ
+    /// self-heal ได้ภายในตัวอย่างเดียว (อาจ pause ค้างแค่ไม่กี่เฟรมแรกก่อน sample แรกมาถึง) ไม่ใช่ค้าง
+    /// pause ตลอดไปตามที่เคยเขียนไว้ผิด — isAvailable ยังเป็นตัวเลือกที่ดีกว่าอยู่ดี เพราะ race-free จริง
+    /// ตั้งแต่เฟรมแรกสุด ไม่มี window ที่ผิดแม้แค่เฟรมเดียว ไม่ต้องรอ sample แรกเหมือน running
     var isAvailable: Bool { motion.isDeviceMotionAvailable }
 
     /// map มุมเอียงเป็นระยะเลื่อน · ล้วนๆ ไม่มี side effect เทสได้
@@ -37,7 +43,15 @@ final class GyroParallax: ObservableObject {
     /// nonisolated ตรงๆ — ทั้ง class เป็น @MainActor แต่ฟังก์ชันนี้ล้วน (ไม่แตะ motion/running/offset
     /// เลย) เทสเรียกแบบ sync ไม่มี await ตามที่บรีฟกำหนด ถ้าไม่ประกาศ nonisolated จะ compile ไม่ผ่าน
     /// ("main actor-isolated static method ... in a synchronous nonisolated context" — เจอจริงตอน
-    /// รันเทสรอบแรก) เหมือน pattern ที่ ChatSession.cacheKey(for:) ใช้อยู่แล้ว 2 ที่ในโปรเจกต์นี้
+    /// รันเทสรอบแรก) เหมือน pattern ที่ `CheckinProgressStore.cacheKey(for:)` ใช้อยู่แล้ว (@MainActor
+    /// class + nonisolated static func ล้วนๆ รูปแบบเดียวกันเป๊ะ)
+    ///
+    /// แก้ไข (fix round 1, Finding 3): บรรทัดนี้เคยเขียนผิดว่าเป็น `ChatSession.cacheKey(for:)` —
+    /// เมธอดนั้นไม่มีอยู่จริง cacheKey(for:) อยู่ที่ CheckinProgressStore ต่างหาก (ดู progress.md
+    /// รายการของ Task 3) ส่วน `ChatSession.swift` เองก็มี nonisolated static func ของตัวเองอีก 4 ตัว —
+    /// unreadCount(messages:myLastReadId:myId:), readCount(for:cursors:), survivesCutoff(_:sinceId:),
+    /// sorted(_:) — precedent คนละจุดกัน แต่รูปแบบเดียวกัน ยิ่งยืนยันว่า nonisolated บน pure static func
+    /// ของ type ที่เป็น @MainActor เป็นแพตเทิร์นที่มีอยู่แล้วในโปรเจกต์นี้ ไม่ใช่ deviation ใหม่
     nonisolated static func mapAttitude(roll: Double, pitch: Double) -> SIMD2<Float> {
         // tanh ให้เอียงน้อยๆ ตอบไว เอียงมากอิ่มตัว ไม่กระชากตอนพลิกเครื่อง
         let x = Float(tanh(roll * 1.6)) * maxOffsetX

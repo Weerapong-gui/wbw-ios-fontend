@@ -12,6 +12,9 @@ import simd
 struct ForestSceneView: View {
     @EnvironmentObject var host: ForestSceneHost
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // fix round 1, Finding 1 — ก่อนหน้านี้ไม่มีที่ไหนอ่าน scenePhase เลยทั้งที่ GyroParallax.stop()'s
+    // เองอ้างว่าคุม "แอปลงหลัง" ด้วย (ดูคอมเมนต์ที่ .onChange(of: scenePhase) ด้านล่าง)
+    @Environment(\.scenePhase) private var scenePhase
     // นาฬิกาเฟรม + ต้นไม้ — ดูคอมเมนต์ที่ ForestSceneRuntime ว่าทำไมต้องเป็น class ถือด้วย
     // @StateObject แทนที่จะเป็น @State ของ Float/GrowingTree? ตรงๆ
     @StateObject private var runtime = ForestSceneRuntime()
@@ -96,11 +99,12 @@ struct ForestSceneView: View {
                 // เลื่อนกล้องตามไจโร (Task 7) "ก่อน" apply แสง/หมอก — set position + look(at:) ของ
                 // entity เดียว เบามากเทียบกับ applySun/applyFog ด้านล่าง (586 material) จึงไม่ผ่าน
                 // dirty-check guard ของ applySun เลย ปล่อยรันได้ทุกเฟรมตรงๆ อย่างปลอดภัย (ดูคอมเมนต์ที่
-                // applySun) reduceMotion บังคับ offset เป็น 0 ซ้ำอีกชั้นตรงนี้ (เผื่อ gyro ยังไม่ทัน stop()
-                // ตาม) — ไม่ได้ผูก .onChange(of: reduceMotion) เพิ่มต่างหาก ตั้งใจพึ่ง mechanism เดียวกับ
-                // ที่ทำให้ plantStep transition ปลุก schedule ที่ pause อยู่ได้ (ดูคอมเมนต์ที่
-                // sceneShouldTick) แต่เส้นทางนี้ไม่ได้ถูกทดสอบจริงในซิม — offset เป็น 0 อยู่แล้วตลอดที่นั่น
-                // (ไม่มี motion hardware) ไม่มีอะไรให้เห็นความต่าง ต้องเครื่องจริงเท่านั้นที่พิสูจน์ได้
+                // applySun) reduceMotion บังคับ offset เป็น 0 ซ้ำอีกชั้นตรงนี้ — ตอนนี้เป็น
+                // belt-and-suspenders แล้ว (fix round 1, Finding 4 ปิด gap เดิมแล้วด้วย .onChange(of:
+                // reduceMotion) ที่ body ด้านล่าง ซึ่งเรียก gyro.stop() ที่ zero offset ในตัวอยู่แล้ว)
+                // แต่ยังเก็บไว้เพราะรับประกันผลถูกเสมอไม่ว่า onChange นั้นจะถูกประมวลผลไปถึงไหนแล้วในเฟรมนี้
+                // ทดสอบเส้นทางนี้ในซิมไม่ได้อยู่ดี — offset เป็น 0 อยู่แล้วตลอดที่นั่น (ไม่มี motion
+                // hardware) ไม่มีอะไรให้เห็นความต่าง ต้องเครื่องจริงเท่านั้นที่พิสูจน์ได้
                 if let camera = root.findEntity(named: "Camera") {
                     let o = reduceMotion ? SIMD2<Float>(0, 0) : gyro.offset
                     let eye = SIMD3<Float>(o.x, 1.7 - o.y, 0)
@@ -145,6 +149,22 @@ struct ForestSceneView: View {
         // สลับแท็บออกแล้วกลับมา) นี่คือสัญญาณเดียวที่เหลือให้ start/stop เซนเซอร์ตามจริงว่าฉากกำลังโชว์
         // อยู่หรือเปล่า
         .onChange(of: host.enabled) { _, on in on && !reduceMotion ? gyro.start() : gyro.stop() }
+        // Reduce Motion เปิด/ปิดกลางเซสชัน (fix round 1, Finding 4 — เดิมเป็น gap ที่เปิดเผยไว้แล้วใน
+        // task-7-report.md ว่ายังไม่ได้ปิด) sceneShouldTick เองพอสำหรับหยุด schedule (มี !reduceMotion
+        // อยู่แล้ว) แต่ไม่ได้แตะเซนเซอร์ตรงๆ — ถ้าไม่มีบรรทัดนี้ gyro จะยังสุ่มตัวอย่างต่อในพื้นหลังจนกว่า
+        // ฉากจะถูกซ่อนครั้งถัดไป (แบตเสียเปล่า ไม่ใช่บั๊กด้าน correctness — offset ไม่ถูกอ่านออกไปโชว์อยู่
+        // แล้วจาก ternary ใน update: ด้านบน) ปิดกลับมาเปิด (on=false) แค่ตอนฉากยัง enabled อยู่เท่านั้น
+        // ไม่งั้นจะ start() เซนเซอร์ทั้งที่ฉากไม่ได้โชว์อยู่
+        .onChange(of: reduceMotion) { _, on in (on || !host.enabled) ? gyro.stop() : gyro.start() }
+        // แอปลงพื้นหลัง (fix round 1, Finding 1) — ผูกตาม pattern เดียวกับที่ MainTabView ใช้กับ
+        // chat.start()/chat.stop(): .inactive (Control Center, สายเรียกเข้า, app switcher) ตั้งใจไม่
+        // หยุด มีแค่ .background เท่านั้นที่ iOS แขวน background task จริง กลับมา .active ต้อง start()
+        // ใหม่เอง เพราะฉากไม่ถูก unmount/remount ระหว่างนี้เลย (ดูคอมเมนต์ที่ RootView) onAppear/
+        // onChange(host.enabled) ข้างบนเลยไม่ refire ให้
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { if host.enabled && !reduceMotion { gyro.start() } }
+            else if phase == .background { gyro.stop() }
+        }
     }
 
     /// true = TimelineView schedule ต้องไม่ pause เฟรมนี้ (ใช้ที่ `paused:` ใน body ด้านบน)
