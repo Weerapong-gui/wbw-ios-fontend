@@ -113,7 +113,9 @@ This task writes no Swift. It ends at a hard gate: the exported file must look r
 **Interfaces:**
 - Consumes: the eight GLBs at `WBW/Resources/models/*.glb` from Environment Step B.
 - Produces:
-  - `forest.usdz` — a scene whose root is a single `Xform` named `Forest`. Objects are grouped into materials named `<sourceMaterial>__band<N>` for `N` in `0…7`, where band 0 is nearest the camera and band 7 is furthest. Task 5 looks materials up by that `__band<N>` suffix.
+  - `forest.usdz` — a scene whose root is a single `Xform` named `Forest`. Objects are grouped into materials named `<sourceMaterial>__band<N>`, where `N` is in `0…7`, band 0 is nearest the camera and band 7 is furthest. Task 5 looks materials up by that `__band<N>` suffix.
+
+    **Not every band will be populated, and that is correct.** Band 2 spans y ∈ [4, 8); at that distance the frustum (fov 55°, a 9∶19.5 screen, ×1.25 gyro margin) is only ±1.2 to ±2.4 units wide, which lies entirely inside the radius-3.2 clearing reserved for the growing tree. There is nowhere left to place anything. Task 5 must therefore iterate the materials that exist and read `N` off each name — never loop `0…7` and assume each is present.
   - `tree.usdz` — one normalised tree, **exactly 1.0 units tall**, base at the origin, centred on X and Y. Task 6 scales it by the stage height directly.
   - A clearing of radius 3.2 centred at `(0, 6)` in Blender XY, so nothing occludes the growing tree.
 
@@ -435,6 +437,8 @@ ls -la WBW/Resources/*.usdz
 ```
 
 Expected: a line `SCATTER STATS: {...}` with non-zero counts for every key, a `MATERIAL BANDS:` count between 8 and 60, `USD export kwargs:` listing at least `export_materials` and `filepath`, and `BAKE OK`. Both `.usdz` files exist.
+
+`MATERIAL BANDS` counts `(source material, band)` pairs, not distinct bands — a healthy scene has far more than 8. Do **not** read a distinct-band count off this line, and do not treat a missing band as a failure (see the Interfaces note above).
 
 If any scatter count is `0`, the frustum or clearing test rejected everything — print `half_w` for a few `y` values and widen `x_spread` before continuing.
 
