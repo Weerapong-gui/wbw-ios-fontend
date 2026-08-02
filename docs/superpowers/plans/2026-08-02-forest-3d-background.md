@@ -1986,6 +1986,43 @@ git commit -m "feat(scene): scrim + เกรน + เครดิตโมเ�
 
 ---
 
+## Task 8b: Give the scene a sky, and re-bake for depth
+
+Added after Task 8, from reading a rendered screenshot rather than a diff. Every review up to this point was scoped to its own task's diff, so nobody was looking at the whole picture.
+
+**Files:**
+- Modify: `WBW/Scene3D/ForestSceneView.swift`
+- Modify: `scripts/bake-forest.py`
+- Regenerate: `WBW/Resources/forest.usdz`
+
+**Interfaces:** unchanged. This task alters appearance only.
+
+- [ ] **Step 1: The sky is solid black — give it the colour the day cycle already computes**
+
+`SunCycle.state(at:)` returns `skyColor` and `fog` for every keyframe, ported field-for-field from the website. Nothing consumes them for the background. The `RealityView` has no environment or skybox, so the sky renders black at every time of day.
+
+This is not cosmetic. The agreed gimmick is that Home's time of day advances from dawn to golden afternoon as bases are checked in — and the sky is the largest surface that was supposed to carry that. With a black sky the entire day cycle is invisible.
+
+Set the scene's background from the sun state each time `applySun` runs — it is already day-guarded, so this costs nothing per frame. Blend `skyColor` toward `fog` near the horizon if a flat fill reads poorly; a flat fill is acceptable if it looks right.
+
+- [ ] **Step 2: Re-bake with the near layer pushed back**
+
+The near tree layer starts at `y = 3.0`, which puts trunks and canopy in the camera's face and flattens the image — there is no trail, no middle distance, no depth. The website's equivalent view reads as standing on a path looking into a forest.
+
+Push the near layer's start out to roughly 8–10 units and thin it, keeping the far layer where it is. Preserve everything the later tasks depend on: the radius-3.2 clearing at `(0, 6)`, the `Forest` root prim name, the `__band<N>` material suffixes, the 25% gyro margin, and the under-25 MB budget.
+
+The growing tree sits at 6 units, so pushing the forest back to 8+ also stops the tree from being lost among trunks at its middle stages — a problem Task 6 recorded and could not fix from Swift.
+
+- [ ] **Step 3: Verify both together, on a screenshot**
+
+Judge the composition against a lit sky, not a black one — with the sky fixed, the depth may read better or worse than it does now. Screenshot Home, read it, and confirm: a coloured sky, visible middle distance, and the credit line still legible.
+
+- [ ] **Step 4: Check the day cycle is now visible**
+
+Render at two times of day far apart (dawn 0.14 and afternoon 0.78) and confirm the sky genuinely differs. If it does not, the day cycle is still not wired to anything the user can see, and the task is not done.
+
+---
+
 ## Task 9: Wire all five screens, remove DinDin, gate the render loop
 
 **Files:**
