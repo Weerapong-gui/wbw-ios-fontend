@@ -18,9 +18,17 @@ struct ForestSceneView: View {
 
     var body: some View {
         // TimelineView ใช้เป็นแหล่งเวลาต่อเฟรมเท่านั้น (ให้ RealityView update: ถูกเรียกรัวๆ ตอนฉาก
-        // โชว์อยู่) ไม่ได้ถือ state ของฉากเอง — pause ตาม host.enabled กัน tick เปล่าประโยชน์ตอนฉาก
-        // ซ่อนอยู่หลังแท็บอื่น (ดูคอมเมนต์ guard host.enabled ใน update ด้านล่างด้วย)
-        TimelineView(.animation(paused: !host.enabled)) { timeline in
+        // โชว์อยู่) ไม่ได้ถือ state ของฉากเอง — pause ทันทีที่ไม่มีอะไรต้องขยับต่อเฟรมเลย ไม่ใช่แค่ตอน
+        // host.enabled=false: ไม่มีต้นไม้ (plantStep == nil, สถานะจริงของ Home วันนี้ก่อน Task 9 ผูก
+        // ค่า และของทุกจอที่เหลือตลอดกาล) หรือ Reduce Motion เปิด (ต้นไม้ snap ไปที่เป้าหมายทันที ไม่มี
+        // อะไรค่อยๆ ขยับให้ต้อง tick ต่อ) ก็ pause เหมือนกัน — วัดจริงแล้วต้นทุน CPU ต่างจาก pre-task-6
+        // ชัดเจนตอนไม่มีอะไรขยับเลย (19/19 sample จาก `top` สูงกว่า, ~45% vs ~40%) เพราะ TimelineView
+        // ทำให้ SwiftUI invalidate + RealityKit composite ทุกเฟรมทั้งที่ไม่จำเป็น (ดู fix-round-1 ใน
+        // task-6-report.md) การเปลี่ยน plantStep เอง (nil ↔ มีค่า) ไม่ต้องพึ่ง schedule นี้ตื่นเลย —
+        // @EnvironmentObject ส่ง objectWillChange ทำให้ update: ถูกเรียกอย่างน้อยหนึ่งครั้งเสมอไม่ว่า
+        // schedule จะ pause อยู่หรือไม่ (ยืนยันด้วย log จริงใน fix-round-1) ครั้งเดียวนั้นพอสำหรับ Reduce
+        // Motion ด้วย เพราะ setStage+tick ครั้งแรกที่ต้นไม้ถูกสร้าง snap ไปเป้าหมายเลยในเฟรมเดียว
+        TimelineView(.animation(paused: !(host.enabled && host.plantStep != nil && !reduceMotion))) { timeline in
             RealityView { content in
                 ForestOriginalTint.registerComponent()
                 ForestLastAppliedDay.registerComponent()
@@ -89,7 +97,15 @@ struct ForestSceneView: View {
                 // คอมเมนต์ที่ ForestSceneHost.plantStep)
                 let dt = runtime.tick(now: timeline.date.timeIntervalSinceReferenceDate)
                 if let step = host.plantStep {
-                    if runtime.tree == nil { runtime.tree = GrowingTree(target: root) }
+                    // ลองโหลดแค่ครั้งเดียว — เหมือน host.markLoadFailed() ของ forest 25 บรรทัดข้างบน
+                    // ไม่งั้นถ้า Entity.load(named: "tree") พังจริง (เจอมาแล้วรอบ verify: stale
+                    // DerivedData ทำ forest resourceNotFound) init? คืน nil, runtime.tree ยังเป็น nil
+                    // ต่อไป แล้วบรรทัดนี้จะพยายามโหลดใหม่ทุกเฟรมตราบใดที่ plantStep ยังมีค่า — โหลดแบบ
+                    // synchronous บล็อก main thread ด้วย ไม่ใช่แค่เปลืองเปล่าๆ
+                    if runtime.tree == nil && !runtime.treeLoadFailed {
+                        runtime.tree = GrowingTree(target: root)
+                        if runtime.tree == nil { runtime.treeLoadFailed = true }
+                    }
                     let total = max(host.plantTotal, 1)
                     runtime.tree?.setStage(step, total: total)
                     runtime.tree?.tick(deltaTime: dt, elapsed: runtime.elapsed, reduceMotion: reduceMotion)
@@ -108,11 +124,13 @@ struct ForestSceneView: View {
     /// dirty-check: ข้ามทั้งฟังก์ชัน (รวม applyFog ที่เรียกต่อท้าย) ถ้า day เท่าเดิมกับที่ apply ไปแล้ว
     /// จำไว้ที่ root entity ผ่าน ForestLastAppliedDay ไม่ใช่ @State ของ View (เหตุผลเดียวกับ
     /// ForestOriginalTint — @State อาจถูกสร้างใหม่ได้ แต่ entity อยู่คงที่ตราบใดที่ฉากยังไม่ถูกทำลาย)
-    /// จำเป็นเพราะ update ถูกเรียกทุกครั้งที่ SwiftUI re-render ไม่ใช่แค่ตอน day เปลี่ยนจริง — ถ้าไม่กัน
-    /// ตรงนี้ Task 7 (gyro ~60Hz ผูกเข้ากับ host) จะไล่ applyFog ทั้งฉาก (1148 node, 586 material,
-    /// UIColor allocation ทุกตัว) ทุกเฟรมทั้งที่แสง/หมอกไม่ได้เปลี่ยนเลย — เทียบ Float ตรงๆ ไม่ใช้ epsilon
-    /// เพราะ day มาจากค่าที่ตั้งไม่ต่อเนื่อง (ForestMath.day/.dayStill ฯลฯ) ไม่ใช่ค่า integrate ทีละเฟรม
-    /// การขยับกล้อง (Task 7) ไม่เกี่ยวกับ guard นี้ — นั่นถูกทุกเฟรมได้เพราะเบากว่ากันมาก
+    /// จำเป็นเพราะ update ถูกเรียกทุกครั้งที่ SwiftUI re-render ไม่ใช่แค่ตอน day เปลี่ยนจริง — ตั้งแต่
+    /// Task 6 แล้ว (TimelineView ขับ update ต่อเนื่อง ~60Hz จริงทุกครั้งที่มีต้นไม้กำลังโต/ไหวลม) ถ้าไม่กัน
+    /// ตรงนี้ จะไล่ applyFog ทั้งฉาก (1148 node, 586 material, UIColor allocation ทุกตัว) ทุกเฟรมทั้งที่
+    /// แสง/หมอกไม่ได้เปลี่ยนเลย — Task 7 (gyro ผูกเข้ากับ host ที่ ~60Hz เหมือนกัน) จะพึ่ง guard นี้ต่อ —
+    /// เทียบ Float ตรงๆ ไม่ใช้ epsilon เพราะ day มาจากค่าที่ตั้งไม่ต่อเนื่อง (ForestMath.day/.dayStill
+    /// ฯลฯ) ไม่ใช่ค่า integrate ทีละเฟรม การขยับกล้อง (Task 7) ไม่เกี่ยวกับ guard นี้ — นั่นถูกทุกเฟรมได้
+    /// เพราะเบากว่ากันมาก
     private func applySun(to root: Entity, day: Float) {
         if let last = root.components[ForestLastAppliedDay.self], last.day == day { return }
         root.components.set(ForestLastAppliedDay(day: day))
@@ -251,10 +269,16 @@ private final class ForestSceneRuntime: ObservableObject {
     var elapsed: Float = 0
     /// nil = ยังไม่มีต้นไม้ในฉาก (ตรงกับ host.plantStep == nil) — ดู logic สร้าง/ลบที่ body ด้านบน
     var tree: GrowingTree?
+    /// true = เคยลองสร้าง GrowingTree แล้วโหลดพัง (tree == nil หลัง init?) — เลิกลองอีกตลอดอายุ scene
+    /// นี้ (เหมือน host.loadFailed ของ forest) กันไม่ให้ retry ทุกเฟรมตราบใดที่ plantStep ยังมีค่า
+    var treeLoadFailed = false
 
     /// คืน deltaTime (วินาที) ของเฟรมนี้ พร้อมสะสม elapsed ไว้ให้ต้นไม้ไหวตามลม
+    ///
+    /// กัน dt ติดลบด้วย (ไม่ใช่แค่เพดานบน 0.05) เผื่อ timeline.date ไม่ monotonic — ติดลบแล้วต้นไม้จะ
+    /// หดวูบหนึ่งเฟรมทันที (height += (target-height)*dt*1.7 ติดลบเมื่อ target > height)
     func tick(now: TimeInterval) -> Float {
-        let dt = lastTick == 0 ? 1.0 / 60 : min(0.05, now - lastTick)
+        let dt = lastTick == 0 ? 1.0 / 60 : max(0, min(0.05, now - lastTick))
         lastTick = now
         elapsed += Float(dt)
         return Float(dt)
