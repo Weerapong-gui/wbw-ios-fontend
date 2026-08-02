@@ -15,20 +15,25 @@ struct ForestSceneView: View {
     // นาฬิกาเฟรม + ต้นไม้ — ดูคอมเมนต์ที่ ForestSceneRuntime ว่าทำไมต้องเป็น class ถือด้วย
     // @StateObject แทนที่จะเป็น @State ของ Float/GrowingTree? ตรงๆ
     @StateObject private var runtime = ForestSceneRuntime()
+    // ไจโรพารัลแลกซ์ (Task 7) — ดูคอมเมนต์ที่ GyroParallax.swift หน้าที่เดียวกับ pointer parallax
+    // ของเว็บใน CameraRig · เก็บเป็น @StateObject แยกจาก host ตั้งใจ ไม่ใช่ property ของ
+    // ForestSceneHost — host คือ "คำสั่งจากหน้าปัจจุบัน" (day/plantStep/...) ส่วน gyro คือ state
+    // ภายในของฉากเองที่ไม่มีหน้าไหนต้องรู้จัก ไม่มีเหตุผลต้องผ่าน EnvironmentObject
+    @StateObject private var gyro = GyroParallax()
 
     var body: some View {
         // TimelineView ใช้เป็นแหล่งเวลาต่อเฟรมเท่านั้น (ให้ RealityView update: ถูกเรียกรัวๆ ตอนฉาก
-        // โชว์อยู่) ไม่ได้ถือ state ของฉากเอง — pause ทันทีที่ไม่มีอะไรต้องขยับต่อเฟรมเลย ไม่ใช่แค่ตอน
-        // host.enabled=false: ไม่มีต้นไม้ (plantStep == nil, สถานะจริงของ Home วันนี้ก่อน Task 9 ผูก
-        // ค่า และของทุกจอที่เหลือตลอดกาล) หรือ Reduce Motion เปิด (ต้นไม้ snap ไปที่เป้าหมายทันที ไม่มี
-        // อะไรค่อยๆ ขยับให้ต้อง tick ต่อ) ก็ pause เหมือนกัน — วัดจริงแล้วต้นทุน CPU ต่างจาก pre-task-6
-        // ชัดเจนตอนไม่มีอะไรขยับเลย (19/19 sample จาก `top` สูงกว่า, ~45% vs ~40%) เพราะ TimelineView
-        // ทำให้ SwiftUI invalidate + RealityKit composite ทุกเฟรมทั้งที่ไม่จำเป็น (ดู fix-round-1 ใน
-        // task-6-report.md) การเปลี่ยน plantStep เอง (nil ↔ มีค่า) ไม่ต้องพึ่ง schedule นี้ตื่นเลย —
-        // @EnvironmentObject ส่ง objectWillChange ทำให้ update: ถูกเรียกอย่างน้อยหนึ่งครั้งเสมอไม่ว่า
-        // schedule จะ pause อยู่หรือไม่ (ยืนยันด้วย log จริงใน fix-round-1) ครั้งเดียวนั้นพอสำหรับ Reduce
-        // Motion ด้วย เพราะ setStage+tick ครั้งแรกที่ต้นไม้ถูกสร้าง snap ไปเป้าหมายเลยในเฟรมเดียว
-        TimelineView(.animation(paused: !(host.enabled && host.plantStep != nil && !reduceMotion))) { timeline in
+        // โชว์อยู่) ไม่ได้ถือ state ของฉากเอง — pause ทันทีที่ไม่มีอะไรต้องขยับต่อเฟรมเลย เงื่อนไข pause
+        // อยู่ที่ sceneShouldTick ด้านล่าง (ย้ายออกมาจาก inline ตอน Task 7 เพิ่มเงื่อนไขที่สอง — อ่านที่นั่น
+        // สำหรับเหตุผลเต็มๆ ว่าทำไมต้องมีสองเงื่อนไข) วัดจริงตั้งแต่ Task 6 แล้วว่าต้นทุน CPU ต่างจาก
+        // pre-task-6 ชัดเจนตอนไม่มีอะไรขยับเลย (19/19 sample จาก `top` สูงกว่า, ~45% vs ~40%) เพราะ
+        // TimelineView ที่ไม่ pause ทำให้ SwiftUI invalidate + RealityKit composite ทุกเฟรมทั้งที่ไม่
+        // จำเป็น (ดู fix-round-1 ใน task-6-report.md) การเปลี่ยน plantStep เอง (nil ↔ มีค่า) ไม่ต้องพึ่ง
+        // schedule นี้ตื่นเลย — @EnvironmentObject ส่ง objectWillChange ทำให้ update: ถูกเรียกอย่างน้อย
+        // หนึ่งครั้งเสมอไม่ว่า schedule จะ pause อยู่หรือไม่ (ยืนยันด้วย log จริงใน fix-round-1) ครั้งเดียว
+        // นั้นพอสำหรับ Reduce Motion ด้วย เพราะ setStage+tick ครั้งแรกที่ต้นไม้ถูกสร้าง snap ไปเป้าหมายเลย
+        // ในเฟรมเดียว
+        TimelineView(.animation(paused: !sceneShouldTick)) { timeline in
             RealityView { content in
                 ForestOriginalTint.registerComponent()
                 ForestLastAppliedDay.registerComponent()
@@ -85,8 +90,24 @@ struct ForestSceneView: View {
             } update: { content in
                 // ฉากอยู่คงที่ตลอดอายุแอปแล้ว (ดูคอมเมนต์ที่ RootView) แม้ตอนซ่อน (enabled=false, opacity 0)
                 // update closure นี้ก็ยังถูกเรียกได้ทุกครั้งที่ SwiftUI re-render ต้นไม้ที่ฉากอยู่ใต้ — ข้าม
-                // งานทั้งหมดตอนซ่อนไปเลย ไม่ใช่แค่ไม่โชว์ผล (สำคัญตอน Task 7 ผูก gyro เข้ากับ host ที่ ~60Hz)
+                // งานทั้งหมดตอนซ่อนไปเลย ไม่ใช่แค่ไม่โชว์ผล (สำคัญตอน Task 7 ที่ gyro tick ต่อเนื่อง ~60Hz)
                 guard host.enabled, let root = content.entities.first else { return }
+
+                // เลื่อนกล้องตามไจโร (Task 7) "ก่อน" apply แสง/หมอก — set position + look(at:) ของ
+                // entity เดียว เบามากเทียบกับ applySun/applyFog ด้านล่าง (586 material) จึงไม่ผ่าน
+                // dirty-check guard ของ applySun เลย ปล่อยรันได้ทุกเฟรมตรงๆ อย่างปลอดภัย (ดูคอมเมนต์ที่
+                // applySun) reduceMotion บังคับ offset เป็น 0 ซ้ำอีกชั้นตรงนี้ (เผื่อ gyro ยังไม่ทัน stop()
+                // ตาม) — ไม่ได้ผูก .onChange(of: reduceMotion) เพิ่มต่างหาก ตั้งใจพึ่ง mechanism เดียวกับ
+                // ที่ทำให้ plantStep transition ปลุก schedule ที่ pause อยู่ได้ (ดูคอมเมนต์ที่
+                // sceneShouldTick) แต่เส้นทางนี้ไม่ได้ถูกทดสอบจริงในซิม — offset เป็น 0 อยู่แล้วตลอดที่นั่น
+                // (ไม่มี motion hardware) ไม่มีอะไรให้เห็นความต่าง ต้องเครื่องจริงเท่านั้นที่พิสูจน์ได้
+                if let camera = root.findEntity(named: "Camera") {
+                    let o = reduceMotion ? SIMD2<Float>(0, 0) : gyro.offset
+                    let eye = SIMD3<Float>(o.x, 1.7 - o.y, 0)
+                    camera.position = eye
+                    camera.look(at: SIMD3<Float>(0, 1.4, -16), from: eye, relativeTo: nil)
+                }
+
                 applySun(to: root, day: host.day)
 
                 // ต้นไม้ผู้เข้าร่วม — สร้างแบบ lazy ตอน plantStep เปลี่ยนจาก nil เป็นมีค่าครั้งแรกเท่านั้น
@@ -117,6 +138,40 @@ struct ForestSceneView: View {
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)   // พื้นหลังล้วน ห้ามกินทัชของ UI ข้างหน้า
+        .onAppear { if !reduceMotion { gyro.start() } }
+        .onDisappear { gyro.stop() }
+        // host.enabled สลับ false→true ทุกครั้งที่กลับมาที่หน้าที่ใช้ฉากนี้ (ฉากเองไม่ถูก unmount/remount
+        // อีกแล้วตั้งแต่ Task 5 — ดูคอมเมนต์ที่ RootView — onAppear/onDisappear ข้างบนเลยไม่ refire ตอน
+        // สลับแท็บออกแล้วกลับมา) นี่คือสัญญาณเดียวที่เหลือให้ start/stop เซนเซอร์ตามจริงว่าฉากกำลังโชว์
+        // อยู่หรือเปล่า
+        .onChange(of: host.enabled) { _, on in on && !reduceMotion ? gyro.start() : gyro.stop() }
+    }
+
+    /// true = TimelineView schedule ต้องไม่ pause เฟรมนี้ (ใช้ที่ `paused:` ใน body ด้านบน)
+    ///
+    /// เงื่อนไขเดิมของ Task 6: `host.enabled && plantStep != nil && !reduceMotion` (มีต้นไม้กำลังโต/
+    /// ไหวลมอยู่) Task 7 (ไจโรพารัลแลกซ์) เพิ่มเงื่อนไข OR ตัวที่สอง: `gyro.isAvailable` — เพราะกล้อง
+    /// ต้องขยับตามการเอียงเครื่องทุกเฟรม "ไม่ว่าจะมีต้นไม้ในฉากหรือไม่" ซึ่งคือ Home ก่อน Task 9 ผูกค่า
+    /// จริง และทุกจอที่เหลือที่จะใช้ฉากนี้ในอนาคต (ตอนนี้มีแค่ Home ที่เรียก .forestBackground)
+    ///
+    /// ต้องประกาศเงื่อนไขนี้ตรงๆ แทนที่จะพึ่งกลไก "@Published ปลุก schedule ที่ pause อยู่" ตัวเดียวกับที่
+    /// plantStep ใช้ (คอมเมนต์ที่ TimelineView ด้านบน) เพราะกล้อง (Task 7) อ่าน `gyro.offset` อยู่ "ใน
+    /// update: closure" เท่านั้น ไม่ได้อ่านตรงๆ ใน body เหมือนที่ `paused:` อ่าน `host.plantStep` — ไม่มี
+    /// อะไรยืนยันว่าการ publish ของ gyro.offset ที่ ~60Hz จะปลุก schedule ที่ pause อยู่ได้ต่อเนื่องแบบ
+    /// เดียวกับการปลุกครั้งเดียวตอน plantStep เปลี่ยนสถานะ (nil ↔ มีค่า) ที่ยืนยันแล้วจริงใน fix-round-1
+    /// ของ task-6-report.md — วิธีที่รับประกันได้แน่นอนคือ unpause schedule ไปเลยตรงๆ ตอนกล้องต้องขยับ
+    /// ไม่พึ่งกลไกที่ไม่เคยวัด/ไม่เคยพิสูจน์ว่าทำงานถี่ขนาดนั้นได้จริง
+    ///
+    /// ใช้ `gyro.isAvailable` (เช็ค CMMotionManager.isDeviceMotionAvailable เฉยๆ) ไม่ใช่ gyro กำลัง
+    /// running อยู่จริงหรือเปล่า — isAvailable เป็นข้อเท็จจริงของฮาร์ดแวร์ รู้ได้ตั้งแต่เฟรมแรกของ body
+    /// โดยไม่ต้องรอ onAppear เรียก start() ก่อน (ดูเหตุผลเต็มๆ ที่ GyroParallax.isAvailable)
+    ///
+    /// ยังคง pause จริงตอน: Reduce Motion เปิด, ฉากถูกซ่อน (host.enabled false), หรือไม่มีต้นไม้ +
+    /// เครื่องไม่มี motion hardware (เช่นในซิมูเลเตอร์ — isAvailable เป็น false เสมอที่นั่น เงื่อนไขนี้
+    /// จึงพฤติกรรมเหมือนของเดิมของ Task 6 ทุกประการในซิม กิ่ง gyro ไม่ถูกใช้งานเลย ตรงกับที่ parallax
+    /// เทสจริงในซิมไม่ได้ — ต้องเครื่องจริงเท่านั้น)
+    private var sceneShouldTick: Bool {
+        host.enabled && !reduceMotion && (host.plantStep != nil || gyro.isAvailable)
     }
 
     /// ตั้งสี/ทิศ/ความแรงของแสง + สีหมอกของทั้ง 8 แถบ ตามเวลาของวัน
@@ -127,7 +182,8 @@ struct ForestSceneView: View {
     /// จำเป็นเพราะ update ถูกเรียกทุกครั้งที่ SwiftUI re-render ไม่ใช่แค่ตอน day เปลี่ยนจริง — ตั้งแต่
     /// Task 6 แล้ว (TimelineView ขับ update ต่อเนื่อง ~60Hz จริงทุกครั้งที่มีต้นไม้กำลังโต/ไหวลม) ถ้าไม่กัน
     /// ตรงนี้ จะไล่ applyFog ทั้งฉาก (1148 node, 586 material, UIColor allocation ทุกตัว) ทุกเฟรมทั้งที่
-    /// แสง/หมอกไม่ได้เปลี่ยนเลย — Task 7 (gyro ผูกเข้ากับ host ที่ ~60Hz เหมือนกัน) จะพึ่ง guard นี้ต่อ —
+    /// แสง/หมอกไม่ได้เปลี่ยนเลย — Task 7 (gyro เป็น ObservableObject แยกที่ publish offset ที่ ~60Hz
+    /// คล้ายกัน — ดูคอมเมนต์ที่ sceneShouldTick) จะพึ่ง guard นี้ต่อ —
     /// เทียบ Float ตรงๆ ไม่ใช้ epsilon เพราะ day มาจากค่าที่ตั้งไม่ต่อเนื่อง (ForestMath.day/.dayStill
     /// ฯลฯ) ไม่ใช่ค่า integrate ทีละเฟรม การขยับกล้อง (Task 7) ไม่เกี่ยวกับ guard นี้ — นั่นถูกทุกเฟรมได้
     /// เพราะเบากว่ากันมาก
