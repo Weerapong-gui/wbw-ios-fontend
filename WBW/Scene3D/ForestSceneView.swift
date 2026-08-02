@@ -14,6 +14,8 @@ struct ForestSceneView: View {
 
     var body: some View {
         RealityView { content in
+            ForestOriginalTint.registerComponent()
+
             let root = Entity()
             content.add(root)
 
@@ -92,6 +94,16 @@ struct ForestSceneView: View {
     }
 
     /// ผสมสีวัสดุเข้าหาสีหมอกตามแถบระยะ — แถบไกลผสมมาก แถบใกล้แทบไม่ผสม
+    ///
+    /// บั๊กที่เจอระหว่าง diagnosis (ไม่ได้อยู่ในบรีฟ): ของเดิม `mix(.white, fog, amount)` ผสมจาก
+    /// ขาวล้วนเสมอ ไม่ใช่จากสีต้นฉบับของวัสดุ — ใช้ได้กับวัสดุที่มี texture (ต้นไม้ ผูกกับ tree_texture.png
+    /// เห็นสีจากรูปอยู่แล้ว tint ขาว = ไม่คูณเปลี่ยนอะไร) แต่วัสดุที่ไม่มี texture (หญ้า/หิน ใช้ diffuseColor
+    /// เดียวล้วน เช่น mat9__band3 เขียว (0.27,0.55,0.07), Stone__band3 เทาอมน้ำตาล) เก็บสีอยู่ใน .tint
+    /// ตรงๆ พอ amount≈0 (แถบใกล้กล้อง แถบ 0-4 ส่วนใหญ่ที่ dayStill) tint ถูกเขียนทับเป็นขาวเกือบสนิท
+    /// ลบสีเดิมทิ้งทันที — เห็นจริงใน screenshot: หญ้าหน้าจอ (ควรเขียวตาม task-1-report) กลายเป็นขาวล้วน
+    /// แก้โดยจำ tint ต้นฉบับไว้ที่ entity (ครั้งแรกที่เจอ ก่อนโดนแก้) แล้วผสมจากอันนั้นเสมอ — ไม่ใช้ @State
+    /// ของ View เพราะ update closure ถูกเรียกซ้ำได้ทุกครั้งที่ SwiftUI re-render ไม่ใช่แค่ตอน day เปลี่ยน
+    /// ถ้าจำผิดที่ (เช่นอ่านจาก tint ปัจจุบันที่โดนผสมไปแล้วรอบก่อน) จะทบเข้าใกล้สีหมอกขึ้นเรื่อยๆ ทุกรอบ
     private func applyFog(to entity: Entity, fog: SIMD3<Float>, density: Float) {
         #if DEBUG
         // ตัวนับชั่วคราวสำหรับ diagnosis ครั้งแรก — ลบได้เมื่อยืนยันแล้วว่า pbr.name อ่าน band ได้จริง
@@ -105,6 +117,15 @@ struct ForestSceneView: View {
             #if DEBUG
             dbgModels += 1
             #endif
+
+            let original: [UIColor]
+            if let cached = node.components[ForestOriginalTint.self] {
+                original = cached.tints
+            } else {
+                original = model.materials.map { ($0 as? PhysicallyBasedMaterial)?.baseColor.tint ?? .white }
+                node.components.set(ForestOriginalTint(tints: original))
+            }
+
             var changed = false
             for i in model.materials.indices {
                 #if DEBUG
@@ -118,7 +139,7 @@ struct ForestSceneView: View {
                 // ระยะกลางของแถบ (แบ่งแบบ log ตอน bake) → ปริมาณหมอกแบบ exp2 เหมือน three.js
                 let distance = powf(260, (Float(band) + 0.5) / 8)
                 let amount = 1 - expf(-powf(density * distance, 2))
-                pbr.baseColor.tint = mix(.white, uiColor(fog), amount)
+                pbr.baseColor.tint = mix(original[i], uiColor(fog), amount)
                 model.materials[i] = pbr
                 changed = true
             }
@@ -157,4 +178,9 @@ extension Entity {
         body(self)
         for child in children { child.forEachDescendant(body) }
     }
+}
+
+/// จำสี tint ต้นฉบับของวัสดุแต่ละชิ้นไว้ ณ ครั้งแรกที่เจอ (ดูเหตุผลที่ applyFog ใน ForestSceneView.swift)
+private struct ForestOriginalTint: Component {
+    var tints: [UIColor]
 }
