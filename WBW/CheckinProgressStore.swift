@@ -48,4 +48,10 @@ final class CheckinProgressStore: ObservableObject {
     func clear() {
         progress = nil
     }
+
+    /// หาฐานหนึ่งจาก progress ที่มีอยู่ — หน้า feedback ใช้อ่านชื่อฐาน/กิจกรรม
+    /// และคำตอบเดิม (ถ้าเคยตอบแล้ว) โดยไม่ต้องยิงเน็ตซ้ำ
+    func item(checkpointId: Int) -> CheckinProgressItem? {
+        progress?.checkedIn.first { $0.checkpointId == checkpointId }
+    }
 }

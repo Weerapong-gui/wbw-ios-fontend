@@ -228,8 +228,13 @@ enum AppError: LocalizedError {
 struct CheckinProgressItem: Codable, Equatable {
     let checkpointId: Int
     let name: String
+    let activityName: String?
     let sequence: Int?
     let at: String
+    /// ตอบความเห็นฐานนี้แล้วหรือยัง — backend คำนวณจาก LEFT JOIN ไม่ได้เก็บสถานะไว้
+    let answered: Bool
+    let rating: Int?
+    let comment: String?
 }
 
 /// ความคืบหน้าเช็คอินของตัวเอง
@@ -241,4 +246,9 @@ struct CheckinProgress: Codable, Equatable {
 
     /// ขั้นของต้นไม้ = จำนวนฐานที่เช็คอินแล้ว
     var stage: Int { checkedIn.count }
+
+    /// ฐานที่เช็คอินแล้วแต่ยังไม่ได้ให้ความเห็น · ใหม่สุดก่อน (toast เด้งของฐานล่าสุด)
+    var pending: [CheckinProgressItem] {
+        checkedIn.filter { !$0.answered }.sorted { $0.at > $1.at }
+    }
 }
