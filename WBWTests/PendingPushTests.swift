@@ -17,14 +17,14 @@ final class PendingPushTests: XCTestCase {
 
     func testConsumeReturnsHeldValueThenNilOnSecondCall() {
         PendingPush.hold(.openGroupChat)
-        XCTAssertEqual(PendingPush.consume(), .openGroupChat)
+        XCTAssertEqual(PendingPush.consume()?.name, .openGroupChat)
         XCTAssertNil(PendingPush.consume(), "ต้องเป็น one-shot — ดึงซ้ำรอบสองต้องได้ nil ไม่ใช่ค่าเดิมซ้ำ")
     }
 
     func testHoldOverwritesAnyPreviouslyHeldValue() {
         PendingPush.hold(.openNotificationsTab)
         PendingPush.hold(.openGroupChat)   // แตะ push อันใหม่ก่อนอันเก่าจะถูก consume
-        XCTAssertEqual(PendingPush.consume(), .openGroupChat, "ค่าล่าสุดต้องชนะ ไม่ใช่คิวสะสมหลายอัน")
+        XCTAssertEqual(PendingPush.consume()?.name, .openGroupChat, "ค่าล่าสุดต้องชนะ ไม่ใช่คิวสะสมหลายอัน")
     }
 
     /// clear() คือส่วนที่ปิดช่องโหว่ warm-app: MainTabView.onReceive รับสดแล้วต้องล้างของที่ hold() พักไว้
@@ -33,5 +33,34 @@ final class PendingPushTests: XCTestCase {
         PendingPush.hold(.openGroupChat)
         PendingPush.clear()
         XCTAssertNil(PendingPush.consume(), "clear() ต้องล้างของที่ hold() พักไว้ ไม่ให้ mount ถัดไปดึงไปเล่นซ้ำ")
+    }
+
+    func testHoldCarriesUserInfo() {
+        PendingPush.clear()
+        PendingPush.hold(.openCheckinFeedback, info: ["checkpoint_id": "7"])
+        let taken = PendingPush.consume()
+        XCTAssertEqual(taken?.name, .openCheckinFeedback)
+        XCTAssertEqual(taken?.info?["checkpoint_id"] as? String, "7")
+    }
+
+    func testConsumeStillClearsInOneStep() {
+        PendingPush.clear()
+        PendingPush.hold(.openCheckinFeedback, info: ["checkpoint_id": "3"])
+        _ = PendingPush.consume()
+        XCTAssertNil(PendingPush.consume(), "consume ต้องอ่านแล้วเคลียร์ในตาเดียวเหมือนเดิม")
+    }
+
+    func testHoldWithoutInfoStillWorks() {
+        PendingPush.clear()
+        PendingPush.hold(.openGroupChat)
+        let taken = PendingPush.consume()
+        XCTAssertEqual(taken?.name, .openGroupChat)
+        XCTAssertNil(taken?.info)
+    }
+
+    func testClearDiscardsInfoToo() {
+        PendingPush.hold(.openCheckinFeedback, info: ["checkpoint_id": "1"])
+        PendingPush.clear()
+        XCTAssertNil(PendingPush.consume())
     }
 }

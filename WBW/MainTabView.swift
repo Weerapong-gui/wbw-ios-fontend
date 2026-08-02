@@ -50,7 +50,7 @@ struct MainTabView: View {
                 // .onReceive ทัน (มีสแปลชคั่นก่อนถึงจะ mount MainTabView) โพสต์ทิ้งไปเงียบๆ ไม่มีคนรับ ดึงมา
                 // โพสต์ซ้ำตรงนี้ — .onReceive ติดมากับ body ก่อน .task เริ่มเสมอ รับได้แน่นอน
                 if let pending = PendingPush.consume() {
-                    NotificationCenter.default.post(name: pending, object: nil)
+                    NotificationCenter.default.post(name: pending.name, object: nil, userInfo: pending.info)
                 }
                 // โหลดจำนวนที่ยังไม่อ่านไว้โชว์ badge ตั้งแต่เข้าแอป
                 await noti.load(token: session.token ?? "")
