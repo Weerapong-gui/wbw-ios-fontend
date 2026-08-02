@@ -57,6 +57,33 @@ final class ForestSceneHost: ObservableObject {
     /// เสมอ ตามด้วย onDisappear ของจอที่ออก ไม่ใช่กลับกัน) — นี่คือกลไกที่แก้ manifestation #1/#2 ด้านบน
     private var currentClaim = UUID()
 
+    /// true เมื่อโปรเซสนี้ถูก XCTest harness รันอยู่ (unit test host) — project.yml ผูก WBWTests
+    /// (`dependencies: - target: WBW`) ทำให้ WBWTests ไม่ได้รันแยกโปรเซสจากแอป แต่โหลดเข้าไปในโปรเซส
+    /// เดียวกับแอป WBW เอง (แอปคือ "test host") ผลคือทุกครั้งที่รัน `xcodebuild test` แอปทั้งตัว boot
+    /// ขึ้นจริง รวมถึง RootView ที่จะ mount ฉากป่าด้วยถ้าไม่กันตรงนี้ไว้ — ฉากเริ่มโหลด forest.usdz
+    /// แบบ async บน background queue ของ RealityKit (com.apple.realityio.live-scene-update-queue) แต่
+    /// ชุดเทส 79 ตัวเป็น pure unit test ล้วนๆ ไม่แตะ UI เลย จบใน ~0.2 วินาที — เร็วกว่าที่ USDZ จะโหลด
+    /// เสร็จมาก `_XCTestMain` เรียก `exit()` ทันทีที่เทสครบ ทำลาย static ของ libusd_ms (ผ่าน
+    /// `__cxa_finalize_ranges`) พร้อมๆ กับที่ queue หลังบ้านของ RealityKit ยังอ้างถึงมันอยู่ →
+    /// segfault ที่ `realityio::hasInvalidTextures` → `getFileResolvedPath` → `ArResolverContextBinder`
+    /// (dereference 0xa1) ทุกครั้งหลังเทสผ่านหมดแล้ว (`** TEST SUCCEEDED **` ถูกพิมพ์ไปก่อน crash
+    /// จะเกิด ดังนั้น xcodebuild ไม่ fail แต่ทิ้ง WBW-*.ips ใหม่ไว้ใน DiagnosticReports ทุกรอบ)
+    ///
+    /// `XCTestConfigurationFilePath` คือสัญญาณมาตรฐานที่ XCTest harness set ไว้ในสภาพแวดล้อมของ
+    /// โปรเซสตอนรัน unit test เท่านั้น — ไม่มีใน launch ปกติของแอปจริงไม่ว่าจะจาก Xcode run, หน้าจอ
+    /// โฮม, หรือ `xcrun simctl launch` (รวมถึง launch ที่ส่ง -uitestToken/-uitestUser/... สำหรับเทส
+    /// มือ/สกรีนช็อต — พวกนั้นเป็นแค่ UserDefaults argument ธรรมดา ไม่เกี่ยวอะไรกับ XCTest harness เลย
+    /// ดู RootView.init()) เช็คครั้งเดียวพอเพราะค่านี้ไม่เปลี่ยนระหว่างอายุของโปรเซส
+    ///
+    /// กันที่ claimScene() (ไม่ใช่ที่ recompute() หรือเงื่อนไข mount ที่ RootView) เพราะ claimScene()
+    /// คือจุดเดียวที่ตั้ง wantsScene = true — ปล่อยให้คืน token ออกไปตามปกติ (releaseScene() เรียกด้วย
+    /// token นั้นได้เฉยๆ ไม่มีผลอะไรต่อ แค่ไม่แตะ wantsScene เลย) ผลคือ enabled/everEnabled ค้าง false
+    /// ตลอดอายุโปรเซสเทส RootView (`if host.everEnabled && !host.loadFailed`) จึงไม่ mount
+    /// ForestSceneView() เองโดยธรรมชาติ ไม่ต้องแก้เงื่อนไข mount หรือสูตร recompute() (`enabled =
+    /// wantsScene && appActive && !suppressed` เท่านั้น ตามคอมเมนต์ที่ enabled ด้านบน) เลยสักบรรทัด
+    private static let isRunningUnderXCTest: Bool =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
     /// จอที่ใช้ฉากเรียกตอน onAppear (ผ่าน ForestBackground) — คืน token ไว้ยื่นคืนตอน onDisappear
     /// claim ใหม่เสมอทุกครั้งที่ onAppear แม้จะมี token เก่าค้างอยู่ก็ตาม (เช่น สลับแท็บออกจาก Home
     /// แล้วกลับมาแท็บเดิม) — token เก่าอาจถูกจอที่คั่นกลางแย่ง claim แล้วปล่อยคืนไปแล้วด้วยซ้ำ claim
@@ -64,6 +91,9 @@ final class ForestSceneHost: ObservableObject {
     fileprivate func claimScene() -> UUID {
         let token = UUID()
         currentClaim = token
+        // เทสยูนิต (XCTest host) ไม่ต้องการฉากเลย — ดูคอมเมนต์ที่ isRunningUnderXCTest ด้านบนว่าทำไม
+        // ปล่อยให้ wantsScene เป็น true ตอนนี้ถึงพังยังไง
+        guard !Self.isRunningUnderXCTest else { return token }
         wantsScene = true
         return token
     }
