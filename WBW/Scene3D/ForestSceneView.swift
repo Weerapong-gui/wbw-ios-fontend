@@ -89,6 +89,24 @@ struct ForestSceneView: View {
                 fill.name = "Fill"
                 root.addChild(fill)
 
+                // ท้องฟ้า (Task 8b) — ก่อนหน้านี้ RealityView ไม่มีอะไรวาดเป็นพื้นหลังเลย จุดที่ไม่มี
+                // เรขาคณิตอยู่ RealityKit วาดดำล้วน (โหมด virtual camera ไม่มี passthrough ให้ fallback
+                // เป็นอย่างอื่น) วงจรกลางวันที่ applySun คำนวณไว้ (skyColor ของแต่ละ keyframe ใน
+                // SunCycle.swift) เลยไม่เคยถูกวาดออกมาเห็นเลยสักที่ — โดมทรงกลมใบใหญ่นี้คือพื้นผิวเดียว
+                // ที่ใหญ่พอให้สีนั้นมีที่ไปแสดง รัศมี 500: กว้างกว่าขอบไกลสุดที่สคริปต์ bake วางของไว้
+                // (FAR=260) มาก แต่ยังอยู่ในระยะ camera.far (900) แม้กล้องขยับตามไจโร (±1.1) ก็ไม่มีทาง
+                // เห็นขอบโดม · UnlitMaterial เพราะต้องการสีเรียบของท้องฟ้า ไม่ต้องการให้ทิศแสงอาทิตย์มา
+                // ไล่เฉดบนผิวโดมเอง (นั่นเป็นหน้าที่ของ applySun ที่ผสมสีเข้ากับ skyColor ตรงๆ อยู่แล้ว)
+                // faceCulling = .none เพราะกล้องอยู่ "ข้างใน" ทรงกลม — ด้าน front ของสามเหลี่ยมหันออก
+                // นอกทรงกลมตามปกติของ mesh ที่สร้างมาให้มองจากข้างนอก ถ้าปล่อย cull back-face (ค่า
+                // default) กล้องจากข้างในจะเห็นแต่ด้านหลังของทุกหน้าแล้วโดน cull ทิ้งหมด → ดำเหมือนเดิม
+                let sky = Entity()
+                sky.name = "Sky"
+                var skyMaterial = UnlitMaterial()
+                skyMaterial.faceCulling = .none
+                sky.components.set(ModelComponent(mesh: .generateSphere(radius: 500), materials: [skyMaterial]))
+                root.addChild(sky)
+
                 applySun(to: root, day: host.day)
             } update: { content in
                 // ฉากอยู่คงที่ตลอดอายุแอปแล้ว (ดูคอมเมนต์ที่ RootView) แม้ตอนซ่อน (enabled=false, opacity 0)
@@ -223,6 +241,16 @@ struct ForestSceneView: View {
             fill.light.color = uiColor(s.skyColor)
             fill.light.intensity = s.ambientIntensity * 700
             fill.look(at: .zero, from: SIMD3<Float>(-dir.x, 0.6, -dir.z) * 40, relativeTo: nil)
+        }
+        // ท้องฟ้า (Task 8b) — สีเดียวกับที่ Fill ใช้ทำแสงเติม (skyColor) แต่ครั้งนี้ทาลงบนโดมตรงๆ ให้
+        // ตาเห็นเป็นสีท้องฟ้าจริง ไม่ใช่แค่ทางอ้อมผ่านแสงที่กระทบวัตถุ — อยู่หลัง dirty-check guard ด้าน
+        // บนเหมือนกับ Sun/Fill เลยไม่มีต้นทุนต่อเฟรมเพิ่ม (รันเฉพาะตอน day เปลี่ยนจริง)
+        if let sky = root.findEntity(named: "Sky"),
+           var model = sky.components[ModelComponent.self] as ModelComponent?,
+           var mat = model.materials.first as? UnlitMaterial {
+            mat.color.tint = uiColor(s.skyColor)
+            model.materials = [mat]
+            sky.components.set(model)
         }
 
         guard let forest = root.findEntity(named: "Forest") else { return }
