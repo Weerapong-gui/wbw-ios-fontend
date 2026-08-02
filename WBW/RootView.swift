@@ -73,9 +73,13 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.4), value: phase)
-        // แอปลงพื้นหลัง — ไม่มีใครเห็นฉากอยู่ดี ไม่ว่าจะกำลังอยู่หน้าไหน
+        // แอปลงพื้นหลัง — ไม่มีใครเห็นฉากอยู่ดี ไม่ว่าจะกำลังอยู่หน้าไหน · เขียน host.appActive ตรงๆ
+        // ไม่ใช่ host.enabled — ต่างจากเดิมตรงที่มี branch .active ด้วย (เดิมมีแค่ "!= .active → false"
+        // ไม่มีทางคืนเป็น true เลยตอนกลับมา foreground ค้าง false ถาวรจนกว่าจะบังเอิญมีจุดอื่นมา set
+        // true ทับ) recompute() ที่ ForestSceneHost คำนวณ enabled จาก appActive ร่วมกับ wantsScene/
+        // suppressed เองอยู่แล้ว ไม่ต้องเขียน enabled ตรงนี้อีกต่อไป (ดูคอมเมนต์ยาวที่ enabled)
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { host.enabled = false }
+            host.appActive = (phase == .active)
         }
         // เจ้าหน้าที่: StaffScanView ทับด้วยสีทึบ (Color.wbwInk) + กล้องสแกน QR (AVCaptureSession) —
         // ไม่มีการรั่วของภาพฉากป่าออกมาให้เห็น แต่ RealityKit ยังคง composite ต่อเนื่องถ้า host.enabled
@@ -84,8 +88,14 @@ struct RootView: View {
         // เปิดจอสแกนค้างเป็นชั่วโมงในวันงาน ฉากที่วิ่งอยู่ข้างหลังกินแบตทั้งวันโดยไม่มีใครเห็นเลย — ปิดตรงนี้
         // เป็นสัญญาณตรงที่สุด ไม่ต้องพึ่ง onDisappear ของ Home/MainTabView (ซึ่งอาจไม่ทันถูกเรียกเสมอไปตาม
         // จังหวะที่ TabView สลับแท็บ ดูคอมเมนต์ที่ ForestSceneHost.swift เรื่อง per-tab root)
+        //
+        // เขียน host.suppressed ตรงๆ (ไม่ใช่ host.enabled) — ต่างจากเดิมตรงที่พอ staff กลับเป็น false
+        // (เช่น logout จากจอเจ้าหน้าที่แล้ว login ใหม่เป็น participant) ฉากถูก "คืนสิทธิ์" ให้จริง แทนที่
+        // จะค้าง false ตลอดไปเหมือนของเดิม (ของเดิมไม่มี branch คืนค่าเลย เขียนได้ทางเดียวคือ force off)
+        // MainTabView.updateSceneGate() ก็เขียน suppressed ตัวเดียวกันนี้ แต่ไม่ชนกัน เพราะ MainTabView
+        // ไม่ถูก mount เลยตอน isStaff เป็น true (ดูคอมเมนต์ที่ ForestSceneHost.suppressed)
         .onChange(of: isStaff) { _, staff in
-            if staff { host.enabled = false }
+            host.suppressed = staff
         }
     }
 }

@@ -38,6 +38,14 @@ struct MainTabView: View {
             }
             .tint(Color.wbwGold)
             .task {
+                // เรียกครั้งแรกตอน mount ด้วย ไม่ใช่แค่รอ onChange(tab)/onChange(chatOpen) ข้างล่าง —
+                // host.suppressed อยู่ที่ host ซึ่งอายุยาวกว่า MainTabView instance นี้ (เช่น รอบก่อนออก
+                // จากแท็บที่ไม่ใช่ Home/QR ทิ้ง suppressed = true ค้างไว้ แล้ว logout/login ใหม่ — instance
+                // ใหม่นี้เริ่ม tab ที่ 0 จาก @State default แต่นั่นไม่ใช่ "การเปลี่ยนแปลง" ที่ onChange จับได้
+                // เพราะไม่มี tab เก่าให้เทียบเลยด้วยซ้ำ — ไม่เรียกตรงนี้ suppressed จะค้างผิดจนกว่าจะมีคน
+                // สลับแท็บจริงครั้งแรก ซึ่งอาจไม่เกิดเลยถ้าผู้ใช้อยู่ Home เฉยๆ ตั้งแต่ต้น)
+                updateSceneGate()
+
                 // push ที่แตะไว้ตอนแอปยังไม่ทันเปิด (cold launch) — didReceive มักโพสต์ก่อนหน้านี้จะติดตั้ง
                 // .onReceive ทัน (มีสแปลชคั่นก่อนถึงจะ mount MainTabView) โพสต์ทิ้งไปเงียบๆ ไม่มีคนรับ ดึงมา
                 // โพสต์ซ้ำตรงนี้ — .onReceive ติดมากับ body ก่อน .task เริ่มเสมอ รับได้แน่นอน
@@ -60,6 +68,23 @@ struct MainTabView: View {
                     Task {
                         try? await Task.sleep(nanoseconds: UInt64(closeAfter * 1_000_000_000))
                         chatOpen = false
+                    }
+                }
+                // จำลอง "แตะสลับแท็บ" แบบ headless (ไม่มี tap tooling ในสภาพแวดล้อมนี้ — ทรงเดียวกับ
+                // uitestChatCloseAfter ด้านบน) ใช้ verify การสลับแท็บ "จริง" ในโปรเซสเดียวกัน ต่างจาก
+                // -uitestTab (ตั้งค่าเริ่มต้นตอน launch เท่านั้น) ตรงที่นี่คือ transition สดๆ ระหว่างแอปรัน
+                // อยู่ — จำเป็นสำหรับพิสูจน์บั๊กที่พึ่ง state ค้างข้าม transition (เช่น host.enabled ก่อนแก้
+                // เป็น derived property ในรีวิวรอบนี้) เปิดแยกทีละหน้าด้วย simctl launch คนละรอบไม่มีทาง
+                // reproduce บั๊กคลาสนี้เลย เพราะ host ถูกสร้างใหม่ทุกรอบ ไม่มี state ค้างให้ทดสอบ
+                //
+                // รูปแบบ: "<วินาทีนับจาก launch>:<เลขแท็บ>,<วินาที>:<เลขแท็บ>,..." เช่น "6:4,12:0"
+                let tabSequence = UserDefaults.standard.string(forKey: "uitestTabSequence") ?? ""
+                for step in tabSequence.split(separator: ",") {
+                    let parts = step.split(separator: ":")
+                    guard parts.count == 2, let at = Double(parts[0]), let target = Int(parts[1]) else { continue }
+                    Task {
+                        try? await Task.sleep(nanoseconds: UInt64(at * 1_000_000_000))
+                        tab = target
                     }
                 }
                 #endif
@@ -104,13 +129,14 @@ struct MainTabView: View {
             }
             // เปิดฉากป่าเฉพาะแท็บที่มันเป็นพื้นหลังจริง (Home, QR) และเฉพาะตอนไม่มีจอแชททับเต็มจออยู่ — แท็บ
             // Map รัน MapLibre บน GPU อยู่แล้ว · SU RUN กับ Group ทับเต็มจอ ปล่อยให้ฉากวิ่งอยู่ข้างหลังคือเผา
-            // แบตให้สิ่งที่ไม่มีใครเห็น (host.enabled ยังถูกตั้งจาก .forestBackground ของ Home/QR เองด้วย
-            // onAppear/onDisappear — สองตัวนี้เป็นชั้นกันซ้ำที่จับเงื่อนไข chatOpen ซึ่ง forestBackground มอง
-            // ไม่เห็น เพราะ Home ยังคง mount อยู่ใต้ GroupChatView ตอนแชทเปิดทับ ไม่ได้ disappear จริง)
+            // แบตให้สิ่งที่ไม่มีใครเห็น (host.suppressed ยังถูกตั้ง false จาก .forestBackground ของ Home/QR
+            // เองผ่าน wantsScene ด้วย onAppear/onDisappear — สองตัวนี้เป็นชั้นกันซ้ำที่จับเงื่อนไข chatOpen
+            // ซึ่ง forestBackground มองไม่เห็น เพราะ Home ยังคง mount อยู่ใต้ GroupChatView ตอนแชทเปิดทับ
+            // ไม่ได้ disappear จริง)
             //
-            // เรียกผ่าน updateSceneGate() แทนที่จะใส่นิพจน์ `host.enabled = (t == 0 || t == 4) && !chatOpen`
-            // ตรงๆ ใน closure ของ .onChange — วัดจริงแล้วว่าใส่ตรงๆ ทำให้ compiler พังด้วย "unable to
-            // type-check this expression in reasonable time" (ยืนยันด้วย
+            // เรียกผ่าน updateSceneGate() แทนที่จะใส่นิพจน์ `host.suppressed = !((t == 0 || t == 4) &&
+            // !chatOpen)` ตรงๆ ใน closure ของ .onChange — วัดจริงแล้วว่าใส่ตรงๆ ทำให้ compiler พังด้วย
+            // "unable to type-check this expression in reasonable time" (ยืนยันด้วย
             // -Xfrontend -warn-long-expression-type-checking=50: ใช้ ~1.5 วินาทีแล้วชนขีดจำกัดภายในของ
             // solver) แม้จะแยก .onChange ออกเป็น modifier เดี่ยวๆ ก็ยังพัง — ลองใส่ closure ว่างเปล่า
             // `{ _, _ in }` แทนแล้ว build ผ่านทันที พิสูจน์ว่าตัวนิพจน์บูลีนเองคือปัญหา ไม่ใช่ความยาวของ
@@ -165,9 +191,11 @@ struct MainTabView: View {
         }
     }
 
-    /// ผสมเงื่อนไขแท็บปัจจุบัน + จอแชทเปิดอยู่หรือเปล่า เป็นค่า host.enabled เดียว (ดูคอมเมนต์ที่เรียกใช้)
+    /// ผสมเงื่อนไขแท็บปัจจุบัน + จอแชทเปิดอยู่หรือเปล่า เป็นค่า host.suppressed เดียว (ดูคอมเมนต์ที่เรียกใช้)
+    /// เขียน suppressed ไม่ใช่ enabled ตรงๆ อีกต่อไป — enabled เป็น derived property แล้ว (ดูคอมเมนต์ยาว
+    /// ที่ ForestSceneHost.enabled) ตรงนี้แค่บอกว่า "แท็บ/จอแชทตอนนี้อนุญาตให้ฉากโชว์ไหม" เฉยๆ
     private func updateSceneGate() {
-        host.enabled = (tab == 0 || tab == 4) && !chatOpen
+        host.suppressed = !((tab == 0 || tab == 4) && !chatOpen)
     }
 }
 

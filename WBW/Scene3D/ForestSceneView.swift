@@ -162,11 +162,13 @@ struct ForestSceneView: View {
         .allowsHitTesting(false)   // พื้นหลังล้วน ห้ามกินทัชของ UI ข้างหน้า
         // การ์ดตาม host.enabled ด้วย ไม่ใช่แค่ !reduceMotion — เฟรมแรกที่ฉาก mount ตรงกับตอนที่
         // host.enabled กลายเป็น true แน่ๆ (นั่นคือสิ่งที่ทำให้ everEnabled ปลุกให้ RootView mount ฉากนี้
-        // ครั้งแรก) แต่ SwiftUI ไม่รับประกันว่า onAppear จะทำงานในเฟรมเดียวกันเป๊ะๆ — ถ้ามีอะไรสั่ง
-        // host.enabled = false แทรกก่อน onAppear จริงๆ จะทำงาน (เช่น สลับแท็บออกจาก Home/QR รัวๆ ผ่าน
-        // .onChange(of: tab) ของ MainTabView) จะเปิดเซนเซอร์ให้ฉากที่ซ่อนอยู่แล้วโดยไม่มีเหตุผล — เช็คซ้ำ
-        // ตรงนี้กันไว้เหมือนกับอีก 3 จุด start/stop ที่เหลือ (.onDisappear, .onChange(host.enabled),
-        // .onChange(scenePhase)) ซึ่งเช็ค host.enabled กันอยู่แล้วทุกจุด มีแค่จุดนี้จุดเดียวที่ขาด
+        // ครั้งแรก) แต่ SwiftUI ไม่รับประกันว่า onAppear จะทำงานในเฟรมเดียวกันเป๊ะๆ — ถ้ามีอะไรทำให้
+        // enabled กลายเป็น false แทรกก่อน onAppear จริงๆ จะทำงาน (enabled เป็น derived property แล้ว —
+        // ตัวที่ขยับได้จริงคือ host.suppressed เช่น สลับแท็บออกจาก Home/QR รัวๆ ผ่าน MainTabView.
+        // updateSceneGate() ดูคอมเมนต์ยาวที่ ForestSceneHost.enabled) จะเปิดเซนเซอร์ให้ฉากที่ซ่อนอยู่แล้ว
+        // โดยไม่มีเหตุผล — เช็คซ้ำตรงนี้กันไว้เหมือนกับอีก 3 จุด start/stop ที่เหลือ (.onDisappear,
+        // .onChange(host.enabled), .onChange(scenePhase)) ซึ่งเช็ค host.enabled กันอยู่แล้วทุกจุด มีแค่
+        // จุดนี้จุดเดียวที่ขาด
         .onAppear { if host.enabled && !reduceMotion { gyro.start() } }
         .onDisappear { gyro.stop() }
         // host.enabled สลับ false→true ทุกครั้งที่กลับมาที่หน้าที่ใช้ฉากนี้ (ฉากเองไม่ถูก unmount/remount

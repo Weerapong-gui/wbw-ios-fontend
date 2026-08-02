@@ -8,7 +8,22 @@ import SwiftUI
 @MainActor
 final class ForestSceneHost: ObservableObject {
     /// false = ซ่อน + หยุด render (หน้าที่ไม่ใช้ฉาก, แอปอยู่หลัง, จอเจ้าหน้าที่)
-    @Published var enabled = false {
+    ///
+    /// **derived เสมอ ห้าม set ตรงๆ จากข้างนอก** — คำนวณจาก 3 อินพุตที่เป็นอิสระจากกันด้วย
+    /// recompute(): `enabled = wantsScene && appActive && !suppressed` เท่านั้น
+    ///
+    /// ของเดิม enabled ถูก set ตรงๆ จาก 6 จุด (ค่าเริ่มต้น, onAppear/onDisappear ของ
+    /// ForestBackground, RootView ตอน scenePhase/isStaff เปลี่ยน, MainTabView.updateSceneGate())
+    /// ทุกจุด "force" ค่าทับกันเฉยๆ ไม่มีจุดไหนรู้ว่าอีก 5 จุดต้องการอะไรอยู่ ผลคือจอดำล้วน (ไม่มี
+    /// ท้องฟ้า/ต้นไม้/สครีม/เครดิต) สามแบบที่ reproduce ได้จริง:
+    ///   1. Welcome→Home: onDisappear ของ Welcome (`enabled 1→0`) ทำงาน "หลัง" onAppear ของ Home
+    ///      (`enabled 0→1`) เสมอ — SwiftUI รับประกันแค่ onAppear ของจอใหม่มาก่อน onDisappear ของ
+    ///      จอเก่า ไม่ใช่กลับกัน
+    ///   2. Home→QR: เหมือนกันทุกประการ (onDisappear ของ Home ทับ onAppear ของ QR)
+    ///   3. background→foreground: scenePhase != .active สั่ง false แต่ไม่มี branch .active
+    ///      สั่งคืนเป็น true เลย ค้าง false ถาวรจนกว่าจะบังเอิญมีจุดอื่นมา set true ให้ (เช่น สลับแท็บ)
+    /// แก้ด้วยแยกอินพุตให้เป็นอิสระจากกันจริงๆ แทนที่จะให้ 6 จุดนั้น "ชนะ" กันเองตามลำดับเวลา
+    @Published private(set) var enabled = false {
         didSet { if enabled { everEnabled = true } }
     }
     /// true ตั้งแต่ครั้งแรกที่ enabled เป็น true แล้วไม่กลับเป็น false อีกเลย (พอร์ตจาก
@@ -18,6 +33,48 @@ final class ForestSceneHost: ObservableObject {
     /// host ตัวนี้และกับที่เว็บกันเรื่องนี้ไว้ตั้งแต่แรก — enabled ยังใช้คุมว่าโชว์/ซ่อน (opacity)
     /// และว่าฉากควรทำงาน (update closure) อยู่เหมือนเดิม
     @Published private(set) var everEnabled = false
+
+    /// มีจอที่เรียก .forestBackground() โชว์อยู่จริงไหม — เขียนได้เฉพาะผ่าน claimScene()/
+    /// releaseScene() ด้านล่าง ไม่มีใครนอกเหนือจาก ForestBackground modifier ในไฟล์นี้เขียนตัวนี้ตรงๆ
+    /// (เจ้าของเดียว ตามที่รีวิวขอ — เดิมมันคือครึ่งหนึ่งของ enabled ที่ปนกับอีก 2 อินพุตด้านล่างจนแยกไม่ออก)
+    private var wantsScene = false { didSet { recompute() } }
+    /// แอปอยู่ scenePhase .active ไหม — RootView เขียนตัวเดียว (onChange(of: scenePhase))
+    /// ค่าเริ่มต้น true ให้ตรงกับ scenePhase จริงตอน launch (ไม่มีจอไหน "ขอ" ฉากได้ก่อนหน้านั้นอยู่แล้ว
+    /// เพราะ wantsScene เริ่ม false — ค่าเริ่มต้นของตัวนี้จึงไม่มีผลจนกว่าจะมีจอ claim จริง)
+    var appActive = true { didSet { recompute() } }
+    /// บังคับปิดจากเหตุผลอื่นที่ไม่ใช่ 2 ตัวบน — RootView (จอเจ้าหน้าที่) และ MainTabView.
+    /// updateSceneGate() (แท็บที่ไม่ใช้ฉาก/จอแชททับเต็มจอ) เขียนตัวเดียวกันนี้ร่วมกัน คนละเงื่อนไข
+    /// แต่ไม่ชนกันจริงเพราะ MainTabView ไม่ถูก mount เลยตอนเป็นเจ้าหน้าที่ (RootView สลับ
+    /// StaffScanView/MainTabView แยกกันตาม role บน session.user ตัวเดียวกัน)
+    var suppressed = false { didSet { recompute() } }
+
+    private func recompute() {
+        enabled = wantsScene && appActive && !suppressed
+    }
+
+    /// token ของจอที่ claim ฉากอยู่ปัจจุบัน — กัน onDisappear ของจอที่กำลังจะออกไปเคลียร์ wantsScene
+    /// ทับจอใหม่ที่ onAppear claim ไปก่อนแล้ว (ลำดับที่ SwiftUI รับประกัน: onAppear ของจอที่เข้ามาก่อน
+    /// เสมอ ตามด้วย onDisappear ของจอที่ออก ไม่ใช่กลับกัน) — นี่คือกลไกที่แก้ manifestation #1/#2 ด้านบน
+    private var currentClaim = UUID()
+
+    /// จอที่ใช้ฉากเรียกตอน onAppear (ผ่าน ForestBackground) — คืน token ไว้ยื่นคืนตอน onDisappear
+    /// claim ใหม่เสมอทุกครั้งที่ onAppear แม้จะมี token เก่าค้างอยู่ก็ตาม (เช่น สลับแท็บออกจาก Home
+    /// แล้วกลับมาแท็บเดิม) — token เก่าอาจถูกจอที่คั่นกลางแย่ง claim แล้วปล่อยคืนไปแล้วด้วยซ้ำ claim
+    /// ใหม่ทุกรอบตัดปัญหานั้นทิ้งไปเลยแทนที่จะพยายาม reuse token เดิม
+    fileprivate func claimScene() -> UUID {
+        let token = UUID()
+        currentClaim = token
+        wantsScene = true
+        return token
+    }
+
+    /// จอที่ใช้ฉากเรียกตอน onDisappear — เคลียร์ wantsScene เฉพาะตอนยังเป็นเจ้าของ claim ปัจจุบันจริงๆ
+    /// เท่านั้น ไม่ตรง = มีจอใหม่ claim ไปแล้วก่อนหน้านี้ ปล่อยผ่านเฉยๆ ไม่แตะ wantsScene เลย
+    fileprivate func releaseScene(_ token: UUID) {
+        guard token == currentClaim else { return }
+        wantsScene = false
+    }
+
     /// ช่วงเวลาของวัน 0..1
     @Published var day: Float = ForestMath.dayStill
     /// ระยะขั้นต่ำจากขอบจอล่างจริงที่หน้านี้ต้องการให้เครดิตโมเดล — ForestOverlay ใช้
@@ -55,6 +112,9 @@ final class ForestSceneHost: ObservableObject {
 /// ตัวกลางนี้คือเหตุผลที่สลับ implement ข้างในได้ (3D ↔ รูปนิ่ง) โดยไม่แตะ 5 จอเลย
 private struct ForestBackground: ViewModifier {
     @EnvironmentObject private var host: ForestSceneHost
+    /// token ที่ host คืนมาตอน claim — ต้อง @State (ไม่ใช่ local var) เพราะต้องอยู่รอดข้าม onAppear
+    /// ไปถึง onDisappear ของ "จอเดียวกัน" (identity เดียวกัน) แม้ modifier struct เองจะถูกสร้างใหม่
+    @State private var claimToken: UUID?
     let day: Float
     let plantStep: Int?
     let plantTotal: Int
@@ -79,9 +139,16 @@ private struct ForestBackground: ViewModifier {
                 host.plantStep = plantStep
                 host.plantTotal = plantTotal
                 host.bottomClearance = bottomClearance
-                host.enabled = true
+                claimToken = host.claimScene()
             }
-            .onDisappear { host.enabled = false }
+            .onDisappear {
+                // ปล่อยคืนเฉพาะตอนยังเป็นเจ้าของ claim ปัจจุบันจริง — ถ้าจอถัดไป (เช่น Home ตอนออกจาก
+                // Welcome, หรือ QR ตอนออกจาก Home) claim ไปแล้วก่อนที่ onDisappear นี้จะถูกเรียก (ลำดับ
+                // ที่ SwiftUI รับประกัน: onAppear ของจอใหม่มาก่อนเสมอ) ปล่อยผ่านเฉยๆ ไม่งั้นจะไปเคลียร์
+                // wantsScene ของจอใหม่ทับทั้งที่จอใหม่ยังโชว์อยู่จริง — นี่คือสาเหตุของจอดำเดิมตอน
+                // Welcome→Home และ Home→QR (ดูคอมเมนต์ยาวที่ ForestSceneHost.enabled)
+                if let claimToken { host.releaseScene(claimToken) }
+            }
             .onChange(of: day) { _, v in host.day = v }
             .onChange(of: plantStep) { _, v in host.plantStep = v }
             .onChange(of: plantTotal) { _, v in host.plantTotal = v }
