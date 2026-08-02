@@ -10,6 +10,23 @@ struct HomeView: View {
 
     private var name: String { profile.me?.displayName ?? (session.user?.username ?? "ผู้เข้าร่วม") }
 
+    private var stage: Int {
+        #if DEBUG
+        // บังคับขั้นต้นไม้เพื่อถ่ายภาพยืนยัน — ทรงเดียวกับ uitestTab/uitestChat
+        if UserDefaults.standard.object(forKey: "uitestProgress") != nil {
+            return UserDefaults.standard.integer(forKey: "uitestProgress")
+        }
+        #endif
+        return progress.progress?.stage ?? 0
+    }
+
+    private var total: Int {
+        #if DEBUG
+        if UserDefaults.standard.object(forKey: "uitestProgress") != nil { return 8 }
+        #endif
+        return progress.progress?.total ?? 0
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // คำทักทายมุมซ้ายบน — avatar กรอบ liquid glass กดไป Profile
@@ -60,10 +77,9 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .forestBackground(
-            day: ForestMath.day(stage: progress.progress?.stage ?? 0,
-                                total: progress.progress?.total ?? 0),
-            plantStep: progress.progress?.stage ?? 0,
-            plantTotal: progress.progress?.total ?? 0)
+            day: ForestMath.day(stage: stage, total: total),
+            plantStep: stage,
+            plantTotal: total)
         .task {
             if profile.me == nil { await profile.load(token: session.token ?? "") }
             #if DEBUG
