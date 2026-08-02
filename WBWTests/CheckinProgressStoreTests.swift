@@ -172,4 +172,43 @@ final class CheckinProgressStoreTests: XCTestCase {
         XCTAssertNil(store.item(checkpointId: 99))
         UserDefaults.standard.removeObject(forKey: CheckinProgressStore.cacheKey(for: .susLocal))
     }
+
+    // MARK: - answered ต้อง tolerant ตอน decode (fix round 1) — เผื่อ cache รุ่นเก่าก่อนมีฟีเจอร์นี้
+
+    /// payload ที่ไม่มีคีย์ answered เลย (เช่น response เก่ากว่าฟีเจอร์นี้) ต้อง decode ผ่าน
+    /// และถือว่ายังไม่ตอบ ไม่ใช่โยน error ทิ้งทั้งก้อน
+    func testAnsweredDefaultsToFalseWhenKeyMissing() throws {
+        let p = try decodeProgress("""
+        {"total": 8, "checked_in": [
+          {"checkpoint_id": 1, "name": "ฐาน", "activity_name": "กิจกรรม", "sequence": 1,
+           "at": "2026-08-29T09:00:00Z", "rating": null, "comment": null}
+        ]}
+        """)
+        XCTAssertFalse(p.checkedIn[0].answered)
+    }
+
+    /// จำลอง cache ที่เขียนไว้ก่อนฟีเจอร์นี้ขึ้น (ไม่มี answered/activity_name/rating/comment เลย) —
+    /// restoreFromCache ต้องกู้ progress ได้ปกติ ไม่ใช่ปล่อยให้ decode พังเงียบๆ จน progress เป็น nil
+    /// แล้วต้นไม้หน้า Home เหลือ 0 ทั้งที่เดินมาแล้วหลายฐาน (เคสจริง: อัปเดตแอปแล้วเดินป่าไม่มีเน็ต)
+    /// คีย์ในนี้เป็น camelCase ตรงชื่อ property เพราะ cache เขียน/อ่านด้วย JSONEncoder/Decoder
+    /// ค่า default (ไม่ผ่าน convertFromSnakeCase) ต่างจาก payload จากเน็ตที่เป็น snake_case
+    @MainActor
+    func testRestoresOldShapeCacheWithoutFeedbackFields() throws {
+        let key = CheckinProgressStore.cacheKey(for: .susLocal)
+        let oldShapeJSON = """
+        {"total": 8, "checkedIn": [
+          {"checkpointId": 1, "name": "ฐานหนึ่ง", "sequence": 1, "at": "2026-08-29T09:00:00Z"},
+          {"checkpointId": 2, "name": "ฐานสอง", "sequence": 2, "at": "2026-08-29T10:00:00Z"}
+        ]}
+        """.data(using: .utf8)!
+        UserDefaults.standard.set(oldShapeJSON, forKey: key)
+
+        let store = CheckinProgressStore()
+        store.restoreFromCache(backend: .susLocal)
+
+        XCTAssertEqual(store.progress?.stage, 2, "ต้นไม้ต้องนับฐานที่เช็คอินได้ครบ แม้ cache เป็นรูปแบบเก่า")
+        XCTAssertEqual(store.progress?.pending.count, 2, "ฐานเก่าที่ไม่มีคีย์ answered ต้องถือว่ายังไม่ตอบ")
+
+        UserDefaults.standard.removeObject(forKey: key)
+    }
 }

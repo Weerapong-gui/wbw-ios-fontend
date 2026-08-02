@@ -232,9 +232,32 @@ struct CheckinProgressItem: Codable, Equatable {
     let sequence: Int?
     let at: String
     /// ตอบความเห็นฐานนี้แล้วหรือยัง — backend คำนวณจาก LEFT JOIN ไม่ได้เก็บสถานะไว้
+    ///
+    /// decode แบบ tolerant (ดู init(from:) ด้านล่าง): ไม่มีคีย์นี้ในเน็ต = ถือว่า false ไว้ก่อน
+    /// เผื่อ cache เก่าที่เขียนไว้ก่อนฟีเจอร์นี้ขึ้น (ยังไม่มีคีย์นี้เลย) — ถ้า decode พังทั้งก้อนแทน
+    /// progress จะหาย ต้นไม้หน้า Home เหลือ 0 ทั้งที่เดินมาแล้วหลายฐาน (offline คือเรื่องปกติกลางเขา)
+    /// เคสเลวร้ายสุดของ false ผิดคือชวนตอบฐานที่ตอบไปแล้วซ้ำ ซึ่ง backend เด้ง 409 พร้อมคำตอบเดิม
+    /// ให้ฟอร์มโชว์แบบอ่านอย่างเดียว ไม่ใช่ error — ปลอดภัยกว่าเสีย progress ทั้งก้อนเยอะ
     let answered: Bool
     let rating: Int?
     let comment: String?
+}
+
+// เขียน init(from:) แยกไว้ใน extension โดยตั้งใจ — ถ้าย้ายเข้าไปในตัว struct ตรงๆ Swift จะเลิก
+// synthesize memberwise init ให้ (test หลายจุดสร้าง CheckinProgressItem(...) ตรงๆ พึ่งตัวนั้นอยู่)
+// แยกไว้ใน extension แบบนี้ยังได้ทั้งคู่ — CodingKeys ก็ยังปล่อยให้ compiler synthesize ให้เหมือนเดิม
+extension CheckinProgressItem {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        checkpointId = try c.decode(Int.self, forKey: .checkpointId)
+        name = try c.decode(String.self, forKey: .name)
+        activityName = try c.decodeIfPresent(String.self, forKey: .activityName)
+        sequence = try c.decodeIfPresent(Int.self, forKey: .sequence)
+        at = try c.decode(String.self, forKey: .at)
+        answered = try c.decodeIfPresent(Bool.self, forKey: .answered) ?? false
+        rating = try c.decodeIfPresent(Int.self, forKey: .rating)
+        comment = try c.decodeIfPresent(String.self, forKey: .comment)
+    }
 }
 
 /// ความคืบหน้าเช็คอินของตัวเอง
@@ -248,6 +271,12 @@ struct CheckinProgress: Codable, Equatable {
     var stage: Int { checkedIn.count }
 
     /// ฐานที่เช็คอินแล้วแต่ยังไม่ได้ให้ความเห็น · ใหม่สุดก่อน (toast เด้งของฐานล่าสุด)
+    ///
+    /// เรียงด้วยการเทียบ string `at` ตรงๆ ไม่ parse เป็น Date — ใช้ได้เพราะ backend ฟอร์แมตด้วย
+    /// at.UTC().Format(time.RFC3339) เสมอ: ความกว้างคงที่ ไม่มีเศษวินาที ลงท้าย "Z" ตายตัว
+    /// lexicographic order เลยตรงกับเวลาจริงพอดี ถือเป็นสัญญากับ backend ไม่ใช่เรื่องบังเอิญ —
+    /// ถ้า backend เปลี่ยนฟอร์แมต (เติมเศษวินาที, ใช้ offset แทน Z, ความกว้างไม่คงที่) ลำดับนี้จะผิด
+    /// ทันทีโดยไม่มี error ให้เห็น
     var pending: [CheckinProgressItem] {
         checkedIn.filter { !$0.answered }.sorted { $0.at > $1.at }
     }
