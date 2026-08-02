@@ -11,9 +11,13 @@ struct MainTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var noti = NotiStore()
     @StateObject private var chat = ChatSession()
+    @StateObject private var feedback = FeedbackStore()
     @State private var tab = 0
     @State private var chatOpen = false
     @State private var showNotifications = false
+    // ฐานที่กำลังเปิดหน้าให้ความเห็นอยู่ (nil = ไม่มีจอเปิด) — Task 11 จะผูกอีก 3 ทางเข้าเข้ามาที่ตัวแปรนี้
+    // ตัวเดียวกัน (push ตอนแอปเปิด/ปิด, แตะการ์ดในหน้าแจ้งเตือน, toast จาก poll 60 วิ) วันนี้มีแค่ทางเข้าเทส
+    @State private var feedbackCheckpoint: Int?
 
     init() {
         #if DEBUG
@@ -61,6 +65,12 @@ struct MainTabView: View {
                                myId: profile.me?.userId ?? "", context: context)
                 #if DEBUG
                 if UserDefaults.standard.bool(forKey: "uitestChat") { chatOpen = true }
+                // เปิดหน้าให้ความเห็นตรงๆ ด้วย checkpoint id ที่ส่งมา — ทรงเดียวกับ uitestChat ด้านบน
+                // checkpoint id จริงเริ่มที่ 1 เสมอ ใช้ 0/ไม่ส่งมาเป็นค่า "ไม่เปิด" ได้อย่างปลอดภัย
+                // เป็นทางเดียวที่เข้าถึง FeedbackView ได้โดยไม่มี tap tooling — Task 11 ใช้ hook นี้
+                // ต่อตอน verify อีก 3 ทางเข้าจริงด้วย (ดูคอมเมนต์ที่ feedbackCheckpoint ด้านบน)
+                let uitestFeedbackId = UserDefaults.standard.integer(forKey: "uitestFeedback")
+                if uitestFeedbackId > 0 { feedbackCheckpoint = uitestFeedbackId }
                 // ปิดแชทเองหลัง N วิ (แอปยัง foreground อยู่) — จำลอง "ผู้ใช้ปิดจอแชทแต่ไม่ได้ปิดแอป"
                 // แบบ headless เพราะไม่มี tap tooling ใช้เทส GroupChatView.onDisappear
                 let closeAfter = UserDefaults.standard.double(forKey: "uitestChatCloseAfter")
@@ -174,6 +184,24 @@ struct MainTabView: View {
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: chat.incoming?.clientId)
         .sheet(isPresented: $showNotifications) {
             NotificationsView(store: noti, token: session.token ?? "")
+        }
+        // หน้าให้ความเห็นต่อฐาน — วันนี้เปิดได้ทางเดียวคือ feedbackCheckpoint ที่ตั้งจาก -uitestFeedback
+        // ด้านบน (Task 11 จะเพิ่มอีก 3 ทางเข้าที่ตั้งตัวแปรเดียวกันนี้) ใช้ isPresented ไม่ใช่ item เพราะ
+        // Int ไม่ conform Identifiable เอง — แปลง nil/non-nil เป็น Bool ตรงๆ แทน ปิดจาก onClose แล้ว
+        // เซ็ต nil กลับ กันจอค้างเปิดถ้าปิดด้วยการลากลงแทนการกดปุ่ม (ปิดสองทางต้องเคลียร์ state เดียวกัน)
+        // แนบ environmentObject ตรงๆ ให้ session/progress/feedback แม้ sheet จะสืบทอด environment ของ
+        // ผู้เปิดอยู่แล้วตามปกติของ SwiftUI — feedback เป็น @StateObject ใหม่ที่ประกาศในไฟล์นี้เอง ไม่มีใคร
+        // ประกาศไว้ให้จาก WBWApp เลย (รอ Task 11) จึงต้องแนบเองแน่ๆ ส่วน session/progress แนบซ้ำไว้กันสงสัย
+        .sheet(isPresented: Binding(
+            get: { feedbackCheckpoint != nil },
+            set: { if !$0 { feedbackCheckpoint = nil } }
+        )) {
+            if let id = feedbackCheckpoint {
+                FeedbackView(checkpointId: id, onClose: { feedbackCheckpoint = nil })
+                    .environmentObject(session)
+                    .environmentObject(progress)
+                    .environmentObject(feedback)
+            }
         }
         // MainTabView หายทั้งจอ (ล็อกเอาต์เท่านั้น — RootView สลับ MainTabView/StaffScanView ตาม role บน
         // session.user ตัวเดียวกัน ไปไม่ถึง role ใหม่ได้โดยไม่ผ่าน logout()+login ก่อน) — logout() ไม่แตะ
