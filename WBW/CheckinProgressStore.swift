@@ -37,9 +37,15 @@ final class CheckinProgressStore: ObservableObject {
         UserDefaults.standard.set(data, forKey: Self.cacheKey(for: backend))
     }
 
-    /// ล้างตอน logout — บัญชีถัดไปบนเครื่องเดียวกันต้องไม่สืบทอดต้นไม้ของคนก่อน
-    func clear(backend: Backend = Config.backend) {
+    /// ล้างค่าในหน่วยความจำตอน logout — บัญชีถัดไปบนเครื่องเดียวกันต้องไม่เห็นต้นไม้ค้างของคนก่อนก่อน
+    /// load เสร็จ
+    ///
+    /// **ไม่แตะ UserDefaults ที่นี่** — เดิมเคยลบ cache key ซ้ำกับ Session.logout() (สอง owner ของ
+    /// invariant เดียวกัน) รวมเหลือเจ้าของเดียวที่ Session.logout() เพราะเป็นจุดเดียวที่ยิงทุกเส้นทาง
+    /// logout จริง ทั้งบัญชี participant และ staff — staff ไม่ mount MainTabView เลย ฟังก์ชันนี้ (เรียกจาก
+    /// MainTabView.onDisappear) จึงไม่ถูกเรียกด้วยซ้ำถ้า logout ตอนเป็นเจ้าหน้าที่ ถ้าเป็นเจ้าของ
+    /// UserDefaults เองจะลบไม่ครบทุกเส้นทาง (ดูคอมเมนต์ที่ Session.logout())
+    func clear() {
         progress = nil
-        UserDefaults.standard.removeObject(forKey: Self.cacheKey(for: backend))
     }
 }

@@ -50,9 +50,13 @@ final class Session: ObservableObject {
         token = nil
         UserDefaults.standard.removeObject(forKey: tokenKey)
         UserDefaults.standard.removeObject(forKey: userKey)
-        // ต้นไม้ของบัญชีก่อนหน้าต้องไม่ตกทอดไปให้บัญชีถัดไปบนเครื่องเดียวกัน
-        // Session ไม่ได้ถือ store ไว้ จึงลบ cache ตรงๆ · ตัว store ในหน่วยความจำ
-        // ถูกล้างที่ MainTabView.onDisappear (ทางเดียวกับ chat.purgeForLogout)
+        // ต้นไม้ของบัญชีก่อนหน้าต้องไม่ตกทอดไปให้บัญชีถัดไปบนเครื่องเดียวกัน — เจ้าของเดียวของการลบ
+        // UserDefaults key นี้ (เดิมเคยลบซ้ำที่ CheckinProgressStore.clear() ด้วย รวมมาไว้ที่เดียวเพราะ
+        // ที่นี่เป็นจุดเดียวที่ยิงทุกเส้นทาง logout จริง ทั้งบัญชี participant และ staff — staff ไม่ mount
+        // MainTabView เลยจึงไม่มีทางเรียก progress.clear() ที่ MainTabView.onDisappear ได้)
+        // Session ไม่ได้ถือ store ไว้ จึงลบ cache ตรงๆ ที่นี่ · ตัว store ในหน่วยความจำถูกล้างแยกที่
+        // MainTabView.onDisappear (progress.clear() นั่นแค่ progress = nil ไม่แตะ UserDefaults แล้ว —
+        // ดูคอมเมนต์ที่ CheckinProgressStore.clear())
         UserDefaults.standard.removeObject(
             forKey: CheckinProgressStore.cacheKey(for: Config.backend))
     }
