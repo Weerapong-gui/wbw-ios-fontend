@@ -1484,15 +1484,21 @@ extension Entity {
 
 In `WBW/WBWApp.swift`, create the host as a `@StateObject` and inject it with `.environmentObject(...)` alongside the existing environment objects.
 
-In `WBW/RootView.swift`, wrap the existing `ZStack` contents so the scene sits underneath everything:
+In `WBW/RootView.swift`, wrap the existing `ZStack` contents so the scene sits underneath everything.
+
+**Mount on a one-way latch, never on `enabled`.** `enabled` is flipped by the modifier's `onAppear`/`onDisappear`, so gating the view on it means SwiftUI unmounts and rebuilds the whole scene — reloading the USDZ and all 571 objects — every time the user leaves and returns to the Home tab. This was measured: one toggle produced two make-closure calls. The website hit the same problem and solved it in `components/scene/SceneHost.tsx` with a separate `everEnabled` flag plus opacity; port that.
+
+`ForestSceneHost` therefore also publishes `everEnabled`, set true the first time `enabled` becomes true and never reset.
 
 ```swift
     var body: some View {
         ZStack {
-            // ฉากป่า 3D ใต้ทุกอย่าง — ตัวเดียวตลอดอายุแอป ไม่ถูกสร้างใหม่ตอนเปลี่ยน phase
-            if host.enabled && !host.loadFailed {
+            // ฉากป่า 3D ใต้ทุกอย่าง — mount ครั้งเดียวตลอดอายุแอป ซ่อนด้วย opacity
+            // ห้าม gate ด้วย host.enabled: มันถูกพลิกโดย onAppear/onDisappear ของ modifier
+            // ซึ่งจะทำให้ SwiftUI ถอดแล้วสร้างฉากใหม่ทุกครั้งที่ออกจากแท็บ Home แล้วกลับมา
+            if host.everEnabled && !host.loadFailed {
                 ForestSceneView()
-                    .transition(.opacity)
+                    .opacity(host.enabled ? 1 : 0)
             }
 
             switch phase {
