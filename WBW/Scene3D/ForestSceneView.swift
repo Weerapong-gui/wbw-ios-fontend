@@ -11,67 +11,93 @@ import simd
 /// ตามระยะ (ชื่อลงท้าย __band0..__band7) ที่นี่ไล่สี tint ของแต่ละแถบตามเวลาของวัน
 struct ForestSceneView: View {
     @EnvironmentObject var host: ForestSceneHost
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // นาฬิกาเฟรม + ต้นไม้ — ดูคอมเมนต์ที่ ForestSceneRuntime ว่าทำไมต้องเป็น class ถือด้วย
+    // @StateObject แทนที่จะเป็น @State ของ Float/GrowingTree? ตรงๆ
+    @StateObject private var runtime = ForestSceneRuntime()
 
     var body: some View {
-        RealityView { content in
-            ForestOriginalTint.registerComponent()
-            ForestLastAppliedDay.registerComponent()
+        // TimelineView ใช้เป็นแหล่งเวลาต่อเฟรมเท่านั้น (ให้ RealityView update: ถูกเรียกรัวๆ ตอนฉาก
+        // โชว์อยู่) ไม่ได้ถือ state ของฉากเอง — pause ตาม host.enabled กัน tick เปล่าประโยชน์ตอนฉาก
+        // ซ่อนอยู่หลังแท็บอื่น (ดูคอมเมนต์ guard host.enabled ใน update ด้านล่างด้วย)
+        TimelineView(.animation(paused: !host.enabled)) { timeline in
+            RealityView { content in
+                ForestOriginalTint.registerComponent()
+                ForestLastAppliedDay.registerComponent()
 
-            let root = Entity()
-            content.add(root)
+                let root = Entity()
+                content.add(root)
 
-            let forest: Entity
-            do {
-                forest = try await Entity(named: "forest")
-            } catch {
-                // TODO(task-5 diagnosis): พิมพ์ error จริงตอนหา root cause ของจอขาว — ลบ catch แบบพิมพ์ error
-                // ทิ้งได้ถ้าจะกลับไปใช้ `try?` แบบในบรีฟ แต่ข้อมูลนี้มีประโยชน์มากพอจะเก็บไว้ debug ต่อ
+                let forest: Entity
+                do {
+                    forest = try await Entity(named: "forest")
+                } catch {
+                    // TODO(task-5 diagnosis): พิมพ์ error จริงตอนหา root cause ของจอขาว — ลบ catch แบบพิมพ์ error
+                    // ทิ้งได้ถ้าจะกลับไปใช้ `try?` แบบในบรีฟ แต่ข้อมูลนี้มีประโยชน์มากพอจะเก็บไว้ debug ต่อ
+                    #if DEBUG
+                    // ใช้ NSLog ไม่ใช่ print — print() ไม่โผล่ใน unified log ของ simulator เลย (ยืนยันแล้ว
+                    // ด้วย log stream ระหว่าง debug จอขาว) NSLog โผล่แน่นอน ใช้เช็คผ่าน `simctl spawn ... log
+                    // stream` ได้จริง
+                    NSLog("[ForestSceneView] Entity(named: \"forest\") threw: %@", String(describing: error))
+                    #endif
+                    await MainActor.run { host.markLoadFailed() }
+                    return
+                }
+                forest.name = "Forest"
+                root.addChild(forest)
                 #if DEBUG
-                // ใช้ NSLog ไม่ใช่ print — print() ไม่โผล่ใน unified log ของ simulator เลย (ยืนยันแล้ว
-                // ด้วย log stream ระหว่าง debug จอขาว) NSLog โผล่แน่นอน ใช้เช็คผ่าน `simctl spawn ... log
-                // stream` ได้จริง
-                NSLog("[ForestSceneView] Entity(named: \"forest\") threw: %@", String(describing: error))
+                // เช็คตำแหน่งจริงของโมเดลเทียบกล้อง — forest.usdz ไม่เคยผ่าน USD renderer ใดมาก่อนไฟล์นี้
+                // (qlmanage เปิดไม่ได้ในเครื่องที่ bake) ถ้าจอดำ ให้เทียบเลขนี้กับตำแหน่งกล้องก่อนแก้โค้ด
+                NSLog("[ForestSceneView] forest.visualBounds(relativeTo: nil) = %@",
+                      String(describing: forest.visualBounds(relativeTo: nil)))
+                NSLog("[ForestSceneView] forest.children.count = %d", forest.children.count)
                 #endif
-                await MainActor.run { host.markLoadFailed() }
-                return
+
+                let camera = PerspectiveCamera()
+                camera.camera.fieldOfViewInDegrees = 55
+                camera.camera.near = 0.1
+                camera.camera.far = 900
+                camera.name = "Camera"
+                camera.position = SIMD3<Float>(0, 1.7, 0)
+                camera.look(at: SIMD3<Float>(0, 1.4, -16), from: camera.position, relativeTo: nil)
+                root.addChild(camera)
+
+                let sun = DirectionalLight()
+                sun.name = "Sun"
+                sun.light.isRealWorldProxy = false
+                root.addChild(sun)
+
+                // ไฟเติมจากตรงข้ามดวงอาทิตย์ — แทน hemisphere light ของ three.js
+                // ที่ RealityKit ไม่มี · ทำให้ด้านเงาไม่ดำสนิท
+                let fill = DirectionalLight()
+                fill.name = "Fill"
+                root.addChild(fill)
+
+                applySun(to: root, day: host.day)
+            } update: { content in
+                // ฉากอยู่คงที่ตลอดอายุแอปแล้ว (ดูคอมเมนต์ที่ RootView) แม้ตอนซ่อน (enabled=false, opacity 0)
+                // update closure นี้ก็ยังถูกเรียกได้ทุกครั้งที่ SwiftUI re-render ต้นไม้ที่ฉากอยู่ใต้ — ข้าม
+                // งานทั้งหมดตอนซ่อนไปเลย ไม่ใช่แค่ไม่โชว์ผล (สำคัญตอน Task 7 ผูก gyro เข้ากับ host ที่ ~60Hz)
+                guard host.enabled, let root = content.entities.first else { return }
+                applySun(to: root, day: host.day)
+
+                // ต้นไม้ผู้เข้าร่วม — สร้างแบบ lazy ตอน plantStep เปลี่ยนจาก nil เป็นมีค่าครั้งแรกเท่านั้น
+                // (ไม่สร้างใน make ด้านบน เพราะ make ถูกเรียกครั้งเดียวตลอดอายุแอปตามคอมเมนต์ที่ RootView —
+                // เช็ค plantStep ตรงนั้นจะตัดสินใจตายตัวจากค่าตอน launch ทั้งที่ Task 9 ผูกค่าจริงจาก
+                // network เข้ามาทีหลังแบบ async เสมอ (plantStep เป็น nil ก่อนเสมอในเฟรมแรก)) ลบทิ้งถ้า
+                // plantStep กลับเป็น nil ให้ตรงกับความหมายของ optional (nil = ไม่มีต้นไม้ในฉาก ตาม
+                // คอมเมนต์ที่ ForestSceneHost.plantStep)
+                let dt = runtime.tick(now: timeline.date.timeIntervalSinceReferenceDate)
+                if let step = host.plantStep {
+                    if runtime.tree == nil { runtime.tree = GrowingTree(target: root) }
+                    let total = max(host.plantTotal, 1)
+                    runtime.tree?.setStage(step, total: total)
+                    runtime.tree?.tick(deltaTime: dt, elapsed: runtime.elapsed, reduceMotion: reduceMotion)
+                } else if runtime.tree != nil {
+                    runtime.tree?.removeFromScene()
+                    runtime.tree = nil
+                }
             }
-            forest.name = "Forest"
-            root.addChild(forest)
-            #if DEBUG
-            // เช็คตำแหน่งจริงของโมเดลเทียบกล้อง — forest.usdz ไม่เคยผ่าน USD renderer ใดมาก่อนไฟล์นี้
-            // (qlmanage เปิดไม่ได้ในเครื่องที่ bake) ถ้าจอดำ ให้เทียบเลขนี้กับตำแหน่งกล้องก่อนแก้โค้ด
-            NSLog("[ForestSceneView] forest.visualBounds(relativeTo: nil) = %@",
-                  String(describing: forest.visualBounds(relativeTo: nil)))
-            NSLog("[ForestSceneView] forest.children.count = %d", forest.children.count)
-            #endif
-
-            let camera = PerspectiveCamera()
-            camera.camera.fieldOfViewInDegrees = 55
-            camera.camera.near = 0.1
-            camera.camera.far = 900
-            camera.name = "Camera"
-            camera.position = SIMD3<Float>(0, 1.7, 0)
-            camera.look(at: SIMD3<Float>(0, 1.4, -16), from: camera.position, relativeTo: nil)
-            root.addChild(camera)
-
-            let sun = DirectionalLight()
-            sun.name = "Sun"
-            sun.light.isRealWorldProxy = false
-            root.addChild(sun)
-
-            // ไฟเติมจากตรงข้ามดวงอาทิตย์ — แทน hemisphere light ของ three.js
-            // ที่ RealityKit ไม่มี · ทำให้ด้านเงาไม่ดำสนิท
-            let fill = DirectionalLight()
-            fill.name = "Fill"
-            root.addChild(fill)
-
-            applySun(to: root, day: host.day)
-        } update: { content in
-            // ฉากอยู่คงที่ตลอดอายุแอปแล้ว (ดูคอมเมนต์ที่ RootView) แม้ตอนซ่อน (enabled=false, opacity 0)
-            // update closure นี้ก็ยังถูกเรียกได้ทุกครั้งที่ SwiftUI re-render ต้นไม้ที่ฉากอยู่ใต้ — ข้าม
-            // งานทั้งหมดตอนซ่อนไปเลย ไม่ใช่แค่ไม่โชว์ผล (สำคัญตอน Task 7 ผูก gyro เข้ากับ host ที่ ~60Hz)
-            guard host.enabled, let root = content.entities.first else { return }
-            applySun(to: root, day: host.day)
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)   // พื้นหลังล้วน ห้ามกินทัชของ UI ข้างหน้า
@@ -204,4 +230,33 @@ private struct ForestOriginalTint: Component {
 /// จำค่า day ล่าสุดที่ apply ไปแล้ว ไว้ที่ root entity — ใช้ทำ dirty-check ใน applySun (ดูคอมเมนต์ที่นั่น)
 private struct ForestLastAppliedDay: Component {
     var day: Float
+}
+
+/// สถานะที่เปลี่ยนทุกเฟรมของฉาก (นาฬิกาเวลา + ต้นไม้ผู้เข้าร่วม)
+///
+/// ต้องเป็น class ถือด้วย @StateObject ไม่ใช่ @State ของ Float/GrowingTree? ตรงๆ เพราะ `update`
+/// closure ของ RealityView เขียนค่าพวกนี้ทุกเฟรม — assign ค่าใหม่ให้ตัวแปร @State ระหว่าง view
+/// update คือ pattern ที่ SwiftUI เตือนว่า undefined behavior พอดี ("Modifying state during view
+/// update") ย้ายมาเป็น property ของ instance เดียวแทน — view แค่ถือ reference คงที่ไว้ (ไม่เคย
+/// reassign ตัวแปร @StateObject เองหลังถูกสร้าง) การแก้ property ของ instance จึงไม่ตกปัญหานั้น
+/// conform ObservableObject เพราะ @StateObject ต้องการ แต่ไม่มี @Published เลยสักตัวโดยตั้งใจ — ไม่
+/// ต้องการให้ SwiftUI สั่ง re-render ตามค่าพวกนี้ (การ tick ทุกเฟรมขับเคลื่อนโดย TimelineView อยู่แล้ว
+/// ไม่ใช่โดย Combine publish)
+///
+/// `tree` อยู่ในนี้ด้วย (ไม่ใช่แค่นาฬิกา) เพราะเหตุผลเดียวกัน: ต้องสร้าง/ลบระหว่าง `update` เมื่อ
+/// `host.plantStep` เปลี่ยนสถานะ nil ↔ มีค่า — ถ้าเก็บเป็น @State แยกอีกตัว การ reassign ตอนสร้าง/ลบ
+/// ต้นไม้ก็จะตกปัญหาเดียวกัน แม้จะเกิดไม่บ่อยเท่าตัวนาฬิกาก็ตาม
+private final class ForestSceneRuntime: ObservableObject {
+    var lastTick: TimeInterval = 0
+    var elapsed: Float = 0
+    /// nil = ยังไม่มีต้นไม้ในฉาก (ตรงกับ host.plantStep == nil) — ดู logic สร้าง/ลบที่ body ด้านบน
+    var tree: GrowingTree?
+
+    /// คืน deltaTime (วินาที) ของเฟรมนี้ พร้อมสะสม elapsed ไว้ให้ต้นไม้ไหวตามลม
+    func tick(now: TimeInterval) -> Float {
+        let dt = lastTick == 0 ? 1.0 / 60 : min(0.05, now - lastTick)
+        lastTick = now
+        elapsed += Float(dt)
+        return Float(dt)
+    }
 }
