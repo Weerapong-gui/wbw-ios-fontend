@@ -223,3 +223,22 @@ enum AppError: LocalizedError {
         }
     }
 }
+
+/// ฐานหนึ่งที่เช็คอินไปแล้ว (จาก GET /wbw/me/progress)
+struct CheckinProgressItem: Codable, Equatable {
+    let checkpointId: Int
+    let name: String
+    let sequence: Int?
+    let at: String
+}
+
+/// ความคืบหน้าเช็คอินของตัวเอง
+///
+/// total มาจาก backend ทุกครั้ง ไม่ใช่ 8 ตายตัว — แอดมินเพิ่ม/ลบฐานได้
+struct CheckinProgress: Codable, Equatable {
+    let total: Int
+    let checkedIn: [CheckinProgressItem]
+
+    /// ขั้นของต้นไม้ = จำนวนฐานที่เช็คอินแล้ว
+    var stage: Int { checkedIn.count }
+}

@@ -67,6 +67,12 @@ struct APIClient {
         return try dec.decode(Me.self, from: data)
     }
 
+    /// ความคืบหน้าเช็คอินของตัวเอง — คุมขั้นต้นไม้กับเวลาของวันที่หน้า Home
+    func progress(token: String) async throws -> CheckinProgress {
+        try await getDecoded("/me/progress", token: token, CheckinProgress.self,
+                             error: "โหลดความคืบหน้าไม่สำเร็จ")
+    }
+
     // ===== staff =====
 
     /// ฐานที่เจ้าหน้าที่คนนี้ประจำ
