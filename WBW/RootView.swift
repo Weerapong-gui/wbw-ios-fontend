@@ -41,6 +41,13 @@ struct RootView: View {
                     .opacity(host.enabled ? 1 : 0)
                     .animation(.easeInOut(duration: 0.3), value: host.enabled)
                     .transition(.opacity)
+
+                // ชั้นทับฉาก (สครีม+เกรน+เครดิต) ต้องซ่อน/โชว์พร้อมฉากเป๊ะๆ — ไม่งั้นตอน
+                // enabled=false (หน้าที่ไม่ใช้ฉาก) จะเหลือแต่สครีมทึบๆ ลอยคลุมทุกจอไว้เฉยๆ
+                ForestOverlay(day: host.day)
+                    .opacity(host.enabled ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.3), value: host.enabled)
+                    .transition(.opacity)
             }
 
             switch phase {
