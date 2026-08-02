@@ -251,6 +251,48 @@ struct APIClient {
         return try dec.decode(MessageDTO.self, from: data)
     }
 
+    /// ผลของการส่งความเห็น — แยก 409/403 ออกจาก error จริง เพราะทั้งคู่ไม่ใช่ความผิดพลาด
+    /// ที่ต้อง retry: ตอบไปแล้ว หรือส่งฐานที่ไม่ได้ไป ยังไงก็ไม่สำเร็จรอบหน้า
+    enum FeedbackSubmitOutcome {
+        case saved
+        case alreadyAnswered
+        case notCheckedIn
+    }
+
+    /// ส่งความเห็นต่อฐาน — idempotent ด้วย clientId
+    func submitFeedback(token: String, draft: FeedbackDraft) async throws -> FeedbackSubmitOutcome {
+        guard let url = URL(string: "\(Config.apiBase)/me/feedback") else {
+            throw AppError.message("URL ไม่ถูกต้อง")
+        }
+        var body: [String: Any] = [
+            "client_id": draft.clientId,
+            "checkpoint_id": draft.checkpointId,
+            "rating": draft.rating,
+            "device_time": draft.deviceTime,
+        ]
+        if let c = draft.comment { body["comment"] = c }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, resp): (Data, URLResponse)
+        do { (data, resp) = try await Self.send(req) }
+        catch { throw AppError.offline }   // เน็ตล่ม → เก็บเข้า outbox รอรอบหน้า
+
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        switch http.statusCode {
+        case 200, 201: return .saved
+        case 409:      return .alreadyAnswered
+        case 403:      return .notCheckedIn
+        default:
+            let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
+            throw AppError.message(b?.error ?? "ส่งความเห็นไม่สำเร็จ")
+        }
+    }
+
     // helper: GET + decode (snake_case)
     private func getDecoded<T: Decodable>(_ path: String, token: String, _ type: T.Type, error: String) async throws -> T {
         guard let url = URL(string: "\(Config.apiBase)\(path)") else { throw AppError.message("URL ไม่ถูกต้อง") }
