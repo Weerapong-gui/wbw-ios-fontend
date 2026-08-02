@@ -1000,8 +1000,13 @@ QR=$(docker exec postgres-db psql -U admin -d sudb -tAc "SELECT qr_token FROM pa
 docker exec postgres-db psql -U admin -d sudb -c "DELETE FROM check_in WHERE participant_id='$UID_' AND checkpoint_id=7"
 docker exec postgres-db psql -U admin -d sudb -c "DELETE FROM notification WHERE type='checkin_feedback' AND audience_id='$UID_'"
 
+# เครื่องนี้มีบัญชีสิทธิ์สูงแค่ `admin` ตัวเดียวและไม่รู้รหัสผ่าน จึงยืมบัญชีทดสอบใบที่สอง
+# มาเป็นเจ้าหน้าที่ชั่วคราว · /wbw/staff/checkin ไม่ได้บังคับว่าเจ้าหน้าที่ต้องประจำฐานนั้น
+# (repo insert ตรงๆ ไม่แตะตาราง checkpoint_staff) เจ้าหน้าที่คนไหนก็สแกนฐานไหนก็ได้
+docker exec postgres-db psql -U admin -d sudb -tAc \
+  "UPDATE app_user SET role='staff' WHERE username='6931900012' RETURNING role"
 STOKEN=$(curl -s -X POST $API/auth/login -H 'content-type: application/json' \
-  -d '{"username":"<staff-username>","password":"<staff-password>"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+  -d '{"username":"6931900012","password":"chatv2test"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
 
 echo "--- first scan ---"
 curl -s -X POST $API/staff/checkin -H "Authorization: Bearer $STOKEN" -H 'content-type: application/json' \
@@ -1016,7 +1021,14 @@ docker exec postgres-db psql -U admin -d sudb -c \
 
 Expected: the first scan returns `"already_checked_in": false`, the second `true`, and the table shows **exactly one** row with `ref_id = 7` and a title naming the base.
 
-If no staff account is known, create one with `POST /wbw/auth/staff-register` and approve it via `POST /wbw/admin/staff-requests/{id}/approve`, or promote an existing account with `UPDATE app_user SET role='staff'` and restore it afterwards. Record which you used.
+**Then restore the borrowed account — later tasks and the other test flows expect it to be a participant:**
+
+```bash
+docker exec postgres-db psql -U admin -d sudb -tAc \
+  "UPDATE app_user SET role='participant' WHERE username='6931900012' RETURNING role"
+```
+
+Expected: `participant`. Run this even if the scan failed — leaving a stray staff account changes what `RootView` shows for that login.
 
 - [ ] **Step 8: Confirm the participant can see it**
 
