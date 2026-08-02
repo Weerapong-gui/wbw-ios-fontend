@@ -251,12 +251,15 @@ struct APIClient {
         return try dec.decode(MessageDTO.self, from: data)
     }
 
-    /// ผลของการส่งความเห็น — แยก 409/403 ออกจาก error จริง เพราะทั้งคู่ไม่ใช่ความผิดพลาด
-    /// ที่ต้อง retry: ตอบไปแล้ว หรือส่งฐานที่ไม่ได้ไป ยังไงก็ไม่สำเร็จรอบหน้า
-    enum FeedbackSubmitOutcome {
+    /// ผลของการส่งความเห็น — แยก 409/403/error จริงออกจากกัน เพราะแต่ละกลุ่ม retry แล้วผลต่างกัน:
+    /// 409/403 คือสถานะปลายทางจากเซิร์ฟเวอร์ (ตอบไปแล้ว/ไม่ได้เช็คอิน) ไม่ใช่ความผิดพลาด ส่วน .failed
+    /// คือ error อื่นที่ไม่มีทางสำเร็จซ้ำด้วย draft เดิม (rating ผิด 400, token หมดอายุ 401, เซิร์ฟเวอร์
+    /// พัง 500 ฯลฯ) — Equatable เพื่อให้ฝั่งเทส/ฟอร์มเทียบค่าตรงๆ ด้วย == ได้
+    enum FeedbackSubmitOutcome: Equatable {
         case saved
         case alreadyAnswered
         case notCheckedIn
+        case failed
     }
 
     /// ส่งความเห็นต่อฐาน — idempotent ด้วย clientId
