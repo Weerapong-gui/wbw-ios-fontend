@@ -62,13 +62,7 @@ struct HomeView: View {
                 .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            // พื้นป่าเต็มจอ (bg เป็น background ไม่คุม layout)
-            Image("bg_forest")
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-        }
+        .forestBackground(day: ForestMath.dayStill)
         .task {
             if profile.me == nil { await profile.load(token: session.token ?? "") }
             #if DEBUG

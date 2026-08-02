@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject var session: Session
+    @EnvironmentObject private var host: ForestSceneHost
     @State private var splashDone = false
 
     init() {
@@ -28,6 +29,12 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
+            // ฉากป่า 3D ใต้ทุกอย่าง — ตัวเดียวตลอดอายุแอป ไม่ถูกสร้างใหม่ตอนเปลี่ยน phase
+            if host.enabled && !host.loadFailed {
+                ForestSceneView()
+                    .transition(.opacity)
+            }
+
             switch phase {
             case .welcome:
                 WelcomeView(onContinue: { splashDone = true })
