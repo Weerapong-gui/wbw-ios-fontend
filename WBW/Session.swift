@@ -50,5 +50,10 @@ final class Session: ObservableObject {
         token = nil
         UserDefaults.standard.removeObject(forKey: tokenKey)
         UserDefaults.standard.removeObject(forKey: userKey)
+        // ต้นไม้ของบัญชีก่อนหน้าต้องไม่ตกทอดไปให้บัญชีถัดไปบนเครื่องเดียวกัน
+        // Session ไม่ได้ถือ store ไว้ จึงลบ cache ตรงๆ · ตัว store ในหน่วยความจำ
+        // ถูกล้างที่ MainTabView.onDisappear (ทางเดียวกับ chat.purgeForLogout)
+        UserDefaults.standard.removeObject(
+            forKey: CheckinProgressStore.cacheKey(for: Config.backend))
     }
 }

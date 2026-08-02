@@ -5,6 +5,8 @@ import SwiftData
 struct MainTabView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
+    @EnvironmentObject var progress: CheckinProgressStore
+    @EnvironmentObject var host: ForestSceneHost
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var noti = NotiStore()
@@ -45,6 +47,8 @@ struct MainTabView: View {
                 // โหลดจำนวนที่ยังไม่อ่านไว้โชว์ badge ตั้งแต่เข้าแอป
                 await noti.load(token: session.token ?? "")
                 await profile.load(token: session.token ?? "")
+                // ความคืบหน้าเช็คอิน — คุมขนาดต้นไม้ที่ Home (Task 9)
+                await progress.load(token: session.token ?? "")
                 chat.configure(groupId: profile.me?.groupId, token: session.token ?? "",
                                myId: profile.me?.userId ?? "", context: context)
                 #if DEBUG
@@ -83,7 +87,11 @@ struct MainTabView: View {
                 // ตั้งใจแยก 2 เงื่อนไข ไม่ใช้ else — .inactive (Control Center, สายเรียกเข้า, app switcher)
                 // ไม่ได้แขวน socket จริง ต้องปล่อยให้ sync/heartbeat วิ่งต่อ มีแค่ .background เท่านั้นที่ iOS
                 // แขวน connection จริง — ปล่อยให้ push รับช่วงตอนนั้น
-                if phase == .active { chat.start() }
+                if phase == .active {
+                    chat.start()
+                    // กลับมา foreground — ความคืบหน้าอาจเปลี่ยนระหว่างที่แอปอยู่หลัง (เช็คอินฐานใหม่)
+                    Task { await progress.load(token: session.token ?? "") }
+                }
                 else if phase == .background { chat.stop() }
             }
             // โดนเอาออกจากกลุ่มระหว่าง sync (403) — ปิดจอแชท + โหลดโปรไฟล์ใหม่ (purge cache ทำใน
@@ -94,6 +102,21 @@ struct MainTabView: View {
                 chat.kickedOut = false
                 Task { await profile.load(token: session.token ?? "") }
             }
+            // เปิดฉากป่าเฉพาะแท็บที่มันเป็นพื้นหลังจริง (Home, QR) และเฉพาะตอนไม่มีจอแชททับเต็มจออยู่ — แท็บ
+            // Map รัน MapLibre บน GPU อยู่แล้ว · SU RUN กับ Group ทับเต็มจอ ปล่อยให้ฉากวิ่งอยู่ข้างหลังคือเผา
+            // แบตให้สิ่งที่ไม่มีใครเห็น (host.enabled ยังถูกตั้งจาก .forestBackground ของ Home/QR เองด้วย
+            // onAppear/onDisappear — สองตัวนี้เป็นชั้นกันซ้ำที่จับเงื่อนไข chatOpen ซึ่ง forestBackground มอง
+            // ไม่เห็น เพราะ Home ยังคง mount อยู่ใต้ GroupChatView ตอนแชทเปิดทับ ไม่ได้ disappear จริง)
+            //
+            // เรียกผ่าน updateSceneGate() แทนที่จะใส่นิพจน์ `host.enabled = (t == 0 || t == 4) && !chatOpen`
+            // ตรงๆ ใน closure ของ .onChange — วัดจริงแล้วว่าใส่ตรงๆ ทำให้ compiler พังด้วย "unable to
+            // type-check this expression in reasonable time" (ยืนยันด้วย
+            // -Xfrontend -warn-long-expression-type-checking=50: ใช้ ~1.5 วินาทีแล้วชนขีดจำกัดภายในของ
+            // solver) แม้จะแยก .onChange ออกเป็น modifier เดี่ยวๆ ก็ยังพัง — ลองใส่ closure ว่างเปล่า
+            // `{ _, _ in }` แทนแล้ว build ผ่านทันที พิสูจน์ว่าตัวนิพจน์บูลีนเองคือปัญหา ไม่ใช่ความยาวของ
+            // modifier chain ย้ายนิพจน์ไปเป็นฟังก์ชันธรรมดาตัดปัญหาที่ root แทนที่จะเดาเพิ่ม
+            .onChange(of: tab) { _, _ in updateSceneGate() }
+            .onChange(of: chatOpen) { _, _ in updateSceneGate() }
 
             // แชทกลุ่ม — overlay เลื่อนขึ้นจากล่าง (navbar หายแบบเด้งๆ)
             if chatOpen, profile.me?.groupId != nil {
@@ -133,7 +156,18 @@ struct MainTabView: View {
         // (stop() ตัวเองอยู่แล้วด้วย) ไม่งั้น syncLoop ที่กำลังวิ่งอยู่ (ถือ self ไว้แน่นระหว่าง await) ไม่มีวัน
         // ถูกเก็บขยะ กลายเป็น orphan ยิง long-poll ด้วย token เก่าไปเรื่อยๆ — purge เพิ่มเพราะบัญชีที่ 2 ที่
         // login เครื่องเดียวกันไม่ควรเห็นข้อความ/สืบทอด cursor ของบัญชีก่อนหน้า
-        .onDisappear { chat.purgeForLogout() }
+        .onDisappear {
+            chat.purgeForLogout()
+            // ต้นไม้ของบัญชีนี้ต้องไม่ค้างให้บัญชีถัดไปเห็นตอน MainTabView ถูกสร้างใหม่หลัง login —
+            // ตัว store ในหน่วยความจำล้างที่นี่ ส่วน cache บนดิสก์ล้างที่ Session.logout() (คนละที่กันเพราะ
+            // Session ไม่ได้ถือ store ไว้ ดูคอมเมนต์ที่นั่น)
+            progress.clear()
+        }
+    }
+
+    /// ผสมเงื่อนไขแท็บปัจจุบัน + จอแชทเปิดอยู่หรือเปล่า เป็นค่า host.enabled เดียว (ดูคอมเมนต์ที่เรียกใช้)
+    private func updateSceneGate() {
+        host.enabled = (tab == 0 || tab == 4) && !chatOpen
     }
 }
 
@@ -141,8 +175,6 @@ struct MainTabView: View {
 struct ForestBlank: View {
     var body: some View {
         Color.clear
-            .background {
-                Image("bg_forest").resizable().scaledToFill().ignoresSafeArea()
-            }
+            .forestBackground(day: ForestMath.dayStill)
     }
 }

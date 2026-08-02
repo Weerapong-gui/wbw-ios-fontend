@@ -160,7 +160,14 @@ struct ForestSceneView: View {
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)   // พื้นหลังล้วน ห้ามกินทัชของ UI ข้างหน้า
-        .onAppear { if !reduceMotion { gyro.start() } }
+        // การ์ดตาม host.enabled ด้วย ไม่ใช่แค่ !reduceMotion — เฟรมแรกที่ฉาก mount ตรงกับตอนที่
+        // host.enabled กลายเป็น true แน่ๆ (นั่นคือสิ่งที่ทำให้ everEnabled ปลุกให้ RootView mount ฉากนี้
+        // ครั้งแรก) แต่ SwiftUI ไม่รับประกันว่า onAppear จะทำงานในเฟรมเดียวกันเป๊ะๆ — ถ้ามีอะไรสั่ง
+        // host.enabled = false แทรกก่อน onAppear จริงๆ จะทำงาน (เช่น สลับแท็บออกจาก Home/QR รัวๆ ผ่าน
+        // .onChange(of: tab) ของ MainTabView) จะเปิดเซนเซอร์ให้ฉากที่ซ่อนอยู่แล้วโดยไม่มีเหตุผล — เช็คซ้ำ
+        // ตรงนี้กันไว้เหมือนกับอีก 3 จุด start/stop ที่เหลือ (.onDisappear, .onChange(host.enabled),
+        // .onChange(scenePhase)) ซึ่งเช็ค host.enabled กันอยู่แล้วทุกจุด มีแค่จุดนี้จุดเดียวที่ขาด
+        .onAppear { if host.enabled && !reduceMotion { gyro.start() } }
         .onDisappear { gyro.stop() }
         // host.enabled สลับ false→true ทุกครั้งที่กลับมาที่หน้าที่ใช้ฉากนี้ (ฉากเองไม่ถูก unmount/remount
         // อีกแล้วตั้งแต่ Task 5 — ดูคอมเมนต์ที่ RootView — onAppear/onDisappear ข้างบนเลยไม่ refire ตอน

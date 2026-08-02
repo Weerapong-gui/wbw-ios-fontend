@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject private var host: ForestSceneHost
+    @Environment(\.scenePhase) private var scenePhase
     @State private var splashDone = false
 
     init() {
@@ -72,5 +73,19 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.4), value: phase)
+        // แอปลงพื้นหลัง — ไม่มีใครเห็นฉากอยู่ดี ไม่ว่าจะกำลังอยู่หน้าไหน
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { host.enabled = false }
+        }
+        // เจ้าหน้าที่: StaffScanView ทับด้วยสีทึบ (Color.wbwInk) + กล้องสแกน QR (AVCaptureSession) —
+        // ไม่มีการรั่วของภาพฉากป่าออกมาให้เห็น แต่ RealityKit ยังคง composite ต่อเนื่องถ้า host.enabled
+        // ยังเป็น true อยู่ (ยืนยันจริงตอน verify: มี session ผสมที่ participant เข้า Home มาก่อน — ตอนนั้น
+        // everEnabled/enabled เป็น true ทั้งคู่ — แล้ว logout ไป login ใหม่เป็น staff แบบไม่ปิดแอป) เจ้าหน้าที่
+        // เปิดจอสแกนค้างเป็นชั่วโมงในวันงาน ฉากที่วิ่งอยู่ข้างหลังกินแบตทั้งวันโดยไม่มีใครเห็นเลย — ปิดตรงนี้
+        // เป็นสัญญาณตรงที่สุด ไม่ต้องพึ่ง onDisappear ของ Home/MainTabView (ซึ่งอาจไม่ทันถูกเรียกเสมอไปตาม
+        // จังหวะที่ TabView สลับแท็บ ดูคอมเมนต์ที่ ForestSceneHost.swift เรื่อง per-tab root)
+        .onChange(of: isStaff) { _, staff in
+            if staff { host.enabled = false }
+        }
     }
 }

@@ -41,10 +41,9 @@ struct WelcomeView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background {
-            // พื้นเต็มจอ (bg เป็น background ไม่คุม layout → ไม่มีขอบขาว)
-            Image("bg_welcome").resizable().scaledToFill().ignoresSafeArea()
-        }
+        // เช้าตรู่ (day 0.20) — ไม่มีแท็บบาร์ที่หน้านี้ ส่ง bottomClearance: 0 ให้เครดิตชิดขอบจอ
+        // ตาม safe area จริงของเครื่องเฉยๆ (ดูคอมเมนต์ที่ ForestSceneHost.bottomClearance)
+        .forestBackground(day: ForestMath.dayWelcome, bottomClearance: 0)
         .task {
             // login อยู่แล้ว: splash สั้นๆ แล้วเข้าแอปเอง
             if loggedIn {

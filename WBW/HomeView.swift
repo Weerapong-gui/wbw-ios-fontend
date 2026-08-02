@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// หน้าหลัก (DOI-APP) — พื้นป่า + คำทักทาย "Hey! <ชื่อ>" มุมซ้ายบน + มาสคอต DinDin กลางล่าง
+/// หน้าหลัก (DOI-APP) — พื้นป่า 3D + คำทักทาย "Hey! <ชื่อ>" มุมซ้ายบน + ต้นไม้โตตามความคืบหน้าเช็คอินจริง
 struct HomeView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
+    @EnvironmentObject var progress: CheckinProgressStore
     @ObservedObject var noti: NotiStore
     @State private var showProfile = false
 
@@ -51,18 +52,18 @@ struct HomeView: View {
             .padding(.horizontal, 22)
             .padding(.top, 8)
 
+            // เดิมมีมาสคอต DinDin ลอยเหนือ tab bar ตรงนี้ (Task 9 ถอดออก — ต้นไม้ในฉาก 3D ทำหน้าที่
+            // แสดงความคืบหน้าแทน) เหลือ Spacer() ไว้ตัวเดียวเพื่อดันหัวข้อ/avatar ให้ค้างอยู่บนสุดเหมือนเดิม
+            // — ถ้าลบ Spacer() นี้ไปด้วย VStack จะเหลือแค่ header ตัวเดียว แล้ว .frame(maxHeight: .infinity)
+            // ด้านล่าง (ไม่มี alignment กำกับ = .center ตามค่าเริ่มต้น) จะดันหัวข้อไปกลางจอแทนที่จะอยู่บนสุด
             Spacer()
-
-            // มาสคอต DinDin เหนือ tab bar
-            Image("dindin")
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 34)
-                .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .forestBackground(day: ForestMath.dayStill)
+        .forestBackground(
+            day: ForestMath.day(stage: progress.progress?.stage ?? 0,
+                                total: progress.progress?.total ?? 0),
+            plantStep: progress.progress?.stage ?? 0,
+            plantTotal: progress.progress?.total ?? 0)
         .task {
             if profile.me == nil { await profile.load(token: session.token ?? "") }
             #if DEBUG

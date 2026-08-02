@@ -8,6 +8,7 @@ struct WBWApp: App {
     @StateObject private var settings = AppSettings()
     @StateObject private var profile = ProfileStore()
     @StateObject private var groups = GroupStore()
+    @StateObject private var progress = CheckinProgressStore()
     @StateObject private var forestHost = ForestSceneHost()
 
     init() {
@@ -22,6 +23,7 @@ struct WBWApp: App {
                 .environmentObject(settings)
                 .environmentObject(profile)
                 .environmentObject(groups)
+                .environmentObject(progress)
                 .environmentObject(forestHost)
                 .preferredColorScheme(settings.isDark ? .dark : .light)
                 .modelContainer(for: ChatMessage.self)
