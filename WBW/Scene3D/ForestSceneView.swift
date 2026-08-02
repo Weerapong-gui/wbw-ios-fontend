@@ -15,6 +15,7 @@ struct ForestSceneView: View {
     var body: some View {
         RealityView { content in
             ForestOriginalTint.registerComponent()
+            ForestLastAppliedDay.registerComponent()
 
             let root = Entity()
             content.add(root)
@@ -66,7 +67,10 @@ struct ForestSceneView: View {
 
             applySun(to: root, day: host.day)
         } update: { content in
-            guard let root = content.entities.first else { return }
+            // ฉากอยู่คงที่ตลอดอายุแอปแล้ว (ดูคอมเมนต์ที่ RootView) แม้ตอนซ่อน (enabled=false, opacity 0)
+            // update closure นี้ก็ยังถูกเรียกได้ทุกครั้งที่ SwiftUI re-render ต้นไม้ที่ฉากอยู่ใต้ — ข้าม
+            // งานทั้งหมดตอนซ่อนไปเลย ไม่ใช่แค่ไม่โชว์ผล (สำคัญตอน Task 7 ผูก gyro เข้ากับ host ที่ ~60Hz)
+            guard host.enabled, let root = content.entities.first else { return }
             applySun(to: root, day: host.day)
         }
         .ignoresSafeArea()
@@ -74,7 +78,19 @@ struct ForestSceneView: View {
     }
 
     /// ตั้งสี/ทิศ/ความแรงของแสง + สีหมอกของทั้ง 8 แถบ ตามเวลาของวัน
+    ///
+    /// dirty-check: ข้ามทั้งฟังก์ชัน (รวม applyFog ที่เรียกต่อท้าย) ถ้า day เท่าเดิมกับที่ apply ไปแล้ว
+    /// จำไว้ที่ root entity ผ่าน ForestLastAppliedDay ไม่ใช่ @State ของ View (เหตุผลเดียวกับ
+    /// ForestOriginalTint — @State อาจถูกสร้างใหม่ได้ แต่ entity อยู่คงที่ตราบใดที่ฉากยังไม่ถูกทำลาย)
+    /// จำเป็นเพราะ update ถูกเรียกทุกครั้งที่ SwiftUI re-render ไม่ใช่แค่ตอน day เปลี่ยนจริง — ถ้าไม่กัน
+    /// ตรงนี้ Task 7 (gyro ~60Hz ผูกเข้ากับ host) จะไล่ applyFog ทั้งฉาก (1148 node, 586 material,
+    /// UIColor allocation ทุกตัว) ทุกเฟรมทั้งที่แสง/หมอกไม่ได้เปลี่ยนเลย — เทียบ Float ตรงๆ ไม่ใช้ epsilon
+    /// เพราะ day มาจากค่าที่ตั้งไม่ต่อเนื่อง (ForestMath.day/.dayStill ฯลฯ) ไม่ใช่ค่า integrate ทีละเฟรม
+    /// การขยับกล้อง (Task 7) ไม่เกี่ยวกับ guard นี้ — นั่นถูกทุกเฟรมได้เพราะเบากว่ากันมาก
     private func applySun(to root: Entity, day: Float) {
+        if let last = root.components[ForestLastAppliedDay.self], last.day == day { return }
+        root.components.set(ForestLastAppliedDay(day: day))
+
         let s = SunCycle.state(at: day)
         let dir = SunCycle.direction(s)
 
@@ -183,4 +199,9 @@ extension Entity {
 /// จำสี tint ต้นฉบับของวัสดุแต่ละชิ้นไว้ ณ ครั้งแรกที่เจอ (ดูเหตุผลที่ applyFog ใน ForestSceneView.swift)
 private struct ForestOriginalTint: Component {
     var tints: [UIColor]
+}
+
+/// จำค่า day ล่าสุดที่ apply ไปแล้ว ไว้ที่ root entity — ใช้ทำ dirty-check ใน applySun (ดูคอมเมนต์ที่นั่น)
+private struct ForestLastAppliedDay: Component {
+    var day: Float
 }

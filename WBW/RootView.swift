@@ -29,9 +29,17 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            // ฉากป่า 3D ใต้ทุกอย่าง — ตัวเดียวตลอดอายุแอป ไม่ถูกสร้างใหม่ตอนเปลี่ยน phase
-            if host.enabled && !host.loadFailed {
+            // ฉากป่า 3D ใต้ทุกอย่าง — mount ครั้งแรกที่มีหน้าขอใช้ฉาก (everEnabled) แล้วอยู่คงที่
+            // ตลอดอายุแอป ไม่ถูก unmount/remount อีกเลยตอนสลับแท็บหรือเปลี่ยน phase (เดิม gate ด้วย
+            // host.enabled ตรงๆ ทำให้ RealityView ถูกทำลาย+สร้างใหม่ทุกครั้งที่ enabled กลับเป็น
+            // true — โหลด USDZ 571 ชิ้นซ้ำทุกรอบที่ออกจาก Home แล้วกลับมา ยืนยันด้วย log จริงใน
+            // task-5-report.md: make() ถูกเรียก 2 ครั้งจากการ toggle enabled แค่รอบเดียว) ซ่อน/โชว์
+            // ด้วย opacity แทน (เหมือน SceneHost.tsx ของเว็บที่คุมด้วย opacity/visibility ไม่ unmount)
+            // .transition(.opacity) ที่เหลือไว้คุมเฉพาะตอน unmount จริงครั้งเดียวตอนโหลดพัง (loadFailed)
+            if host.everEnabled && !host.loadFailed {
                 ForestSceneView()
+                    .opacity(host.enabled ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.3), value: host.enabled)
                     .transition(.opacity)
             }
 

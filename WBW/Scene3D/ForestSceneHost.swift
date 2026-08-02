@@ -8,7 +8,16 @@ import SwiftUI
 @MainActor
 final class ForestSceneHost: ObservableObject {
     /// false = ซ่อน + หยุด render (หน้าที่ไม่ใช้ฉาก, แอปอยู่หลัง, จอเจ้าหน้าที่)
-    @Published var enabled = false
+    @Published var enabled = false {
+        didSet { if enabled { everEnabled = true } }
+    }
+    /// true ตั้งแต่ครั้งแรกที่ enabled เป็น true แล้วไม่กลับเป็น false อีกเลย (พอร์ตจาก
+    /// everEnabled ของ SceneHost.tsx) — RootView mount ForestSceneView ด้วยตัวนี้ ไม่ใช่ enabled
+    /// ตรงๆ เพื่อไม่ให้ RealityView ถูกทำลาย+สร้างใหม่ทุกครั้งที่ enabled สลับ false→true (เช่น
+    /// สลับแท็บออกจาก Home แล้วกลับมา) ซึ่งจะโหลด USDZ 571 ชิ้นซ้ำทุกรอบ ขัดกับทั้งจุดประสงค์ของ
+    /// host ตัวนี้และกับที่เว็บกันเรื่องนี้ไว้ตั้งแต่แรก — enabled ยังใช้คุมว่าโชว์/ซ่อน (opacity)
+    /// และว่าฉากควรทำงาน (update closure) อยู่เหมือนเดิม
+    @Published private(set) var everEnabled = false
     /// ช่วงเวลาของวัน 0..1
     @Published var day: Float = ForestMath.dayStill
     /// ขั้นต้นไม้ · nil = ไม่มีต้นไม้ในฉาก (ตรงกับ plantStep?: number ของเว็บ)
