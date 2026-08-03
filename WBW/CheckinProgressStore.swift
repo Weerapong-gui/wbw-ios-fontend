@@ -20,6 +20,36 @@ final class CheckinProgressStore: ObservableObject {
     /// เคยเห็นแล้วรอบก่อน ไม่ใช่ฐานที่เพิ่งโดนสแกน
     private var firstLoadDone = false
 
+    /// ลำดับที่ของ load รอบล่าสุดที่ "เริ่ม" ไปแล้ว — คำตอบที่กลับมาช้ากว่ารอบที่ใหม่กว่าถูกทิ้ง
+    ///
+    /// load() ถูกเรียกจากห้าที่โดยไม่มีใครคุมลำดับ: poll 60 วิ, scenePhase == .active,
+    /// .checkinFeedbackArrived ทุกครั้งที่มี push, FeedbackView.send และตอน mount · สอง GET ที่คาบกัน
+    /// บนเน็ตแย่ๆ กลับมาสลับลำดับได้ตามปกติ (คนละ connection กัน) แล้วรอบเก่าจะเขียนทับรอบใหม่:
+    /// ต้นไม้หน้า Home หดกลับไปหนึ่งขั้นให้เห็นกับตา, ฐาน B หลุดจาก lastPendingIds ทำให้ toast ที่
+    /// กำลังโชว์อยู่หายกลางคัน แล้ว poll รอบถัดไปเด้ง toast ฐาน B ซ้ำอีกครั้งราวกับเพิ่งโดนสแกน
+    /// (เกิดได้ทุกครั้งที่สแกนสองฐานติดกันเร็วๆ = เคสวันงานจริง)
+    ///
+    /// แก้ด้วย "รอบใหม่สุดชนะ" แทนที่จะใส่ guard แบบ flushing — guard จะ **ทิ้งคำขอ** ที่มาระหว่าง
+    /// รอบก่อนยังไม่จบ ซึ่งฆ่าเส้น push ทิ้ง (.checkinFeedbackArrived มาตอน poll ค้างอยู่ = ฐานที่เพิ่ง
+    /// สแกนจะไม่โผล่จนกว่าจะถึง poll รอบถัดไป นานสุด 60 วิ) วิธีนี้ทุกคำขอยังยิงจริง แค่ผลลัพธ์ที่
+    /// เก่ากว่าไม่ถูกนำมาใช้ · state จึงไม่มีทางถอยหลัง
+    private var loadGeneration = 0
+
+    /// เรียกเน็ตจริง แยกเป็น property ฉีดแทนได้ตอนเทส — ทรงเดียวกับ FeedbackStore.submitCall
+    /// (repo นี้ไม่มี protocol ใช้เลยสักที่ closure ตรงๆ จึงเป็นทางที่ฉีดของปลอมเข้าได้โดยไม่ต้อง
+    /// เพิ่ม abstraction ใหม่ทั้งก้อน) ค่าเริ่มต้นคือของจริงเสมอ โค้ด production เรียก
+    /// CheckinProgressStore() เฉยๆ ไม่ต้องรู้เรื่องนี้เลย
+    ///
+    /// มีไว้เพราะ newlyPending — หัวใจของ poll 60 วิ ซึ่งเป็นทางเข้าเดียวที่เหลือใน build ที่ไม่มี
+    /// GoogleService-Info.plist (push ปิดทั้งอัน) — เขียนได้ทางเดียวคือผ่าน load() ที่ต้องมีเน็ต
+    /// ตัว diff จึงไม่เคยถูกเทสเลยสักบรรทัด
+    private let progressCall: (String) async throws -> CheckinProgress
+
+    init(progressCall: @escaping (String) async throws -> CheckinProgress
+         = APIClient.shared.progress) {
+        self.progressCall = progressCall
+    }
+
     // nonisolated: เป็น pure function ล้วนๆ ไม่แตะ state ของ actor เลย ทำให้เรียกจาก
     // context ที่ไม่ใช่ MainActor ได้ตรงๆ (เช่น XCTest ที่ไม่ได้ mark @MainActor)
     nonisolated static func cacheKey(for backend: Backend) -> String {
@@ -30,7 +60,14 @@ final class CheckinProgressStore: ObservableObject {
     func load(token: String, backend: Backend = Config.backend) async {
         if progress == nil { restoreFromCache(backend: backend) }
         guard !token.isEmpty else { return }
-        guard let fresh = try? await APIClient.shared.progress(token: token) else { return }
+
+        loadGeneration += 1
+        let generation = loadGeneration
+        guard let fresh = try? await progressCall(token) else { return }
+        // มีรอบที่ใหม่กว่าลงไปก่อนแล้ว — ของรอบนี้เก่ากว่า ทิ้งทั้งก้อน (ทั้ง progress, cache และตัว
+        // เทียบของ newlyPending) ห้ามเขียนบางส่วน ไม่งั้น state จะไม่ตรงกันเองยิ่งกว่าเดิม
+        guard generation == loadGeneration else { return }
+
         progress = fresh
         cache(fresh, backend: backend)
 

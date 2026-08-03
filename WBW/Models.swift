@@ -223,12 +223,21 @@ enum AppError: LocalizedError {
     case message(String)
     case groupFull(String)
     case offline
+    /// เซิร์ฟเวอร์ตอบกลับมาแล้ว แต่ตอบว่า "ตอนนี้ยังไม่ได้" — 429 กับ 5xx ทุกตัว
+    ///
+    /// ต่างจาก .message ตรงที่ **ส่ง payload เดิมซ้ำมีโอกาสสำเร็จ** จึงเป็น error ที่ต้องเก็บของ
+    /// ไว้ retry ไม่ใช่ทิ้ง · แยกออกมาเพราะเดิมทุก status ที่ไม่ใช่ทางสำเร็จถูกยัดรวมเป็น
+    /// .message หมด ผู้เรียกจึงแยกไม่ออกว่า "rating ผิด 400" (ส่งซ้ำก็ไม่มีวันผ่าน) กับ "origin
+    /// ล้นชั่วคราว 503 / Cloudflare 502-524 หน้า api.studentunion.social" (เดี๋ยวก็ผ่าน)
+    /// ต่างกันอย่างไร แล้วทิ้งคำตอบของผู้ใช้ไปพร้อมกันทั้งสองแบบ
+    case retryable(String)
     case notInGroup
     var errorDescription: String? {
         switch self {
         case let .message(m): return m
         case let .groupFull(m): return m
         case .offline: return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"
+        case let .retryable(m): return m
         case .notInGroup: return "ไม่ได้อยู่ในกลุ่มนี้แล้ว"
         }
     }

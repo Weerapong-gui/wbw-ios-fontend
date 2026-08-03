@@ -78,7 +78,22 @@ final class FeedbackStoreTests: XCTestCase {
         XCTAssertEqual(outboxUnderTest().all().map(\.clientId), ["a"], "ต้องเข้าคิวรอ retry รอบหน้า")
     }
 
-    /// error อื่นที่ไม่ใช่ offline (400/401/500 ฯลฯ) ห้ามเข้า outbox — retry ด้วย draft เดิมยังไงก็ไม่
+    /// **บั๊กร้ายแรงที่แก้รอบนี้ ฝั่ง submit**: กดส่งครั้งแรกแล้วเจอ 503 (origin ล้นตอนคนเข้าฐานพร้อมกัน
+    /// หรือ Cloudflare หน้า api.studentunion.social ตอบแทน) เดิมคืน .failed แล้วไม่เก็บอะไรไว้เลย
+    /// คำตอบหายทันทีทั้งที่ส่งซ้ำอีกนิดเดียวก็ผ่าน — 429/5xx ต้องเข้าคิวเหมือน offline ทุกประการ
+    @MainActor
+    func testSubmitRetryableServerErrorQueuesDraftAndReportsSaved() async {
+        let fake = FakeSubmitter()
+        fake.defaultResult = .failure(AppError.retryable("เซิร์ฟเวอร์ไม่พร้อมชั่วคราว"))
+        let store = FeedbackStore(submitCall: fake.call)
+
+        let outcome = await store.submit(draft("a", checkpoint: 5), token: "t")
+
+        XCTAssertEqual(outcome, .saved, "5xx ไม่ใช่การปฏิเสธ payload ระบบ retry ให้เองได้")
+        XCTAssertEqual(outboxUnderTest().all().map(\.clientId), ["a"], "ต้องเข้าคิวรอ retry รอบหน้า")
+    }
+
+    /// error อื่นที่ไม่ใช่ offline (400/401 ฯลฯ) ห้ามเข้า outbox — retry ด้วย draft เดิมยังไงก็ไม่
     /// สำเร็จ ต้องคืน .failed ให้ฟอร์มบอกความจริง ไม่ใช่ .saved ปลอมๆ
     @MainActor
     func testSubmitTerminalFailureReturnsFailedAndDoesNotQueue() async {
@@ -145,6 +160,50 @@ final class FeedbackStoreTests: XCTestCase {
 
         XCTAssertEqual(fake.calledClientIds, ["bad", "good"], "ต้องยิงตัวถัดไปต่อ ไม่ใช่หยุดที่ตัวแรกที่พัง")
         XCTAssertTrue(outboxUnderTest().all().isEmpty, "ตัวพังถูกทิ้ง ตัวดีถูกส่งสำเร็จ ทั้งคู่ต้องหลุดจากคิว")
+    }
+
+    /// **บั๊กร้ายแรงที่แก้รอบนี้ ฝั่ง flush**: draft ที่เจอ 429/5xx ต้อง "อยู่ในคิวต่อ" แล้ว flush
+    /// ไปตัวถัดไป — เดิมมันถูกลบทิ้งพร้อมกับ error ทุกชนิดที่ไม่ใช่ offline
+    ///
+    /// ลำดับเหตุการณ์จริงที่ทำให้คำตอบของผู้เข้าร่วมหายเงียบๆ: ตอบฐาน 3 ตอนไม่มีสัญญาณ → เข้าคิว →
+    /// ฟอร์มบอก "ส่งความเห็นแล้ว ขอบคุณ" → เดินไปฐาน 4 ปลดล็อกเครื่อง → scenePhase .active → flush →
+    /// origin ตอบ 503 → draft ถูกลบ · ไม่มี error ไม่มี toast ไม่มี badge เพราะแถวแจ้งเตือนถูกมาร์คอ่าน
+    /// ไปแล้วและ lastPendingIds ก็ถือฐาน 3 อยู่ ผู้ใช้จึงไม่มีทางรู้เลย
+    ///
+    /// "ไปต่อ" ไม่ใช่ "หยุด" เพราะการกันหัวคิวบล็อกที่ Task 6 ต้องการต้องยังอยู่ครบ
+    @MainActor
+    func testFlushKeepsRetryableDraftAndContinuesToNext() async {
+        let fake = FakeSubmitter()
+        fake.resultsByClientId["busy"] = .failure(AppError.retryable("503"))
+        fake.resultsByClientId["good"] = .success(.saved)
+        let store = FeedbackStore(submitCall: fake.call)
+        outboxUnderTest().add(draft("busy", checkpoint: 1))
+        outboxUnderTest().add(draft("good", checkpoint: 2))
+
+        await store.flush(token: "t")
+
+        XCTAssertEqual(fake.calledClientIds, ["busy", "good"],
+                       "ตัวที่ 5xx ต้องไม่บล็อกตัวถัดไป (การกันหัวคิวของ Task 6 ต้องยังอยู่)")
+        XCTAssertEqual(outboxUnderTest().all().map(\.clientId), ["busy"],
+                       "ตัวที่ 5xx ต้องยังอยู่ในคิวรอ retry · ตัวที่สำเร็จหลุดไปแล้ว")
+    }
+
+    /// รอบถัดไปที่เซิร์ฟเวอร์กลับมาปกติ ของที่เก็บไว้ต้องถูกส่งจริง — ไม่ใช่ค้างคิวไปตลอดกาล
+    @MainActor
+    func testRetryableDraftIsSentOnNextFlushWhenServerRecovers() async {
+        let failing = FakeSubmitter()
+        failing.defaultResult = .failure(AppError.retryable("503"))
+        let store = FeedbackStore(submitCall: failing.call)
+        outboxUnderTest().add(draft("a", checkpoint: 1))
+        await store.flush(token: "t")
+        XCTAssertEqual(outboxUnderTest().all().map(\.clientId), ["a"])
+
+        let healthy = FakeSubmitter()
+        let store2 = FeedbackStore(submitCall: healthy.call)
+        await store2.flush(token: "t")
+
+        XCTAssertEqual(healthy.calledClientIds, ["a"])
+        XCTAssertTrue(outboxUnderTest().all().isEmpty, "เซิร์ฟเวอร์กลับมาแล้วของค้างต้องไปถึงจริง")
     }
 
     /// AppError.offline ต้องหยุดทั้งรอบทันที ไม่แตะ draft ที่เหลือเลย (เน็ตยังไม่กลับมา ไล่ยิงต่อ

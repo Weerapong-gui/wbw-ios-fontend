@@ -286,12 +286,20 @@ struct APIClient {
         catch { throw AppError.offline }   // เน็ตล่ม → เก็บเข้า outbox รอรอบหน้า
 
         guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
         switch http.statusCode {
         case 200, 201: return .saved
         case 409:      return .alreadyAnswered
         case 403:      return .notCheckedIn
+        // 429 กับ 5xx ทุกตัว = ฝั่งเซิร์ฟเวอร์ยังไม่ไหว **ตอนนี้** ไม่ใช่ payload ผิด — ส่ง draft
+        // เดิมซ้ำมีโอกาสสำเร็จ ต้องบอกผู้เรียกให้เก็บไว้ retry (ดู AppError.retryable)
+        //
+        // เคสจริงที่ต้องกัน: origin ล้นตอนคนเข้าฐานพร้อมกัน (handler ตอบ 500 จาก default arm)
+        // และ Cloudflare หน้า api.studentunion.social ที่ตอบ 502/503/524 แทน origin ได้เอง
+        // ทั้งชุดนี้เคยถูกเหมารวมเป็น .message แล้วทำให้คำตอบของผู้ใช้ถูกลบทิ้งเงียบๆ
+        case 429, 500...599:
+            throw AppError.retryable(b?.error ?? "เซิร์ฟเวอร์ไม่พร้อมชั่วคราว")
         default:
-            let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
             throw AppError.message(b?.error ?? "ส่งความเห็นไม่สำเร็จ")
         }
     }
