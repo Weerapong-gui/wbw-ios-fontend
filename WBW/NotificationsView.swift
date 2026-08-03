@@ -9,10 +9,21 @@ final class NotiStore: ObservableObject {
     var unreadCount: Int { items.filter { $0.isUnread }.count }
 
     /// ดึงรายการล่าสุด (เงียบตอนออฟไลน์ — คงรายการเดิม)
+    ///
+    /// รักษา readAt ที่เพิ่งมาร์คในเครื่องไว้ ไม่ให้ของจากเซิร์ฟเวอร์ทับกลับเป็น unread — markFeedbackNotiRead
+    /// (MainTabView) มาร์คในเครื่องก่อนแล้วยิง markRead แบบ fire-and-forget ถ้า load() รอบนี้มาถึงก่อนคำขอ
+    /// นั้นจะจบที่เซิร์ฟเวอร์ รายการที่ได้กลับมาจะยังเป็น unread และ badge จะเด้งกลับ เพราะ
+    /// pendingReadCheckpoint ถูกเคลียร์ไปแล้วตั้งแต่เจอแถวครั้งแรก ไม่มีอะไรลองมาร์คซ้ำให้อีก
     func load(token: String) async {
         guard !token.isEmpty else { return }
         if let list = try? await APIClient.shared.notifications(token: token) {
-            items = list
+            let readLocally = items.reduce(into: [String: String]()) { dict, item in
+                if let r = item.readAt { dict[item.id] = r }
+            }
+            items = list.map { item in
+                guard item.readAt == nil, let keep = readLocally[item.id] else { return item }
+                var m = item; m.readAt = keep; return m
+            }
         }
         loaded = true
     }

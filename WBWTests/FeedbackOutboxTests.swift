@@ -62,9 +62,10 @@ final class FeedbackOutboxTests: XCTestCase {
         XCTAssertEqual(box.all().map(\.clientId), ["b"])
     }
 
-    /// ลบทั้งฐาน ไม่ใช่แค่ clientId เดียว — ของค้างของฐานเดียวกันจากรอบก่อนถือคนละ clientId เสมอ
-    /// (ฟอร์มสร้าง UUID ใหม่ทุกครั้งที่กดส่ง) เก็บไม่หมด = flush รอบหน้าส่งคำตอบเก่าตามขึ้นไปทีหลัง
-    func testRemoveByCheckpointDropsEveryDraftForThatBase() {
+    /// remove(checkpointId:) ต้องเล็งด้วย checkpoint ไม่ใช่ clientId และไม่แตะฐานอื่น — ไม่ใช่เทส "ลบได้
+    /// หลาย draft พร้อมกันของฐานเดียว" เพราะสภาพนั้นเกิดไม่ได้ (add() กันไว้แล้วว่าฐานเดียวมีค้างได้อย่าง
+    /// มาก 1 draft เสมอ ดู testAddSameCheckpointReplaces)
+    func testRemoveByCheckpointOnlyAffectsThatCheckpoint() {
         let box = freshOutbox()
         box.add(draft("old", checkpoint: 4))
         box.add(draft("other", checkpoint: 7))

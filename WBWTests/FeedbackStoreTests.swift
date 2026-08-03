@@ -93,6 +93,24 @@ final class FeedbackStoreTests: XCTestCase {
         XCTAssertTrue(outboxUnderTest().all().isEmpty, "error ที่ retry ไม่ได้ต้องไม่ถูกเก็บเข้าคิว")
     }
 
+    /// terminal error ของ attempt นี้ต้องไม่ไปแตะ draft ของฐานเดียวกันที่ค้างคิวอยู่ก่อนแล้วจากรอบ
+    /// offline ก่อนหน้า — attempt นี้เองไม่เคยถูก add เข้าคิว (add เกิดเฉพาะตอน AppError.offline) ของที่
+    /// ค้างอยู่ก่อนเป็นคำตอบที่เคยบอกผู้ใช้ว่า "บันทึกแล้ว" จริง ลบทิ้งตรงนี้เท่ากับทำของนั้นหายฟรีๆ
+    /// ทั้งที่ attempt นี้เองก็ไม่สำเร็จเหมือนกัน
+    @MainActor
+    func testSubmitTerminalFailureKeepsPreviouslyQueuedDraftForSameCheckpoint() async {
+        let fake = FakeSubmitter()
+        fake.defaultResult = .failure(AppError.message("rating must be 1..3"))
+        let store = FeedbackStore(submitCall: fake.call)
+        outboxUnderTest().add(draft("old", checkpoint: 5))   // จากรอบ offline ก่อนหน้า
+
+        let outcome = await store.submit(draft("new", checkpoint: 5), token: "t")
+
+        XCTAssertEqual(outcome, .failed)
+        XCTAssertEqual(outboxUnderTest().all().map(\.clientId), ["old"],
+                       "draft เก่าที่เคยบันทึกไว้ต้องไม่ถูกลบทิ้งเพราะ attempt ใหม่พังคนละสาเหตุ")
+    }
+
     /// ทางสำเร็จเดิม (รวม 409/403 ที่เป็นสถานะปลายทางแต่ไม่ใช่ error) ต้องยังล้างของค้างคิวเหมือนเดิม
     /// แม้ draft ตัวนี้เคยเข้าคิวไว้จาก attempt ก่อนหน้าที่ offline
     @MainActor
@@ -150,8 +168,8 @@ final class FeedbackStoreTests: XCTestCase {
     // MARK: - คิวเก่าต้องไม่ทับเจตนาใหม่ของผู้ใช้
 
     /// ตอบฐานเดิมสดๆ ต้องล้างของค้างของฐานนั้นให้หมด ไม่ใช่แค่ clientId ของรอบนี้ — ฟอร์มสร้าง
-    /// clientId ใหม่ทุกครั้งที่กดส่ง ของค้างจากรอบก่อนจึงคนละ id เสมอ เหลือไว้ = flush รอบหน้าส่ง
-    /// คำตอบเก่าตามขึ้นไป กลายเป็นคำตอบสุดท้ายของฐานนั้นแทนของที่ผู้ใช้เพิ่งพิมพ์
+    /// clientId ใหม่ทุกครั้งที่กดส่ง ของค้างจากรอบก่อนจึงคนละ id เสมอ เหลือไว้ไม่ได้ทำให้คำตอบเพี้ยน
+    /// (uniq constraint กันการทับอยู่แล้ว) แค่เป็น POST เปล่าที่ flush รอบหน้าจะยิงไปแล้วโดน 409 กลับมา
     @MainActor
     func testSubmitClearsOlderQueuedDraftForSameCheckpoint() async {
         let fake = FakeSubmitter()
