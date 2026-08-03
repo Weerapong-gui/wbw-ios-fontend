@@ -29,9 +29,9 @@ arrives** — and the push is the part that has never been delivered by Firebase
 |---|---|
 | Database, endpoints, business rules | Verified live, all five submit cases by `curl` |
 | Offline outbox (queue → flush → row lands) | **Verified against a real stopped backend** (§2) |
-| `409`/`403` terminal handling | **Verified live; the queue does not retain them** (§3) |
-| 60 s poll → toast → form → row | Verified live, no hooks, twice, by two agents |
-| Push arriving while the app is open | Verified under a **simulated** APNs payload (§5) |
+| Terminal errors (400/401/403/409) drop the queue entry; retryable errors (429/5xx) keep it and retry | `409` **verified live**; retryable verified by unit tests, an integration test over the real transport, and one **live 500** (§3) |
+| 60 s poll → toast → form → row | Verified live, no hooks, twice, by two agents; the diff logic behind it, including a since-fixed out-of-order-response race, now has automated coverage too (§7) |
+| Push arriving while the app is open | Verified under a **simulated** APNs payload, one manual run (§5) |
 | Push **tap** (background and cold launch) | **Never exercised.** Reasoning only |
 | Real FCM delivery | **Never exercised.** No Firebase service account here |
 | Physical hardware | **Never exercised** for this feature |
@@ -42,7 +42,34 @@ arrives** — and the push is the part that has never been delivered by Firebase
 
 Ranked, worst first.
 
-### 1. FCM push has never been delivered. This is the feature's primary realtime path.
+### 1. Merging this branch as-is repoints the app at localhost. Release-blocking.
+
+`WBW/Config.swift` currently reads:
+
+```swift
+static let backend: Backend = .susLocal
+```
+
+which resolves to `http://localhost:8080/wbw`. `main` carries `.prodNode`
+(`https://wbw.sumfu.store`). **Merging this branch to `main` as-is repoints the app at
+localhost, and any build cut from this branch reaches no server** — not a degraded feature,
+a non-functional app: login, chat, the map, every network call, because `Config.backend`
+switches the whole app at once.
+
+This predates the check-in feedback feature — it came in with commit `fba1ebc`, before this
+plan started, and this plan never touched the line. It is not new, and it is not this document's
+bug, but nothing anywhere flagged it as a release blocker until the final whole-branch review.
+
+**Before this branch (or `main` after merging it) ships:**
+
+- [ ] Change `Config.backend` to `.prodNode` or `.susProd`. **This is the maintainer's decision**
+      — it depends on whether SUS is meant to serve the event or whether the app should keep
+      talking to the existing Node backend — not something this plan or this document can settle.
+- [ ] Re-verify against whichever backend is chosen. Nothing in this document was run against
+      `.prodNode` or `.susProd`; all of it, every curl call and every screenshot, was run against
+      `.susLocal`.
+
+### 2. FCM push has never been delivered. This is the feature's primary realtime path.
 
 There is no Firebase service account in this environment. `WBWPushService.SendUserPush`
 opens with:
@@ -71,6 +98,17 @@ guarded by `already_checked_in` and verified by counting rows after two scans (T
 is what the bell badge and the notification list read, and that path is solid. The push is the
 part that is supposed to make it *immediate*.
 
+One more thing on this path changed since this document was first written, and it is a fix
+rather than a gap: `notifyFeedback` — the function that writes that row and calls
+`SendUserPush` — now runs inside `goSafe`, added in the final whole-branch review. Before that,
+the detached goroutine had no `recover()`, and chi's `middleware.Recoverer` only covers the
+request goroutine, not ones spawned from inside it. A panic anywhere in `notifyFeedback` — a nil
+map, a bad type assertion, anything — would have taken down **the entire backend process for
+every user**, not just the participant who triggered it, and this exact code path fires once per
+first check-in: roughly 16,000 times over the event. `TestGoSafeRecoversPanicAndRunsDeferredCleanup`
+proves the fix the direct way: remove the `recover()` in a scratch copy and the whole test binary
+dies with `panic: ระเบิด` instead of a clean `FAIL`.
+
 **Practical consequence for event day:** if push is misconfigured in production, the feature
 does not fail — it degrades to the 60 s poll and the notification list, both of which are
 verified. Participants would see the toast within a minute of being scanned instead of
@@ -78,7 +116,7 @@ instantly. Plan for someone to confirm a real push end to end on a real device, 
 service account, before the event. That test has never been run and nothing in this plan
 substitutes for it.
 
-### 2. The push **tap** routing is reasoned, not observed.
+### 3. The push **tap** routing is reasoned, not observed.
 
 `didReceive` decides which screen to open and, for `checkin_feedback`, carries
 `checkpoint_id` through `PendingPush` so a cold launch can replay it after the splash screen.
@@ -93,7 +131,7 @@ that value as a number rather than a string, the coercion yields `""`, `Int("")`
 with nothing open. The backend does send it as a string (`"checkpoint_id": ref` where `ref` is
 `strconv.Itoa(checkpointID)`), so this is expected to be fine; it is expectation, not evidence.
 
-### 3. Physical hardware has never run this feature.
+### 4. Physical hardware has never run this feature.
 
 No physical device was used at any point in this plan, and none was used in the forest-3D plan
 this branch forks from either. Two consequences carry forward unchanged:
@@ -114,7 +152,7 @@ and the app on a phone cannot reach the Mac's loopback-only SUS port without it,
 `cloudflared` is in a restart loop. Neither was touched by this task; both are pre-existing and
 neither is caused by anything in this feature.
 
-### 4. `NotiStore` has no injectable seam, so one fix is reasoned rather than tested.
+### 5. `NotiStore` has no injectable seam, so one fix is reasoned rather than tested.
 
 Task 11 fix round 2 changed `NotiStore.load` so that a notification marked read locally (the
 push path marks it read without opening the list) is not resurrected as unread when the list
@@ -123,7 +161,7 @@ that would make this testable; `NotiStore` has not adopted it, so there is no te
 mode if the reasoning is wrong is cosmetic and self-healing: the bell badge briefly shows a
 number for something the participant already dealt with, until `markAllRead` sweeps it.
 
-### 5. Known, deferred, cosmetic
+### 6. Known, deferred, cosmetic
 
 - **`CheckinToast`'s title has no `.lineLimit`**, unlike its subtitle. A long server-supplied
   base name wraps to two lines and leaves the leading `checkmark.seal.fill` icon vertically
@@ -138,6 +176,17 @@ number for something the participant already dealt with, until `markAllRead` swe
   admin endpoint can set it. An admin adding a restroom on event day silently raises `total`,
   which affects the tree and now also the pending-feedback list. Inherited from the previous
   plan, unchanged here, and worth an issue rather than a hotfix.
+- **`pending`'s sort assumes lexicographic order on the `at` string equals chronological order.**
+  It holds only because SUS formats it `at.UTC().Format(time.RFC3339)` on the other side — fixed
+  width, no fractional seconds, a literal `Z`. Nothing pins that pairing on either side; a future
+  change to either the iOS sort or the Go formatter, made without knowing about the other, would
+  silently reorder the pending list. Flagged at Task 5 review, deferred rather than fixed there.
+- **`case susLan` now carries a real, committed LAN IP** (`172.25.32.8`), with a comment telling
+  whoever next does physical-device testing to edit it in place. Before commit `0f52be4` this
+  whole case lived only in an uncommitted local `Config.swift`, so a wrong IP could never reach
+  git; now that the file is committed (see item 1), it can. The standing risk is the same shape
+  as item 1: someone changes the IP for their own network, tests, and forgets to revert it before
+  committing something unrelated in the same diff.
 
 ---
 
@@ -315,7 +364,17 @@ did nothing.
 
 ---
 
-## 3. Step 2 — `409` is terminal and the queue drops it
+## 3. Step 2 — terminal errors are dropped, retryable errors are kept and retried
+
+This section originally covered only `409`. That was true but incomplete: `409` and `403` were
+the only statuses ever exercised through the app, and — until the final whole-branch review —
+the code did not distinguish "will never succeed on retry" (`400`/`401`/`403`/`409`) from
+"hasn't succeeded **yet**" (`429` and every `5xx`) at all. Every status outside 2xx/409/403 was
+treated as terminal and the queued draft was deleted. That is a real bug, not a hypothetical
+one: a participant told **"ส่งความเห็นแล้ว ขอบคุณ"** whose answer was then silently discarded the
+moment the origin returned `503`. The final review found it and it is now fixed; the fix and its
+evidence are described in a new subsection after the original `409` run below, which is
+unchanged and still the only live, on-screen proof for `409` specifically.
 
 Same base, two answers, two different `client_id`s, from two different launches — all in the
 app, no `curl` in the setup.
@@ -347,6 +406,72 @@ is what the design says must happen.
 Exactly one row. Outbox afterwards: `[]`. The `409` was not retained, and it did not overwrite.
 
 **`403` is terminal too**, and that was checked on screen as well — see §4.
+
+### The fix: retryable vs. terminal, and how it was proven
+
+`APIClient.submitFeedback` now maps `429` and `500...599` to a new `AppError.retryable` case,
+distinct from `AppError.message` (terminal). `FeedbackStore.submit` and `FeedbackStore.flush`
+both branch on it:
+
+| Path | offline | retryable (429/5xx) | terminal (400/401) | success / 409 / 403¹ |
+|---|---|---|---|---|
+| `submit` | queue, return `.saved` | queue, return `.saved` | no queue change, return `.failed` | drop queue entry for that base |
+| `flush` | stop the round, keep everything | keep the draft, **continue to the next one** | drop, continue | drop, continue |
+
+¹ `403`/`409` end the *retry* question — the row already exists (`409`) or never can (`403`, not
+checked in) — but neither is thrown as an error; both come back as **outcomes**
+(`.alreadyAnswered` / `.notCheckedIn`), which is what lets the form show the stored answer. See §4.
+
+`flush` keeps going past a retryable failure rather than stopping, which is what actually
+prevents head-of-line blocking (Task 6's original concern) — once flush continues past a stuck
+draft, nothing is gained by deleting it, so retryable drafts no longer need to be deleted to
+protect the queue. There is deliberately no bounded attempt counter: its only benefit is
+garbage-collecting a draft that 5xxs forever, at the cost of one wasted POST per flush round per
+stuck item (bounded by ~8, one per base) — cheaper than the alternative, which is a real answer
+dropped with no signal once the bound is exhausted during a long outage: the original bug back in
+a rarer but equally silent form. `401` stays terminal; in practice it is moot, because a `401`
+triggers `.wbwUnauthorized`, which logs the participant out, and `Session.logout()` already
+clears the outbox.
+
+**Proof, in four parts:**
+
+1. **Unit tests** (`FeedbackStoreTests`) — a `503` on the first send queues the draft and reports
+   `.saved`; a `503` during `flush` keeps that draft and still sends the next one; a kept draft
+   is delivered on the next `flush` once the server recovers.
+2. **Integration test across the real seam** (`WBWTests/FeedbackTransportTests.swift`, new) — a
+   `URLProtocol` stub sits under the **real** `APIClient.submitFeedback`, the **real**
+   `FeedbackStore`, and the **real** `FeedbackOutbox` on `UserDefaults`. This is the joint where
+   the original bug actually lived — which status becomes which error — and a test that injects
+   `AppError.retryable` directly at the store level, as the unit tests above do, cannot reach it.
+   A guard test (`testStubActuallyInterceptsAPIClient`) asserts the stub really intercepts the
+   request, so the suite cannot pass for the wrong reason. `429/500/502/503/504/524` all map to
+   `.retryable`; `400/401/422` all stay terminal; `409`/`403` still come back as outcomes.
+3. **End to end against the live backend** — SUS running at `localhost:8080`
+   (`Config.backend == .susLocal`). A `device_time` Postgres cannot cast makes the repository
+   return a non-`23505` error, which the handler's `default:` arm turns into a genuine `500` —
+   the exact arm the review named. Verified first with `curl` (`500` back), then through the real
+   iOS stack in a temporary test: the real `500` became `AppError.retryable`; `FeedbackStore.submit`
+   returned `.saved` with the draft still in the outbox (pre-fix: `.failed`, outbox empty — the
+   answer gone); and a queued draft flushed against the healthy server landed as `201`, the outbox
+   emptied, and the row was confirmed present in Postgres, then deleted. The temporary test file
+   was removed before committing; neither `grep` over the tree nor `git show HEAD` finds a trace
+   of it.
+4. **Negative control** — the three iOS fixes were reverted and the suite rerun. Every new test
+   failed, with exactly the expected messages (`"failed" is not equal to "saved"`, `[] is not
+   equal to ["a"]`, `status 503 ต้องเป็น AppError.retryable ได้ message(...)`). Then restored.
+
+**What this does not prove.** The live `500` above is **payload-induced, not load-induced**: a
+garbage `device_time` reaches the same `default:` arm a genuinely overloaded origin would hit,
+but a real `503` under real concurrent load could not be produced on this machine, and the app
+was not pointed at a fake origin to manufacture one — `Config.backend` is not this review's to
+set (see item 1). The integration test (part 2) is what covers the actual status codes an
+overloaded origin or a Cloudflare edge would return (`502`/`503`/`504`/`524`) uniformly, by
+stubbing them directly rather than by reproducing the load that would normally cause them.
+
+One UI consequence worth knowing: a retryable failure shows the same **"ส่งความเห็นแล้ว ขอบคุณ"**
+as the offline case — the existing optimistic stance, now genuinely true for this path too, since
+the outbox retries it. Nothing on screen distinguishes "queued because offline" from "queued
+because the server said try again".
 
 ---
 
@@ -425,7 +550,7 @@ what the `checkin_feedback` branch is supposed to do.
 
 **What this does *not* prove.** The payload was hand-written to match what FCM should produce;
 it was not produced by FCM. So the FCM→APNs translation, the token targeting, and the delivery
-itself remain unverified — see §"What you are carrying", item 1. What is now certain is that
+itself remain unverified — see §"What you are carrying", item 2. What is now certain is that
 **given** a correctly-shaped payload, the app suppresses the system banner, posts the refresh
 event, reloads, and shows its own toast within about 3 seconds.
 
@@ -469,8 +594,39 @@ The spec names four ways into the feedback form. All four converge on the single
 |---|---|---|
 | 1. Tap a push while the app is **closed** (cold launch) | Downstream only | Temporary hook calling `PendingPush.hold(.openCheckinFeedback, info: ["checkpoint_id": "6"])` — the exact call `didReceive` makes. Everything after that is production code, including the deferred `markRead` retry, confirmed by the `notification.read_at` timestamp changing without the list ever being opened. **The tap itself and `didReceive` have never run.** |
 | 2. Push arrives while the app is **open** | **Yes — §5** | `xcrun simctl push` with a simulated FCM-shaped payload. Real `willPresent`, real suppression, real refresh event, real toast. |
-| 3. Toast from the 60 s poll | **Yes, fully live** | No hooks, no taps. Run end to end twice by two different agents on two different checkpoints; toast at T+62–65 s naming the base, tree growing in the same frame, plus a 361-frame continuous sweep over a further full tick proving the toast does not repeat. |
+| 3. Toast from the 60 s poll | **Yes, fully live** | No hooks, no taps. Run end to end twice by two different agents on two different checkpoints; toast at T+62–65 s naming the base, tree growing in the same frame, plus a 361-frame continuous sweep over a further full tick proving the toast does not repeat. The diff logic behind it now also has dedicated automated coverage — see below. |
 | 4. Tap a card in the notification list | Downstream only | Temporary hook calling `onOpenFeedback(6)` — the same closure the card's `Button` calls. The sheet-to-sheet handoff (notifications closes, form opens) is real and was the reason `.sheet(onDismiss:)` replaced a 350 ms timer. **The tap itself has never run.** |
+
+**A concurrency bug behind entry point 3, found by the final review and now fixed.**
+`CheckinProgressStore.load()` has five callers — the poll, `scenePhase == .active`,
+`.checkinFeedbackArrived` (the push path above), `FeedbackView.send()`, and mount — none of which
+coordinate with each other. On bad network, two overlapping `GET /me/progress` calls can resolve
+out of order, and the older response landing *after* the newer one used to roll `progress`, the
+cache, and the pending-diff comparison set all backwards at once: the tree on Home could visibly
+shrink by a stage, and a base that had already toasted could toast again on the next poll. The
+fix is a generation counter (`loadGeneration`), not a guard that drops overlapping calls outright
+— a drop-style guard would have quietly defeated the push path itself
+(`.checkinFeedbackArrived` arriving while a poll is in flight would then wait for the *next*
+poll, up to 60 s, which is the exact delay the push exists to avoid). Every call still runs to
+completion; only a stale result is discarded, and it is discarded as a whole payload, never
+partially. `testStaleLoadResponseDoesNotRollBackState` proves both symptoms are gone: `stage`
+does not regress, and the next load does not re-emit the same base as newly pending.
+
+**Which of the four rests on what, plainly:**
+
+- **Entry point 1** (push tap, cold launch) rests on **reading alone**. The hook call stops one
+  layer short of the tap; `didReceive` itself has never executed, in a test or otherwise.
+- **Entry point 2** (push while open) rests on a **single manual run**, captured in two
+  screenshots (§5). It is real evidence — `willPresent` genuinely ran against a real payload —
+  but it is one run, not a regression test; nothing re-executes it on the next build.
+- **Entry point 3** (the 60 s poll) rests on **both**: the live screenshot evidence above, run
+  twice, plus — new since the final review — automated XCTest coverage of the state-transition
+  logic underneath it (`CheckinProgressStoreTests`, five tests including
+  `testStaleLoadResponseDoesNotRollBackState` above), which runs on every `xcodebuild test`
+  rather than only when someone remembers to drive it by hand.
+- **Entry point 4** (notification card tap) rests on **reading alone**, the same shape as entry
+  point 1 — a hook stands in for the `Button`'s closure, but no tap, real or simulated, has ever
+  reached it.
 
 ---
 
@@ -543,32 +699,51 @@ see `docs/sus-test-backend.md` for the same trap in the chat cache.
 
 ## 9. Test suites
 
-Both run on 2026-08-03, on the committed tree, with no temporary hooks present.
+Both run on 2026-08-03, on the committed tree, with no temporary hooks present. Numbers below are
+higher than when this document was first written, because the final whole-branch review added
+tests for what it found (§3, §7); this is the count as of `1a18fea` / `12dc355`.
 
-**SUS (Go)** — `go test ./... -count=1`:
+**SUS (Go)** — `go test ./... -count=1`, actual output:
 
 ```
-ok  su-server/internal/middleware  1.051s
-ok  su-server/internal/model       0.593s
-ok  su-server/internal/service     1.524s
-?   su-server/cmd, cmd/createadmin, config, internal/handler  [no test files]
+?   	su-server/cmd	[no test files]
+?   	su-server/cmd/createadmin	[no test files]
+?   	su-server/config	[no test files]
+ok  	su-server/internal/handler	0.446s
+ok  	su-server/internal/middleware	0.884s
+ok  	su-server/internal/model	1.326s
+ok  	su-server/internal/repository	1.777s
+ok  	su-server/internal/service	3.124s
 ```
 
-**35 top-level tests, 54 including subtests, 0 failures, 0 skipped.**
+**54 top-level tests, 73 including subtests, 0 failures — but only 49 of the 54 exercise real
+behaviour by default.** The other 5 are `internal/repository`'s: they need a real Postgres, so
+they check `WBW_DB_TESTS=1` and call `t.Skip` before opening a connection if it is unset, which is
+why the default run above shows a plain `ok` for that package with no hint that anything was
+skipped (`go test` only reports skips under `-v`). With `WBW_DB_TESTS=1` set, all 5 run and pass
+— verified in the final review's own fix report, which also confirmed the database was
+byte-for-byte back to its prior state afterward (writes are confined to `checkin_feedback` rows
+for the test participant, wiped both before and after).
 
-Note `internal/handler` and `internal/repository` have **no test files at all**. The feedback
-handler's five status-code branches are covered by live `curl` (§1) and by nothing else.
+**What a default `go test ./...` — the kind any CI runs unless someone opts in — does not cover:**
+the two-unique-constraint `23505` disambiguation, `ErrNotCheckedIn`, and the `requires_checkin`
+filter, the three behaviours that are pure SQL and cannot be honestly faked (see the doc comment
+at the top of `wbw_feedback_repository_test.go`). Those three stay covered only by the live
+`curl` run in §1 and by whoever remembers to set the flag. `internal/handler` is a different
+story: it had no test files at all when this document was first written; it now has 9, covering
+the spec's five POST status-code cases plus 401, malformed JSON, and 500, all through the real
+`middleware.RequireAuth`.
 
 **iOS** — `xcodegen generate && xcodebuild test -scheme WBW -destination 'platform=iOS
-Simulator,name=iPhone 17'`:
+Simulator,name=iPhone 17'`, actual output:
 
 ```
 Test Suite 'All tests' passed.
-   Executed 101 tests, with 0 failures (0 unexpected) in 0.691 (0.719) seconds
+   Executed 115 tests, with 0 failures (0 unexpected) in 0.354 (0.401) seconds
 ** TEST SUCCEEDED **
 ```
 
-**101 tests, 0 failures.**
+**115 tests, 0 failures.**
 
 Related and worth knowing: the app target is the test host, so every `xcodebuild test` boots the
 whole app. Task 5b had to gate the RealityKit scene off under XCTest
