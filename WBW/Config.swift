@@ -6,6 +6,12 @@ enum Backend {
     case nodeLocal  // Node ตัวเดียวกัน แต่รัน docker stack ในเครื่อง (dev เทส long-poll ฯลฯ)
     case susLocal   // Student-Union-Server รัน docker stack ในเครื่อง — เซิร์ฟเวอร์ทดสอบหลัก
     case susProd    // SUS ที่ deploy แล้ว (named Cloudflare tunnel → backend:8080)
+    /// สำหรับรันบนเครื่องจริงเท่านั้น — localhost บนมือถือคือตัวมือถือเอง ต้องใช้ IP ของ Mac ในวง LAN
+    ///
+    /// **ตัว case ต้องอยู่ในนี้เสมอ** ห้ามลบออกเวลา commit — BackendCacheKey กับเทสอีกสองไฟล์
+    /// switch ครบทุก case ถ้าไม่มีตัวนี้ repo จะ build ไม่ผ่านเลยตอน clone ใหม่ (เคยพลาดมาแล้ว)
+    /// สิ่งที่แก้เฉพาะเครื่องคือ **เลข IP ข้างล่าง** ไม่ใช่ตัว case
+    case susLan
 
     var apiBase: String {
         switch self {
@@ -13,6 +19,9 @@ enum Backend {
         case .nodeLocal: return "http://localhost:4000"
         case .susLocal:  return "http://localhost:8080/wbw"
         case .susProd:   return "https://api.studentunion.social/wbw"
+        // IP เปลี่ยนทุกครั้งที่ย้ายเน็ต: `ipconfig getifaddr en0` แล้วแก้ตรงนี้
+        // และ container publish แค่ 127.0.0.1 ต้อง forward ออก LAN ก่อน (ดู docs/sus-test-backend.md)
+        case .susLan:    return "http://172.25.32.8:8081/wbw"
         }
     }
 
@@ -20,7 +29,7 @@ enum Backend {
     var mePath: String {
         switch self {
         case .prodNode, .nodeLocal: return "/auth/me"
-        case .susLocal, .susProd:   return "/me"
+        case .susLocal, .susProd, .susLan: return "/me"
         }
     }
 }
