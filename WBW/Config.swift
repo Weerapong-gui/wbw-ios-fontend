@@ -41,7 +41,7 @@ enum Config {
     /// ไม่ได้ผูกกับ backend ที่มันมาจาก แต่ละ backend เดิน `group_message.id` แยกกัน พอสลับแล้ว
     /// แอปจะขอข้อความ "หลัง id" ที่ backend ใหม่ไม่เคยออกให้ ได้ 200 พร้อมลิสต์ว่างตลอด
     /// แชทดูเหมือนค้างโดยไม่มี error ไม่มี log อะไรเลย · ดู docs/sus-test-backend.md
-    static let backend: Backend = .susLocal
+    static let backend: Backend = .susProd   // ค่าที่ส่งขึ้น store
     static var apiBase: String { backend.apiBase }
     static var mePath: String { backend.mePath }
 }
