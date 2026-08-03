@@ -29,7 +29,7 @@ arrives** — and the push is the part that has never been delivered by Firebase
 |---|---|
 | Database, endpoints, business rules | Verified live, all five submit cases by `curl` |
 | Offline outbox (queue → flush → row lands) | **Verified against a real stopped backend** (§2) |
-| Terminal errors (400/401/403/409) drop the queue entry; retryable errors (429/5xx) keep it and retry | `409` **verified live**; retryable verified by unit tests, an integration test over the real transport, and one **live 500** (§3) |
+| Terminal is now an explicit list (400/401/405/410/413/414/415/422); `403`/`409` are terminal only when the body is the origin's; everything else — including 404/408/425 — is retryable and stays queued | `409` **verified live**; the classification, the round-2 inversion, and the origin-body gate are verified by unit tests, an integration test over the real transport, and one **live 500** — no live reproduction of a real 408, 425, or edge 403/409 exists (§3) |
 | 60 s poll → toast → form → row | Verified live, no hooks, twice, by two agents; the diff logic behind it, including a since-fixed out-of-order-response race, now has automated coverage too (§7) |
 | Push arriving while the app is open | Verified under a **simulated** APNs payload, one manual run (§5) |
 | Push **tap** (background and cold launch) | **Never exercised.** Reasoning only |
@@ -107,7 +107,11 @@ map, a bad type assertion, anything — would have taken down **the entire backe
 every user**, not just the participant who triggered it, and this exact code path fires once per
 first check-in: roughly 16,000 times over the event. `TestGoSafeRecoversPanicAndRunsDeferredCleanup`
 proves the fix the direct way: remove the `recover()` in a scratch copy and the whole test binary
-dies with `panic: ระเบิด` instead of a clean `FAIL`.
+dies with `panic: ระเบิด` instead of a clean `FAIL`. The wrap was applied to all five detached
+goroutines on this path (`notifyFeedback` plus four inside `wbw_push_service.go`), not just the
+one this document exercises. One bare goroutine elsewhere in the same server, `go
+e.listenLoop(ctx)` at `internal/service/wbw_chat_events.go:54`, is still unwrapped — it is off
+this feature's path (chat, not check-in feedback) and was left exactly as found.
 
 **Practical consequence for event day:** if push is misconfigured in production, the feature
 does not fail — it degrades to the 60 s poll and the notification list, both of which are
@@ -187,6 +191,18 @@ number for something the participant already dealt with, until `markAllRead` swe
   git; now that the file is committed (see item 1), it can. The standing risk is the same shape
   as item 1: someone changes the IP for their own network, tests, and forgets to revert it before
   committing something unrelated in the same diff.
+- **The `403`/`409` origin check trusts body shape, not source, and one gap in that could not be
+  tested.** Any edge or gateway that happened to answer with JSON shaped like `{"error":"..."}` —
+  not just Cloudflare — would be misread as the backend's own response and would drop that base's
+  whole queue. Cloudflare's actual block page is HTML, not JSON, so this is believed remote, but
+  nobody here has access to the real edge in front of `api.studentunion.social` to check it —
+  reasoned, not observed. See §3.
+- **A latent trap for whoever touches this route next.** `POST /wbw/me/feedback` currently runs
+  behind `requireAuth` only. If `middleware.RequireRole` is ever added to it, that `403` goes
+  through the same `WriteError` as the feedback handler's own "not checked in" response — same
+  envelope, same `error` key — so the app would read it as the origin's and show its fixed
+  not-checked-in copy (§4) for what is actually a permissions problem. The *action* would still
+  be right (a role mismatch isn't fixed by retrying); only the message would be wrong. See §3.
 
 ---
 
@@ -376,6 +392,15 @@ moment the origin returned `503`. The final review found it and it is now fixed;
 evidence are described in a new subsection after the original `409` run below, which is
 unchanged and still the only live, on-screen proof for `409` specifically.
 
+A second pass, after this section was first written, found that first fix was itself still
+guessing: `408` and `425` — both plausible on congested event Wi-Fi — fell through the same
+default-terminal trap the review had just closed for `429`/`5xx`, and the `403`/`409` outcomes
+below trusted the status code alone, which a Cloudflare WAF block page can produce without the
+request ever reaching origin. Both are now fixed. The subsection below, "The fix: retryable vs.
+terminal, and how it was proven," describes the code as it stands after both passes, not just the
+first; the `409` run immediately below is unaffected by either pass and is still the only live,
+on-screen evidence for that specific status.
+
 Same base, two answers, two different `client_id`s, from two different launches — all in the
 app, no `curl` in the setup.
 
@@ -409,16 +434,65 @@ Exactly one row. Outbox afterwards: `[]`. The `409` was not retained, and it did
 
 ### The fix: retryable vs. terminal, and how it was proven
 
-`APIClient.submitFeedback` now maps `429` and `500...599` to a new `AppError.retryable` case,
-distinct from `AppError.message` (terminal). `FeedbackStore.submit` and `FeedbackStore.flush`
-both branch on it:
+Two passes. The first (`1a18fea`) added `AppError.retryable`, mapped `429` and `500...599` to it,
+and left every other non-2xx/409/403 status terminal by default — the shape described when this
+subsection was first written. The second (`12e7cbc`) found that default was still the wrong way
+round, in a way that kept losing answers, and inverted it: **terminal is now an explicit list,
+and everything else retries.**
 
-| Path | offline | retryable (429/5xx) | terminal (400/401) | success / 409 / 403¹ |
+| | statuses |
+|---|---|
+| success | 200, 201 |
+| terminal — only if the body is the origin's¹ | 403, 409 |
+| terminal — request-shaped, retry cannot change the outcome | 400, 401, 405, 410, 413, 414, 415, 422 |
+| **retryable — everything else** | 404, 408, 425, 429, all 5xx, and any status nobody has thought of yet |
+
+Every status on the terminal list fails on something a retry cannot change: the same body (`400`
+bad rating, `413` too long, `422` semantically wrong), the same headers (`401` expired token,
+`415` content-type), the same method/URL (`405`, `414`), or permanent removal (`410`). `404` is
+deliberately **not** terminal — in front of a live origin it is far more likely a transient edge
+or routing problem than a permanently wrong URL. `408` and `425` are the two that actually reached
+a participant under the old default: Cloudflare answers `408` when a client does not finish
+sending its request body in time, which is exactly what two thousand people on congested event
+Wi-Fi produces, and `425` ("Too Early") comes from the TLS early-data replay protection Cloudflare
+enables by default. Both used to fall through to `default: throw AppError.message(...)` and
+delete the draft.
+
+**Why invert the default, rather than just add `408`/`425` to the old retryable list?** Because a
+hand-picked retryable list only ever covers what someone thought of — the next status nobody
+listed still falls to terminal and quietly deletes an answer. The two ways to be wrong here do not
+cost the same. Guessing *retryable* when a status is genuinely terminal costs at most one wasted
+`POST` per flush round for that base, against a queue `FeedbackOutbox` already hard-bounds to
+about 8 items (one per base — `add` replaces rather than accumulates). Guessing *terminal* when a
+status was retryable costs a participant's answer, silently: no error, no toast, no badge. A
+default that always fails toward "keep it" turns an unanticipated status into something merely
+wasteful instead of something destructive.
+
+¹ **`403`/`409` are terminal only when the body actually came from the backend.** A Cloudflare WAF
+or firewall rule can answer `403` on its own, as HTML, without the request ever reaching origin —
+which the app used to read as "not checked in here" and act on by calling
+`outbox.remove(checkpointId:)`, wiping **the whole base's queue**, not just the draft that failed.
+The discriminator (`APIClient.OriginBody`) looks at the shape of the body, not the status: a `403`
+is terminal only if it decodes to a non-empty `error` string, the shape `middleware.WriteError`
+always sends; a `409` is terminal if the body carries `checkpoint_id` **or** a non-empty `error`.
+It has to accept both shapes for `409` because of a sharp detail: a genuine `409` does **not**
+carry an error envelope at all — `WriteJSON` sends the **existing feedback row**
+(`{"id":…,"checkpoint_id":…,"rating":…,…}`) so the form can show the participant what is already
+on file (§4). Gating `409` on "is this an error envelope" would have read every real conflict as
+an edge response and left that base's queue retrying a submission that can never succeed —
+permanently stuck, the opposite failure from the one being fixed. `APIErrorBody` could not be
+reused as the discriminator: its `error` field is optional, so it decodes successfully against
+*any* JSON object, including `{}` and including the `409` row itself.
+
+The submit/flush behaviour per class is unchanged by either pass — only which statuses map to
+which class changed:
+
+| Path | offline | retryable (see table above) | terminal (see table above) | success / 409 / 403² |
 |---|---|---|---|---|
 | `submit` | queue, return `.saved` | queue, return `.saved` | no queue change, return `.failed` | drop queue entry for that base |
 | `flush` | stop the round, keep everything | keep the draft, **continue to the next one** | drop, continue | drop, continue |
 
-¹ `403`/`409` end the *retry* question — the row already exists (`409`) or never can (`403`, not
+² `403`/`409` end the *retry* question — the row already exists (`409`) or never can (`403`, not
 checked in) — but neither is thrown as an error; both come back as **outcomes**
 (`.alreadyAnswered` / `.notCheckedIn`), which is what lets the form show the stored answer. See §4.
 
@@ -433,7 +507,7 @@ a rarer but equally silent form. `401` stays terminal; in practice it is moot, b
 triggers `.wbwUnauthorized`, which logs the participant out, and `Session.logout()` already
 clears the outbox.
 
-**Proof, in four parts:**
+**Proof, in four parts (first pass — the 429/5xx split):**
 
 1. **Unit tests** (`FeedbackStoreTests`) — a `503` on the first send queues the draft and reports
    `.saved`; a `503` during `flush` keeps that draft and still sends the next one; a kept draft
@@ -460,13 +534,68 @@ clears the outbox.
    failed, with exactly the expected messages (`"failed" is not equal to "saved"`, `[] is not
    equal to ["a"]`, `status 503 ต้องเป็น AppError.retryable ได้ message(...)`). Then restored.
 
-**What this does not prove.** The live `500` above is **payload-induced, not load-induced**: a
-garbage `device_time` reaches the same `default:` arm a genuinely overloaded origin would hit,
-but a real `503` under real concurrent load could not be produced on this machine, and the app
-was not pointed at a fake origin to manufacture one — `Config.backend` is not this review's to
-set (see item 1). The integration test (part 2) is what covers the actual status codes an
-overloaded origin or a Cloudflare edge would return (`502`/`503`/`504`/`524`) uniformly, by
-stubbing them directly rather than by reproducing the load that would normally cause them.
+**Proof for the second pass (the inversion and the origin-body gate), same standard — written
+test-first, run red against the pre-fix code, then green:**
+
+- `testEverythingNotOnTheTerminalListIsRetryable` drives 402/404/406/407/408/418/423/425/426/
+  428/429/431/451 plus every 5xx through the **real** `APIClient.submitFeedback`. Against the
+  pre-fix code it failed on every one of them except 429 and the 5xx range — which the first pass
+  had already fixed — including 408 and 425, the two with a plausible real-world cause on event
+  Wi-Fi (Cloudflare's own request-timeout and early-data responses).
+- `testForbiddenFromEdgeIsRetryable` and `testConflictFromEdgeIsRetryable` send the real
+  Cloudflare block-page HTML under `403` and `409` respectively and assert `.retryable`;
+  `testForbiddenWithBodyThatIsNotOursIsRetryable` does the same under `403` for an empty body,
+  `{}`, and a body with an unrelated key (`{"message":"Forbidden"}`).
+- The actual harm is measured, not just the error type: `testEdgeForbiddenDoesNotWipeTheWholeBaseQueue`
+  queues a draft, then submits a second one for the same base against a stubbed Cloudflare `403`.
+  Against the pre-fix code the outcome came back `.notCheckedIn` instead of `.saved` and the
+  outbox was wiped to `[]` instead of holding the new draft — the whole-base wipe described above,
+  reproduced and then closed. `testEdgeForbiddenDuringFlushKeepsTheDraft` is the same measurement
+  during `flush`.
+- The opposite direction was proved failable too, which matters more than usual here, because
+  misreading a genuine backend response as an edge response reintroduces a permanently stuck
+  queue: with `isOriginErrorEnvelope` / `isOriginFeedbackRow` forced to return `false`,
+  `testForbiddenWithOriginEnvelopeIsTerminal`, `testConflictWithOriginRowIsTerminal`,
+  `testConflictWithOriginEnvelopeIsTerminal`, and `testOriginForbiddenStillClearsTheBaseQueue`
+  all fail.
+- Two Go tests (`TestSubmitFeedbackForbiddenBodyIsErrorEnvelope`,
+  `TestSubmitFeedbackConflictBodyIsFeedbackRow`) pin the body shapes the iOS discriminator now
+  depends on. They are guardrails on a cross-repo contract rather than regression tests for a bug
+  — they pass against unmodified handler code and fail only if the handler's response shape
+  changes (verified by rewriting the handler to plain `w.WriteHeader(403)` and `WriteError(409,
+  …)`, then restoring it).
+
+Tests went `115 → 126` in the second pass; a further test for the `CheckinProgressStore` fix
+below took the total to `127` — see §7.
+
+**What this does not prove.** The live `500` from the first pass is **payload-induced, not
+load-induced**: a garbage `device_time` reaches the same `default:` arm a genuinely overloaded
+origin would hit, but a real `503` under real concurrent load could not be produced on this
+machine, and the app was not pointed at a fake origin to manufacture one — `Config.backend` is
+not this review's to set (see item 1). The integration test is what covers the actual status
+codes an overloaded origin or a Cloudflare edge would return (`502`/`503`/`504`/`524`) uniformly,
+by stubbing them directly rather than by reproducing the load that would normally cause them. The
+second pass carries the same limit forward and adds two of its own:
+
+- **No live reproduction of a real `408`, `425`, or edge `403`/`409` exists.** Every case above is
+  proven through the unit suite and the `URLProtocol`-stubbed integration test, never against an
+  actual Cloudflare response or an actual congested connection. The live evidence in this document
+  is still limited to the `409` run above and the one live `500` from the first pass.
+- **A residual risk that could not be tested.** The discriminator accepts any body with a
+  non-empty `error` key as "from our origin" — it does not, and cannot from here, verify the
+  response actually came from `api.studentunion.social`. An edge or gateway other than Cloudflare
+  that answered with JSON shaped like `{"error":"..."}` would be misread as the origin and would
+  drop that base's queue, the same failure this fix closes for Cloudflare's HTML block page.
+  Cloudflare's own block page is HTML, so this is believed remote — but nobody here has access to
+  the real edge in front of `api.studentunion.social`, so "remote" is reasoned, not observed.
+
+There is also a latent trap for whoever adds authorization to this route: `POST /wbw/me/feedback`
+runs behind `requireAuth` only today, and if `middleware.RequireRole` is ever added to it, that
+`403` goes through the same `WriteError` as the feedback handler's own "not checked in" response
+— same envelope, same `error` key — so the discriminator would read it as the origin's, and the
+participant would see the fixed not-checked-in copy (§4) for what is actually a permissions
+problem. The action is still correct (retrying will never fix a role mismatch); only the message
+would be wrong.
 
 One UI consequence worth knowing: a retryable failure shows the same **"ส่งความเห็นแล้ว ขอบคุณ"**
 as the offline case — the existing optimistic stance, now genuinely true for this path too, since
@@ -612,6 +741,32 @@ completion; only a stale result is discarded, and it is discarded as a whole pay
 partially. `testStaleLoadResponseDoesNotRollBackState` proves both symptoms are gone: `stage`
 does not regress, and the next load does not re-emit the same base as newly pending.
 
+**A second, subtler bug in the same counter, found in the next pass (`12e7cbc`).**
+`loadGeneration` by itself tracks "started later," not "answered later." Concretely: a refresh
+fired by `FeedbackView.send()` (generation *N*) is still in flight when the 60 s poll starts a
+fraction of a second later (generation *N+1*); that poll's `GET` then fails on bad network — a
+routine event on this Wi-Fi. The failed *N+1* still advanced `loadGeneration`, so when *N*'s
+response landed afterward it no longer satisfied `generation == loadGeneration` and was discarded
+as "stale," even though nothing newer had actually arrived to replace it. The visible effect: the
+form stayed editable for up to 60 s after a successful submit, as if nothing had been sent. The
+fix adds `acceptedGeneration`, which only advances when a response **actually arrives and is
+applied**; a load that throws leaves it untouched, so a genuinely successful older response still
+wins. `testFailedNewerLoadDoesNotDiscardSuccessfulOlderOne` proves the fix;
+`testSuccessfulNewerLoadStillWinsOverOlderOne` is the negative control, pinning that a newer
+**successful** load still beats an older one exactly as before.
+
+**A related gap, closed one commit later (`924babf`).** `clear()` — called on logout — reset
+`progress`, the cache, and the pending-diff state, but not `acceptedGeneration`. A request still
+in flight at the moment of logout is therefore not yet "accepted," so its response could still
+satisfy `generation > acceptedGeneration` and land **after** the next account has already logged
+in and started loading — repopulating the tree and the pending list from the previous account's
+data, into a cache key namespaced by backend, not by person. This matters here specifically
+because phones are genuinely shared at this event, between staff and participants. `clear()` now
+also sets `acceptedGeneration = loadGeneration`, so anything still in flight at logout is
+retroactively treated as stale no matter when it lands. `testResponseInFlightAtLogoutIsDiscarded`
+drives exactly that sequence — a load left in flight, `clear()`, then the stale response landing —
+and asserts `progress`, `newlyPending`, and the on-disk cache all stay empty afterward.
+
 **Which of the four rests on what, plainly:**
 
 - **Entry point 1** (push tap, cold launch) rests on **reading alone**. The hook call stops one
@@ -620,10 +775,10 @@ does not regress, and the next load does not re-emit the same base as newly pend
   screenshots (§5). It is real evidence — `willPresent` genuinely ran against a real payload —
   but it is one run, not a regression test; nothing re-executes it on the next build.
 - **Entry point 3** (the 60 s poll) rests on **both**: the live screenshot evidence above, run
-  twice, plus — new since the final review — automated XCTest coverage of the state-transition
-  logic underneath it (`CheckinProgressStoreTests`, five tests including
-  `testStaleLoadResponseDoesNotRollBackState` above), which runs on every `xcodebuild test`
-  rather than only when someone remembers to drive it by hand.
+  twice, plus automated XCTest coverage of the state-transition logic underneath it
+  (`CheckinProgressStoreTests` — `testStaleLoadResponseDoesNotRollBackState` from the first
+  review, plus the `acceptedGeneration` and logout tests above from the two passes since), which
+  runs on every `xcodebuild test` rather than only when someone remembers to drive it by hand.
 - **Entry point 4** (notification card tap) rests on **reading alone**, the same shape as entry
   point 1 — a hook stands in for the `Button`'s closure, but no tap, real or simulated, has ever
   reached it.
@@ -700,8 +855,9 @@ see `docs/sus-test-backend.md` for the same trap in the chat cache.
 ## 9. Test suites
 
 Both run on 2026-08-03, on the committed tree, with no temporary hooks present. Numbers below are
-higher than when this document was first written, because the final whole-branch review added
-tests for what it found (§3, §7); this is the count as of `1a18fea` / `12dc355`.
+higher than when this document was first written: the final whole-branch review added tests for
+what it found (§3, §7), and a second pass after that closed two more gaps the same review missed
+(§3, §7 again) plus one on the Go side below; this is the count as of `924babf` / `c706b48`.
 
 **SUS (Go)** — `go test ./... -count=1`, actual output:
 
@@ -709,41 +865,55 @@ tests for what it found (§3, §7); this is the count as of `1a18fea` / `12dc355
 ?   	su-server/cmd	[no test files]
 ?   	su-server/cmd/createadmin	[no test files]
 ?   	su-server/config	[no test files]
-ok  	su-server/internal/handler	0.446s
-ok  	su-server/internal/middleware	0.884s
-ok  	su-server/internal/model	1.326s
-ok  	su-server/internal/repository	1.777s
-ok  	su-server/internal/service	3.124s
+ok  	su-server/internal/handler	1.299s
+ok  	su-server/internal/middleware	0.790s
+ok  	su-server/internal/model	1.777s
+ok  	su-server/internal/repository	2.230s
+ok  	su-server/internal/service	3.599s
 ```
 
-**54 top-level tests, 73 including subtests, 0 failures — but only 49 of the 54 exercise real
-behaviour by default.** The other 5 are `internal/repository`'s: they need a real Postgres, so
-they check `WBW_DB_TESTS=1` and call `t.Skip` before opening a connection if it is unset, which is
-why the default run above shows a plain `ok` for that package with no hint that anything was
-skipped (`go test` only reports skips under `-v`). With `WBW_DB_TESTS=1` set, all 5 run and pass
-— verified in the final review's own fix report, which also confirmed the database was
-byte-for-byte back to its prior state afterward (writes are confined to `checkin_feedback` rows
-for the test participant, wiped both before and after).
+**56 top-level tests, 75 including subtests, 0 failures — but only 51 of the 56 exercise real
+behaviour by default.** The other 5 are still `internal/repository`'s: they need a real Postgres,
+so they check `WBW_DB_TESTS=1` and call `t.Skip` before opening a connection if it is unset, which
+is why the default run above shows a plain `ok` for that package with no hint that anything was
+skipped (`go test` only reports skips under `-v`). What changed since this section was first
+written is not the gate itself but what used to happen once it was open: `openTestDB` used to
+`t.Skip` on a failed connection, a failed ping, or a missing test account too — so
+`WBW_DB_TESTS=1` on a checkout with no reachable database, or no `.env`, printed a clean `ok`
+having run nothing at all, which is exactly what happened once during the review itself. Every one
+of those paths is now `t.Fatalf`; the only remaining `t.Skip` is the original one, before the
+switch is even checked. With `WBW_DB_TESTS=1` set, all 56 run and pass, 0 skipped — verified in
+the fix report (`.superpowers/sdd/2026-08-03-checkin-feedback/final-fix-report.md`), which also
+confirmed the database was byte-for-byte back to its prior state afterward (writes are confined to
+`checkin_feedback` rows for the test participant, wiped both before and after). That run was not
+repeated for this pass, because it writes to the database; the figure above is the fix report's,
+cited rather than reproduced.
 
 **What a default `go test ./...` — the kind any CI runs unless someone opts in — does not cover:**
 the two-unique-constraint `23505` disambiguation, `ErrNotCheckedIn`, and the `requires_checkin`
 filter, the three behaviours that are pure SQL and cannot be honestly faked (see the doc comment
 at the top of `wbw_feedback_repository_test.go`). Those three stay covered only by the live
-`curl` run in §1 and by whoever remembers to set the flag. `internal/handler` is a different
-story: it had no test files at all when this document was first written; it now has 9, covering
-the spec's five POST status-code cases plus 401, malformed JSON, and 500, all through the real
-`middleware.RequireAuth`.
+`curl` run in §1 and by whoever remembers to set the flag. The `GET /wbw/me/progress` query has
+the same shape of gap and nobody has closed it: it `LEFT JOIN`s `checkin_feedback` on
+`(participant_id, checkpoint_id)` (Task 2) to report which bases are answered, that join is pure
+SQL exactly like the three above, and it has no test of its own — under `WBW_DB_TESTS=1` or
+otherwise. `internal/handler` is a different story: it had no test files at all when this
+document was first written; it now has 11 — the spec's five POST status-code cases, 401,
+malformed JSON, and 500, all through the real `middleware.RequireAuth`, plus two added in the
+second pass (`TestSubmitFeedbackForbiddenBodyIsErrorEnvelope`,
+`TestSubmitFeedbackConflictBodyIsFeedbackRow`) that pin the exact body shapes the iOS
+discriminator now depends on — see §3.
 
 **iOS** — `xcodegen generate && xcodebuild test -scheme WBW -destination 'platform=iOS
 Simulator,name=iPhone 17'`, actual output:
 
 ```
 Test Suite 'All tests' passed.
-   Executed 115 tests, with 0 failures (0 unexpected) in 0.354 (0.401) seconds
+	 Executed 127 tests, with 0 failures (0 unexpected) in 0.669 (0.727) seconds
 ** TEST SUCCEEDED **
 ```
 
-**115 tests, 0 failures.**
+**127 tests, 0 failures.**
 
 Related and worth knowing: the app target is the test host, so every `xcodebuild test` boots the
 whole app. Task 5b had to gate the RealityKit scene off under XCTest
