@@ -228,10 +228,13 @@ final class CheckinProgressStoreTests: XCTestCase {
         var queue: [CheckinProgress] = []
         /// การเรียกครั้งที่เท่าไรที่ต้องค้างรอ release() (nil = ไม่ค้างเลย)
         var gateCall: Int?
+        /// การเรียกครั้งที่เท่าไรที่ต้อง "พัง" (เน็ตหลุดกลางคัน) — ไม่กิน queue และไม่ติดประตู
+        var failCalls: Set<Int> = []
         private var gate: CheckedContinuation<Void, Never>?
 
         func call(_ token: String) async throws -> CheckinProgress {
             callCount += 1
+            if failCalls.contains(callCount) { throw AppError.offline }
             let value = queue.isEmpty ? CheckinProgress(total: 8, checkedIn: []) : queue.removeFirst()
             if gateCall == callCount {
                 await withCheckedContinuation { c in gate = c }
@@ -393,6 +396,64 @@ final class CheckinProgressStoreTests: XCTestCase {
             await store.load(token: "t", backend: .susLocal)
             XCTAssertTrue(store.newlyPending.isEmpty,
                           "ฐาน 2 ถูกรายงานไปแล้ว ต้องไม่ถูกนับเป็นของใหม่ซ้ำอีกรอบ")
+        }
+    }
+
+    /// รอบที่ใหม่กว่าแต่ **พัง** ต้องไม่กลืนผลของรอบเก่าที่สำเร็จ (fix รอบ 2 ข้อ 4)
+    ///
+    /// ตัวนับรุ่นเดิมเป็น "รอบที่เริ่มทีหลังชนะ" ซึ่งนับรอบที่ไม่เคยได้คำตอบเลยด้วย ลำดับที่เกิดจริง:
+    /// FeedbackView.send ยิง refresh (รอบ N) → poll 60 วิ เริ่มถัดมาเสี้ยววินาที (N+1) แล้ว GET พัง →
+    /// ผลของรอบ N ที่มี answered = true กลับมาทีหลังแล้วถูกทิ้งเพราะ "เก่ากว่า" ทั้งที่ไม่มีอะไรใหม่กว่า
+    /// ลงไปเลย · ผู้ใช้เห็นฟอร์มยังแก้ไขได้ต่ออีกนานสุด 60 วิ ทั้งที่ส่งสำเร็จไปแล้ว
+    ///
+    /// รุ่นที่ยอมรับต้องขยับเฉพาะตอน "มีคำตอบมาถึงจริง" เท่านั้น
+    @MainActor
+    func testFailedNewerLoadDoesNotDiscardSuccessfulOlderOne() async {
+        await withCleanCache {
+            let loader = FakeProgressLoader()
+            // queue นับเฉพาะรอบที่สำเร็จ: รอบ 1 = ตอนเปิดฟอร์ม (ฐาน 3 ยังไม่ตอบ)
+            // รอบ 2 = refresh หลังกดส่ง (ตอบแล้ว ไม่เหลือฐานค้าง) · รอบ 3 พังจึงไม่กิน queue
+            loader.queue = [progress(pending: [3]), progress(pending: [])]
+            loader.gateCall = 2
+            loader.failCalls = [3]
+            let store = CheckinProgressStore(progressCall: loader.call)
+
+            await store.load(token: "t", backend: .susLocal)
+            XCTAssertEqual(store.progress?.pending.map(\.checkpointId), [3], "ตั้งต้น: ฐาน 3 ยังไม่ตอบ")
+
+            let afterSend = Task { await store.load(token: "t", backend: .susLocal) }
+            while !loader.isWaiting { await Task.yield() }   // refresh ของ send ยังค้างกลางทาง
+
+            await store.load(token: "t", backend: .susLocal)  // poll 60 วิ เริ่มทีหลังแล้วพัง
+
+            loader.release()
+            await afterSend.value
+
+            XCTAssertEqual(loader.callCount, 3, "poll ที่พังต้องได้ยิงจริง ไม่งั้นเทสไม่ได้พิสูจน์อะไร")
+            XCTAssertEqual(store.progress?.pending.map(\.checkpointId), [],
+                           "รอบที่พังไม่ใช่ 'ของใหม่กว่า' — ผลที่ส่งสำเร็จแล้วต้องลงจริง ไม่งั้นฟอร์มยังแก้ได้ต่ออีก 60 วิ")
+        }
+    }
+
+    /// ตัวคุมฝั่งตรงข้าม: รอบที่ใหม่กว่าและ **สำเร็จ** ต้องยังกันรอบเก่าไว้ได้เหมือนเดิม
+    /// (testStaleLoadResponseDoesNotRollBackState คุมเรื่องนี้อยู่แล้ว ตัวนี้ตรึงไว้ตรงๆ อีกชั้น
+    /// ว่าการแก้ข้อ 4 ไม่ได้เปิดทางให้ state ถอยหลังกลับมา)
+    @MainActor
+    func testSuccessfulNewerLoadStillWinsOverOlderOne() async {
+        await withCleanCache {
+            let loader = FakeProgressLoader()
+            loader.queue = [progress(pending: [1]), progress(pending: [1, 2])]
+            loader.gateCall = 1
+            let store = CheckinProgressStore(progressCall: loader.call)
+
+            let stale = Task { await store.load(token: "t", backend: .susLocal) }
+            while !loader.isWaiting { await Task.yield() }
+            await store.load(token: "t", backend: .susLocal)
+            loader.release()
+            await stale.value
+
+            XCTAssertEqual(store.progress?.pending.map(\.checkpointId).sorted(), [1, 2],
+                           "คำตอบเก่าที่มาทีหลังต้องยังถูกทิ้งเมื่อมีรอบใหม่ที่สำเร็จลงไปแล้ว")
         }
     }
 }

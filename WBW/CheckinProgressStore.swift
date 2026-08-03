@@ -20,7 +20,7 @@ final class CheckinProgressStore: ObservableObject {
     /// เคยเห็นแล้วรอบก่อน ไม่ใช่ฐานที่เพิ่งโดนสแกน
     private var firstLoadDone = false
 
-    /// ลำดับที่ของ load รอบล่าสุดที่ "เริ่ม" ไปแล้ว — คำตอบที่กลับมาช้ากว่ารอบที่ใหม่กว่าถูกทิ้ง
+    /// ตัวแจกลำดับให้ load แต่ละรอบ — คำตอบที่กลับมาช้ากว่ารอบที่ใหม่กว่า **ที่ลงไปแล้ว** ถูกทิ้ง
     ///
     /// load() ถูกเรียกจากห้าที่โดยไม่มีใครคุมลำดับ: poll 60 วิ, scenePhase == .active,
     /// .checkinFeedbackArrived ทุกครั้งที่มี push, FeedbackView.send และตอน mount · สอง GET ที่คาบกัน
@@ -34,6 +34,17 @@ final class CheckinProgressStore: ObservableObject {
     /// สแกนจะไม่โผล่จนกว่าจะถึง poll รอบถัดไป นานสุด 60 วิ) วิธีนี้ทุกคำขอยังยิงจริง แค่ผลลัพธ์ที่
     /// เก่ากว่าไม่ถูกนำมาใช้ · state จึงไม่มีทางถอยหลัง
     private var loadGeneration = 0
+
+    /// ลำดับของรอบล่าสุดที่ **มีคำตอบมาถึงจริงและถูกใช้ไปแล้ว** — ตัวตัดสินว่ารอบไหน "เก่ากว่า"
+    ///
+    /// ต้องแยกจาก loadGeneration เพราะรอบที่ "เริ่มทีหลัง" ไม่เท่ากับ "ได้ของใหม่กว่า": ถ้ารอบใหม่ยิงแล้ว
+    /// พัง (เน็ตหลุดกลางทาง = เรื่องปกติบนภูเขา) มันไม่ได้พาอะไรมาเลย การให้มันไปดันตัวนับก็เท่ากับ
+    /// ทิ้งของดีของรอบก่อนโดยไม่มีอะไรมาแทน
+    ///
+    /// เคสจริงที่ต้องกัน: FeedbackView.send ยิง refresh (รอบ N) → poll 60 วิ เริ่มถัดมาเสี้ยววินาที (N+1)
+    /// แล้ว GET พัง → payload ของรอบ N ที่มี answered = true ถูกทิ้งทั้งที่ไม่มีอะไรใหม่กว่าลงไปเลย →
+    /// ผู้ใช้เห็นฟอร์มยังแก้ไขได้ต่ออีกนานสุด 60 วิ ทั้งที่เพิ่งส่งสำเร็จไปเมื่อกี้
+    private var acceptedGeneration = 0
 
     /// เรียกเน็ตจริง แยกเป็น property ฉีดแทนได้ตอนเทส — ทรงเดียวกับ FeedbackStore.submitCall
     /// (repo นี้ไม่มี protocol ใช้เลยสักที่ closure ตรงๆ จึงเป็นทางที่ฉีดของปลอมเข้าได้โดยไม่ต้อง
@@ -63,10 +74,12 @@ final class CheckinProgressStore: ObservableObject {
 
         loadGeneration += 1
         let generation = loadGeneration
+        // พังก็แค่ไม่ทำอะไร — ห้ามแตะ acceptedGeneration เด็ดขาด รอบที่ไม่มีคำตอบไม่ใช่ "ของใหม่กว่า"
         guard let fresh = try? await progressCall(token) else { return }
-        // มีรอบที่ใหม่กว่าลงไปก่อนแล้ว — ของรอบนี้เก่ากว่า ทิ้งทั้งก้อน (ทั้ง progress, cache และตัว
-        // เทียบของ newlyPending) ห้ามเขียนบางส่วน ไม่งั้น state จะไม่ตรงกันเองยิ่งกว่าเดิม
-        guard generation == loadGeneration else { return }
+        // มีรอบที่ใหม่กว่า **ลงไปจริง** ก่อนแล้ว — ของรอบนี้เก่ากว่า ทิ้งทั้งก้อน (ทั้ง progress, cache
+        // และตัวเทียบของ newlyPending) ห้ามเขียนบางส่วน ไม่งั้น state จะไม่ตรงกันเองยิ่งกว่าเดิม
+        guard generation > acceptedGeneration else { return }
+        acceptedGeneration = generation
 
         progress = fresh
         cache(fresh, backend: backend)
