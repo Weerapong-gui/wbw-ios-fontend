@@ -18,6 +18,10 @@ struct MainTabView: View {
     // ฐานที่กำลังเปิดหน้าให้ความเห็นอยู่ (nil = ไม่มีจอเปิด) — Task 11 จะผูกอีก 3 ทางเข้าเข้ามาที่ตัวแปรนี้
     // ตัวเดียวกัน (push ตอนแอปเปิด/ปิด, แตะการ์ดในหน้าแจ้งเตือน, toast จาก poll 60 วิ) วันนี้มีแค่ทางเข้าเทส
     @State private var feedbackCheckpoint: Int?
+    // Task 10 stub: เก็บ checkpoint id ที่เพิ่งแตะการ์ดขอความเห็นในหน้าแจ้งเตือนไว้เฉยๆ ให้คอมไพล์ผ่าน
+    // และพิสูจน์ว่า callback ทำงานจริง — ตั้งใจไม่ผูกกับ feedbackCheckpoint ด้านบนในงานนี้ (นั่นจะเปิด
+    // FeedbackView จริง ซึ่งเป็นหน้าที่ Task 11) รอ Task 11 มาเปลี่ยนไปตั้ง feedbackCheckpoint แทน
+    @State private var tappedFeedbackCheckpoint: Int?
 
     init() {
         #if DEBUG
@@ -65,6 +69,9 @@ struct MainTabView: View {
                                myId: profile.me?.userId ?? "", context: context)
                 #if DEBUG
                 if UserDefaults.standard.bool(forKey: "uitestChat") { chatOpen = true }
+                // เปิดหน้าแจ้งเตือนตรงๆ โดยไม่ต้องพึ่งปุ่มกระดิ่งจริง — ทรงเดียวกับ uitestChat ด้านบน
+                // เป็นทางเดียวที่เข้าถึงหน้านี้ได้โดยไม่มี tap tooling ใช้ verify การ์ดขอความเห็น (Task 10)
+                if UserDefaults.standard.bool(forKey: "uitestNotifications") { showNotifications = true }
                 // เปิดหน้าให้ความเห็นตรงๆ ด้วย checkpoint id ที่ส่งมา — ทรงเดียวกับ uitestChat ด้านบน
                 // checkpoint id จริงเริ่มที่ 1 เสมอ ใช้ 0/ไม่ส่งมาเป็นค่า "ไม่เปิด" ได้อย่างปลอดภัย
                 // เป็นทางเดียวที่เข้าถึง FeedbackView ได้โดยไม่มี tap tooling — Task 11 ใช้ hook นี้
@@ -183,7 +190,12 @@ struct MainTabView: View {
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: chatOpen)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: chat.incoming?.clientId)
         .sheet(isPresented: $showNotifications) {
-            NotificationsView(store: noti, token: session.token ?? "")
+            // onOpenFeedback แค่ปิด sheet นี้ + เก็บ checkpoint id ไว้ดูเฉยๆ ตอนนี้ (ดูคอมเมนต์ที่
+            // tappedFeedbackCheckpoint ด้านบน) — Task 11 เปลี่ยน closure นี้ให้ตั้ง feedbackCheckpoint จริง
+            NotificationsView(store: noti, token: session.token ?? "", onOpenFeedback: { id in
+                showNotifications = false
+                tappedFeedbackCheckpoint = id
+            })
         }
         // หน้าให้ความเห็นต่อฐาน — วันนี้เปิดได้ทางเดียวคือ feedbackCheckpoint ที่ตั้งจาก -uitestFeedback
         // ด้านบน (Task 11 จะเพิ่มอีก 3 ทางเข้าที่ตั้งตัวแปรเดียวกันนี้) ใช้ isPresented ไม่ใช่ item เพราะ

@@ -31,6 +31,9 @@ final class NotiStore: ObservableObject {
 struct NotificationsView: View {
     @ObservedObject var store: NotiStore
     let token: String
+    /// แตะการ์ดขอความเห็น (checkpoint id ที่มันพูดถึง) — Task 11 ผูกว่าเปิดอะไรต่อ การ์ดประกาศทั่วไป
+    /// ไม่เรียกตัวนี้เลย (feedbackCheckpointId เป็น nil)
+    let onOpenFeedback: (Int) -> Void
 
     private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255) // ครีมอ่อน #FAF7F0
 
@@ -43,7 +46,15 @@ struct NotificationsView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 12) {
-                            ForEach(store.items) { NotiCard(item: $0) }
+                            ForEach(store.items) { item in
+                                // เฉพาะการ์ดขอความเห็นกดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
+                                if let checkpointId = item.feedbackCheckpointId {
+                                    Button { onOpenFeedback(checkpointId) } label: { NotiCard(item: item) }
+                                        .buttonStyle(.plain)
+                                } else {
+                                    NotiCard(item: item)
+                                }
+                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
@@ -73,10 +84,17 @@ struct NotificationsView: View {
 }
 
 /// การ์ดประกาศ 1 รายการ — แถบสีซ้ายตามระดับความสำคัญ
+/// การ์ดขอความเห็น (feedbackCheckpointId != nil) มีสี/ไอคอน/เชฟรอนของตัวเอง เช็คก่อน switch ตาม
+/// item.level เดิมเสมอ ไม่งั้นการ์ดประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย — เช็คจาก feedbackCheckpointId
+/// (ไม่ใช่ item.type ตรงๆ) ตัวเดียวกับที่ NotificationsView ใช้ตัดสินใจห่อ Button ด้านบน กันไม่ให้การ์ด
+/// ดูกดได้ (สีเขียว+เชฟรอน) ทั้งที่แตะแล้วไม่มีอะไรเกิดขึ้นจริง
 private struct NotiCard: View {
     let item: NotificationItem
 
+    private var isFeedback: Bool { item.feedbackCheckpointId != nil }
+
     private var accent: Color {
+        if isFeedback { return Color.wbwGreen }
         switch item.level {
         case "emergency": return Color(red: 0.84, green: 0.27, blue: 0.27) // แดง
         case "warning":   return Color.wbwGold
@@ -84,6 +102,7 @@ private struct NotiCard: View {
         }
     }
     private var icon: String {
+        if isFeedback { return "checkmark.seal.fill" }
         switch item.level {
         case "emergency": return "exclamationmark.triangle.fill"
         case "warning":   return "exclamationmark.triangle"
@@ -121,6 +140,14 @@ private struct NotiCard: View {
             }
             .padding(14)
             Spacer(minLength: 0)
+            // เชฟรอนบอกว่ากดได้ — เฉพาะการ์ดขอความเห็น การ์ดประกาศทั่วไปไม่ได้ห่อ Button ไว้ (ดู
+            // NotificationsView) เชฟรอนเลยต้องไม่โผล่ให้เข้าใจผิดว่ากดได้
+            if isFeedback {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .padding(.trailing, 14)
+            }
         }
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))

@@ -127,10 +127,18 @@ struct NotificationItem: Codable, Identifiable {
     let level: String
     let audience: String?
     let audienceId: String?
+    /// ชี้ไปวัตถุที่แจ้งเตือนนี้พูดถึง · ตอนนี้ใช้เฉพาะ type == "checkin_feedback" = checkpoint_id
+    let refId: String?
     let createdAt: String?
     var readAt: String?
 
     var isUnread: Bool { readAt == nil }
+
+    /// เลขฐานที่แจ้งเตือนนี้ขอความเห็น · nil = ไม่ใช่แจ้งเตือนชนิดนี้
+    var feedbackCheckpointId: Int? {
+        guard type == "checkin_feedback", let refId else { return nil }
+        return Int(refId)
+    }
 
     /// เวลาแบบไทยสั้นๆ (16 ก.ค. 09:02)
     var timeText: String {
