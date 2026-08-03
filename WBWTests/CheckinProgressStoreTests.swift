@@ -456,4 +456,32 @@ final class CheckinProgressStoreTests: XCTestCase {
                            "คำตอบเก่าที่มาทีหลังต้องยังถูกทิ้งเมื่อมีรอบใหม่ที่สำเร็จลงไปแล้ว")
         }
     }
+
+    /// เครื่องเดียวกันสลับบัญชี (เกิดจริงในงาน — เจ้าหน้าที่กับผู้เข้าร่วมใช้เครื่องร่วมกัน)
+    ///
+    /// A ยิง poll ค้างไว้ → logout → คำตอบของ A มาถึงทีหลัง · ถ้า clear() ไม่ดัน acceptedGeneration
+    /// ตามไปด้วย รอบของ A จะยังนับว่า "ใหม่กว่า" แล้วเขียนทับ: บัญชีถัดไปเห็นต้นไม้กับฐานค้างของ A
+    /// และของ A ถูก cache ลง key ที่ผูกกับ backend ไม่ได้ผูกกับคน
+    @MainActor
+    func testResponseInFlightAtLogoutIsDiscarded() async {
+        await withCleanCache {
+            let loader = FakeProgressLoader()
+            loader.queue = [progress(pending: [1, 2, 3])]
+            loader.gateCall = 1
+            let store = CheckinProgressStore(progressCall: loader.call)
+
+            let inFlight = Task { await store.load(token: "t", backend: .susLocal) }
+            while !loader.isWaiting { await Task.yield() }
+
+            store.clear()   // logout ระหว่างที่คำขอยังลอยอยู่
+
+            loader.release()
+            await inFlight.value
+
+            XCTAssertNil(store.progress, "คำตอบของบัญชีก่อนห้ามฟื้น progress ขึ้นมาหลัง logout")
+            XCTAssertTrue(store.newlyPending.isEmpty, "และห้ามเด้ง toast ฐานค้างของบัญชีก่อนใส่บัญชีใหม่")
+            XCTAssertNil(UserDefaults.standard.data(forKey: CheckinProgressStore.cacheKey(for: .susLocal)),
+                         "ห้ามลง cache ด้วย — key ผูกกับ backend บัญชีถัดไปจะหยิบไปใช้ตอนเปิดแอป")
+        }
+    }
 }

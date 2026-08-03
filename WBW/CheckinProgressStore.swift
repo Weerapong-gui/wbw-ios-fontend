@@ -122,6 +122,11 @@ final class CheckinProgressStore: ObservableObject {
         newlyPending = []
         lastPendingIds = []
         firstLoadDone = false
+        // คำขอที่ยังลอยอยู่ตอน logout ต้องถูกนับเป็น "เก่ากว่า" ทันที ไม่งั้นของบัญชีก่อนเข้ามาทับบัญชีใหม่ได้:
+        // A ยิง poll ค้างไว้ → logout → B ล็อกอิน → mount load ของ B พังเพราะเน็ตแย่ (acceptedGeneration
+        // จึงไม่ขยับ) → คำตอบของ A มาถึงทีหลังและผ่าน guard เพราะ generation ของมันยังมากกว่า → B เห็น
+        // ต้นไม้กับฐานค้างของ A และของ A ถูกเขียนลง cache key ที่ผูกกับ backend ไม่ได้ผูกกับคน
+        acceptedGeneration = loadGeneration
     }
 
     /// หาฐานหนึ่งจาก progress ที่มีอยู่ — หน้า feedback ใช้อ่านชื่อฐาน/กิจกรรม
