@@ -211,4 +211,26 @@ final class CheckinProgressStoreTests: XCTestCase {
 
         UserDefaults.standard.removeObject(forKey: key)
     }
+
+    // MARK: - ฐานที่ "เพิ่ง" รอประเมิน (Task 11) — toast อ่านตัวนี้
+    //
+    // ตัว diff เต็มๆ (โหลดรอบ 2 เจอฐานใหม่ → newlyPending มีตัวนั้นตัวเดียว) ต้องยิงเน็ตจริงถึงจะเกิด —
+    // load() เรียก APIClient.shared ตรงๆ ไม่มี seam ให้ฉีดของปลอม (ทั้งไฟล์นี้เป็นแบบนั้นมาแต่แรก) จะ
+    // เขียนเทสให้ดูเหมือนครอบก็ต้องปลอม APIClient ทั้งตัวซึ่งเป็นการทดสอบของปลอม ไม่ใช่ของจริง —
+    // พฤติกรรมนั้นจึงพิสูจน์กับ backend จริงใน Step 6/7 ของ task-11 แทน (ดู task-11-report.md)
+    // ที่เหลือเทสได้ตรงๆ คือค่าเริ่มต้นกับการรีเซ็ต ซึ่งเป็นสองจุดที่พังแล้วเงียบที่สุด
+
+    @MainActor
+    func testNewlyPendingIsEmptyOnFirstLoad() {
+        let store = CheckinProgressStore()
+        XCTAssertTrue(store.newlyPending.isEmpty)
+    }
+
+    @MainActor
+    func testClearResetsPendingDiffState() {
+        let store = CheckinProgressStore()
+        store.clear()
+        XCTAssertTrue(store.newlyPending.isEmpty)
+        XCTAssertNil(store.progress)
+    }
 }

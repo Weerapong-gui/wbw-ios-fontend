@@ -18,11 +18,6 @@ struct FeedbackView: View {
     @State private var rating: Int?
     @State private var comment = ""
     @State private var sent = false
-    // ผู้ใช้เคยพิมพ์คอมเมนต์เองหรือกดเลือกคะแนนเองในเซสชันนี้แล้ว — ถ้าจริง syncFromServerIfNeeded
-    // ต้องไม่ทับของที่พิมพ์/กดไว้ด้วยคำตอบจาก server (กันกรณี progress reload พื้นหลังมาทับระหว่างที่
-    // กำลังพิมพ์คอมเมนต์ยาวๆ อยู่) ยกเว้นตอนได้ .alreadyAnswered กลับมาจาก send() ซึ่ง reset ตัวนี้เอง
-    // เพราะตอนนั้นรู้แน่แล้วว่าของที่เพิ่งพิมพ์ไม่ถูกบันทึก คำตอบจริงจาก server ต้องชนะ
-    @State private var userEdited = false
     // ข้อความ error ตอนส่งไม่สำเร็จแบบถาวร (retry ด้วย draft เดิมไม่มีทางสำเร็จ) — nil = ไม่มี error ค้าง
     @State private var sendError: String?
 
@@ -53,10 +48,18 @@ struct FeedbackView: View {
         .onChange(of: item) { _, _ in syncFromServerIfNeeded() }
     }
 
-    /// เติม rating/comment จากคำตอบจริงที่เคยส่งไว้ (ถ้ามี) — ไม่ทับของที่ผู้ใช้เพิ่งพิมพ์/กดเอง
-    /// (userEdited) เรียกได้ซ้ำหลายครั้งอย่างปลอดภัย ไม่มีผลถ้ายังไม่ตอบ หรือผู้ใช้แก้เองไปแล้ว
+    /// เติม rating/comment จากคำตอบจริงที่ server เก็บไว้ — เรียกซ้ำได้ปลอดภัย ไม่มีผลถ้ายังไม่ตอบ
+    ///
+    /// **ไม่มีข้อยกเว้นให้ของที่ผู้ใช้เพิ่งพิมพ์เอง** เดิมมี flag `userEdited` กันไว้ ตั้งใจกัน "progress
+    /// reload พื้นหลังมาทับระหว่างกำลังพิมพ์" — แต่ guard `it.answered` กันเคสนั้นอยู่แล้ว (ยังไม่ตอบ =
+    /// ไม่มีอะไรจาก server ให้ทับ) สิ่งที่ flag นั้นกันได้จริงจึงเหลือเคสเดียว: ฐานนี้ถูกตอบจาก "ทางอื่น"
+    /// (อีกเครื่อง/คนละ client) ระหว่างที่ฟอร์มนี้เปิดค้างพร้อม draft ที่ยังไม่ได้ส่ง — พอ answered พลิก
+    /// เป็น true ทั้งจอกลายเป็นโหมดอ่านอย่างเดียวพร้อมป้าย "ส่งความเห็นแล้ว ขอบคุณ" แต่ตัวเลข/ข้อความ
+    /// ที่โชว์คือ draft ในเครื่องที่ไม่เคยถูกบันทึก = โกหกผู้ใช้ว่าส่งของที่ไม่ได้ส่งไป (Task 8 เจอแล้วตัดสิน
+    /// ว่ายังไปไม่ถึง เพราะตอนนั้นไม่มีอะไร reload progress ระหว่างฟอร์มเปิด — poll 60 วิของ Task 11
+    /// ทำให้ไปถึงได้แล้ว) คำตอบจริงต้องชนะเสมอ
     private func syncFromServerIfNeeded() {
-        guard let it = item, it.answered, !userEdited else { return }
+        guard let it = item, it.answered else { return }
         rating = it.rating
         comment = it.comment ?? ""
     }
@@ -80,7 +83,7 @@ struct FeedbackView: View {
             }
             .padding(.top, 16)
 
-            TextEditor(text: commentBinding)
+            TextEditor(text: $comment)
                 .font(.system(size: 14))
                 .foregroundStyle(Color.wbwInk)
                 .scrollContentBackground(.hidden)
@@ -128,18 +131,11 @@ struct FeedbackView: View {
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.wbwInk.opacity(0.07), lineWidth: 1))
     }
 
-    /// binding ที่ TextEditor ใช้จริง แยกจาก $comment ตรงๆ เพื่อจับ "ผู้ใช้พิมพ์เอง" ให้ตั้ง userEdited
-    /// ได้ — syncFromServerIfNeeded เขียน comment ตรงๆ ผ่าน @State ไม่ผ่าน binding นี้ จึงไม่ติด flag
-    private var commentBinding: Binding<String> {
-        Binding(get: { comment }, set: { comment = $0; userEdited = true })
-    }
-
     private func faceButton(_ value: Int, _ symbol: String, _ label: String) -> some View {
         let picked = rating == value
         return Button {
             guard !answered else { return }
             rating = value
-            userEdited = true
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: symbol).font(.system(size: 20))
@@ -194,10 +190,9 @@ struct FeedbackView: View {
                 break   // ตั้ง sent ไว้ถูกแล้วด้านบน ไม่ต้องทำอะไรเพิ่ม
             case .alreadyAnswered:
                 // มีคำตอบจริงอยู่แล้วที่ server (ส่งมาจากที่อื่น/คนละ client_id) — ของที่เพิ่งพิมพ์ตรงนี้
-                // ไม่ถูกบันทึก เคลียร์ userEdited ให้ syncFromServerIfNeeded (เรียกจาก onChange ด้านล่าง
-                // หลัง reload) เติมคำตอบจริงทับได้ ไม่ติด guard กันทับที่ตั้งใจกันไว้กันเคสอื่น
+                // ไม่ถูกบันทึก · sent = false ไว้ก่อน แล้ว progress.load() ท้าย closure จะพา
+                // syncFromServerIfNeeded (ผ่าน .onChange(of: item)) มาเติมคำตอบจริงทับให้เอง
                 sent = false
-                userEdited = false
             case .notCheckedIn:
                 // ไม่ควรเกิดถ้า UI คุมถูก — เปิดฟอร์มนี้ได้ก็ต่อเมื่อเช็คอินฐานนี้แล้วเท่านั้น บอกตรงๆ
                 // แทนที่จะกลืนเงียบๆ ให้เห็นชัดว่ามีจุดที่ตรรกะพังอยู่ที่ไหนสักที่

@@ -9,6 +9,17 @@ import Foundation
 final class CheckinProgressStore: ObservableObject {
     @Published private(set) var progress: CheckinProgress?
 
+    /// ฐานที่เพิ่งกลายเป็น "รอประเมิน" ในการโหลดรอบล่าสุด — toast อ่านตัวนี้
+    ///
+    /// เทียบกับรอบก่อนเสมอ ไม่ใช่กับ "เคยเด้งไปหรือยัง" — poll รอบถัดไปที่ได้ข้อมูล
+    /// ชุดเดิมจึงไม่เด้งซ้ำ · ตั้งเป็น [] ทุกครั้งที่ไม่มีอะไรใหม่
+    @Published private(set) var newlyPending: [CheckinProgressItem] = []
+
+    private var lastPendingIds: Set<Int> = []
+    /// ได้ข้อมูลจากเน็ตมาแล้วอย่างน้อยหนึ่งรอบใน session นี้ · cache ไม่นับ — ของใน cache คือของที่
+    /// เคยเห็นแล้วรอบก่อน ไม่ใช่ฐานที่เพิ่งโดนสแกน
+    private var firstLoadDone = false
+
     // nonisolated: เป็น pure function ล้วนๆ ไม่แตะ state ของ actor เลย ทำให้เรียกจาก
     // context ที่ไม่ใช่ MainActor ได้ตรงๆ (เช่น XCTest ที่ไม่ได้ mark @MainActor)
     nonisolated static func cacheKey(for backend: Backend) -> String {
@@ -22,6 +33,13 @@ final class CheckinProgressStore: ObservableObject {
         guard let fresh = try? await APIClient.shared.progress(token: token) else { return }
         progress = fresh
         cache(fresh, backend: backend)
+
+        let ids = Set(fresh.pending.map(\.checkpointId))
+        // โหลดครั้งแรกของ session ไม่นับว่า "เพิ่งเกิด" — เปิดแอปมาเจอของค้างเก่า
+        // ไม่ควรเด้ง toast ราวกับเพิ่งโดนสแกนเมื่อกี้
+        newlyPending = firstLoadDone ? fresh.pending.filter { !lastPendingIds.contains($0.checkpointId) } : []
+        lastPendingIds = ids
+        firstLoadDone = true
     }
 
     func restoreFromCache(backend: Backend = Config.backend) {
@@ -47,6 +65,13 @@ final class CheckinProgressStore: ObservableObject {
     /// UserDefaults เองจะลบไม่ครบทุกเส้นทาง (ดูคอมเมนต์ที่ Session.logout())
     func clear() {
         progress = nil
+        // ตัวเทียบของ newlyPending ต้องรีเซ็ตพร้อมกัน ไม่งั้นบัญชีถัดไปบนเครื่องเดียวกันจะถูกเทียบกับ
+        // ฐานค้างของบัญชีก่อน: ฐานที่บังเอิญยังไม่ตอบเหมือนกันทั้งคู่จะถูกกลืนว่า "ไม่ใหม่" (toast ที่ควร
+        // เด้งเลยไม่เด้ง) และ firstLoadDone ที่ค้าง true ทำให้โหลดครั้งแรกของบัญชีใหม่เด้ง toast ของ
+        // ฐานค้างเก่าทั้งกองราวกับเพิ่งโดนสแกนเมื่อกี้
+        newlyPending = []
+        lastPendingIds = []
+        firstLoadDone = false
     }
 
     /// หาฐานหนึ่งจาก progress ที่มีอยู่ — หน้า feedback ใช้อ่านชื่อฐาน/กิจกรรม
