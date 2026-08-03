@@ -140,9 +140,13 @@ with nothing open. The backend does send it as a string (`"checkpoint_id": ref` 
 No physical device was used at any point in this plan, and none was used in the forest-3D plan
 this branch forks from either. Two consequences carry forward unchanged:
 
-- **Gyroscope parallax has never run.** `CMMotionManager` reports `isDeviceMotionAvailable ==
-  false` on the simulator, so the parallax path is dead code in every run to date. The unit
-  tests cover `mapAttitude(roll:pitch:)`, the pure function; the wiring around it is unseen.
+- **Gyroscope parallax — half closed on 2026-08-03, after this plan finished.** `CMMotionManager`
+  reports `isDeviceMotionAvailable == false` on the simulator, so the parallax path was dead code
+  in every run made *during* this plan. It has since been run on an iPhone 13: the sensor path is
+  live, real samples flow through `mapAttitude` and the low-pass filter, and the forest scene
+  renders on device. Still unseen is the scene actually *moving* when the phone tilts — the
+  device sat flat for the whole run. Detail, including a delivered sample rate of 33.6 Hz against
+  a requested 60 Hz, is in `docs/forest-3d-verification.md`.
 - **The 3D scene's appearance was judged by eye, not measured** — sky colour, fog blend, canopy
   size per stage. See `docs/forest-3d-verification.md` for the detail.
 

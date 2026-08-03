@@ -194,7 +194,12 @@ those have ever drawn either file. RealityKit rendering it correctly in-app (whi
 screenshots do show) is good evidence the USD content is well-formed, but it is not the same
 claim as "Quick Look can preview it," and that claim remains unverified.
 
-## Gyroscope parallax has never been exercised
+## Gyroscope parallax — partly closed on 2026-08-03
+
+> **Update, 2026-08-03.** The section below described the state before any physical-device run.
+> It has since been run on a real iPhone 13 (iOS 27, wired, paired), and the sensor half of the
+> gap is closed. See "What the device run established" immediately after it. The visual half —
+> that tilting the phone visibly moves the scene — is still open.
 
 Stated plainly because it's easy to lose in a pile of green checkmarks: **nobody has ever seen
 the gyro parallax effect run.** `GyroParallax.swift`'s `isAvailable` is a direct passthrough to
@@ -222,6 +227,43 @@ and expect a reinstall to wipe the notification-permission grant again. `project
 sets automatic signing, so no provisioning work is needed. **Nobody has run this recipe against
 the forest scene specifically** — it was built and proven for chat sync, not for gyro. Whoever
 picks this up next should expect to spend real time on it, not treat it as a formality.
+
+## What the device run established (2026-08-03)
+
+The recipe above was run against the forest scene on an iPhone 13 (iOS 27), with a temporary
+`NSLog` probe added to `GyroParallax.start()` and its update callback, then removed. The app ran
+for roughly ten minutes and produced 19,380 motion samples. What that settles:
+
+- **`isDeviceMotionAvailable` is `true` on the device**, so `start()` no longer returns early:
+  the callback is armed, `running` becomes `true`, and samples arrive. Every consequence listed
+  above — the dead `stop()`, the permanently-zero `offset` — applies only to the Simulator.
+- **Real sensor samples flow through the real code path.** `attitude.roll`/`attitude.pitch` were
+  read, `mapAttitude` was applied to them, and the low-pass filter converged as designed
+  (`offset` settling from `0.0323` toward `0.0188` over the run as the resting attitude drifted).
+  The formula that `GyroParallaxTests` covers has now been fed genuine hardware readings.
+- **`start()` is called twice** on mount, and the `guard !running` correctly rejects the second
+  call — observed directly (`available=true running=false`, then `available=true running=true`).
+- **The forest scene itself renders on the device**, not just in the Simulator:
+  `nodes=1118 modelComponents=557 pbrMaterials=571 bandedMatches=570`, matching the Simulator's
+  figures exactly.
+
+Two findings the earlier documentation did not anticipate:
+
+- **The requested update rate is not the delivered one.** `deviceMotionUpdateInterval` is set to
+  `1.0 / 60.0`, but samples arrived at about **33.6 Hz** — 60 samples per 1.783 s, consistently,
+  across the whole run. The callback is delivered `to: .main`, which RealityKit's render loop is
+  already occupying. This does not appear to hurt anything (the low-pass smooths it either way),
+  but any future reasoning that assumes 60 Hz is wrong.
+- **The process was killed with `signal 9` after about ten minutes** of the scene and the sensor
+  running together, while the device sat idle and locked. This is consistent with ordinary
+  suspension-then-reclaim rather than a fault, and it was not investigated further. Someone
+  should establish which it is before relying on the app surviving a long idle period at the
+  event.
+
+**Still open:** nobody has yet seen the scene *move*. The device sat flat for the entire run —
+`roll` stayed within `0.010`–`0.018` and `pitch` within `-0.013`–`-0.015` — so the one thing the
+probe could not show is a change in attitude producing a change in `offset`. That step needs a
+person holding the phone and tilting it, and it remains unverified.
 
 ## Which screens were screenshotted, on which devices
 
