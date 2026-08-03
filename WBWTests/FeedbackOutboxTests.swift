@@ -62,6 +62,16 @@ final class FeedbackOutboxTests: XCTestCase {
         XCTAssertEqual(box.all().map(\.clientId), ["b"])
     }
 
+    /// ลบทั้งฐาน ไม่ใช่แค่ clientId เดียว — ของค้างของฐานเดียวกันจากรอบก่อนถือคนละ clientId เสมอ
+    /// (ฟอร์มสร้าง UUID ใหม่ทุกครั้งที่กดส่ง) เก็บไม่หมด = flush รอบหน้าส่งคำตอบเก่าตามขึ้นไปทีหลัง
+    func testRemoveByCheckpointDropsEveryDraftForThatBase() {
+        let box = freshOutbox()
+        box.add(draft("old", checkpoint: 4))
+        box.add(draft("other", checkpoint: 7))
+        box.remove(checkpointId: 4)
+        XCTAssertEqual(box.all().map(\.clientId), ["other"], "ฐานอื่นต้องไม่ถูกกระทบ")
+    }
+
     func testOtherBackendQueueIsInvisible() {
         let box = freshOutbox(.susLocal)
         box.add(draft("a"))

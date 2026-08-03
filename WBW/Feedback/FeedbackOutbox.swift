@@ -46,6 +46,13 @@ struct FeedbackOutbox {
         save(all().filter { $0.clientId != clientId })
     }
 
+    /// ทิ้งของค้างของฐานนี้ทั้งหมด ไม่ว่ามาจาก clientId ไหน — ใช้ตอนผู้ใช้เพิ่งตอบฐานนี้สดๆ
+    /// ความเห็นที่ค้างคิวไว้รอบก่อนถือว่าถูกแทนที่ด้วยของใหม่แล้ว ปล่อยไว้ = flush รอบหน้าจะส่งคำตอบ
+    /// เก่าทับของที่ผู้ใช้เพิ่งพิมพ์ (คนละ clientId กัน remove(clientId:) จึงเก็บไม่หมด)
+    func remove(checkpointId: Int) {
+        save(all().filter { $0.checkpointId != checkpointId })
+    }
+
     func clear() {
         UserDefaults.standard.removeObject(forKey: Self.key(for: backend))
     }

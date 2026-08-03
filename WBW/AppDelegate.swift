@@ -10,6 +10,9 @@ extension Notification.Name {
     static let openGroupChat = Notification.Name("openGroupChat")
     /// โพสต์เมื่อผู้ใช้แตะ push ขอความเห็นต่อฐาน — userInfo["checkpoint_id"] เป็น String
     static let openCheckinFeedback = Notification.Name("openCheckinFeedback")
+    /// โพสต์เมื่อ push ขอความเห็น "มาถึง" ตอนแอปเปิดอยู่ (ยังไม่มีใครแตะ) — สัญญาณว่ามีของใหม่ฝั่ง
+    /// server เท่านั้น ไม่พา userInfo อะไรมาและไม่สั่งเปิดจอไหนทั้งสิ้น (ดู willPresent)
+    static let checkinFeedbackArrived = Notification.Name("checkinFeedbackArrived")
 }
 
 /// เก็บ notification name ที่แตะไว้ชั่วคราว เผื่อ NotificationCenter.post ยิงไปตอนยังไม่มีใคร subscribe
@@ -115,7 +118,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
         let info = notification.request.content.userInfo
         let type = info["type"] as? String
         if type == "chat" || type == "checkin_feedback" {
-            completionHandler([])   // toast ในแอปเด้งเอง ไม่ให้ซ้อนกับ banner ระบบ
+            // ปิด banner/เสียง/badge ของระบบทิ้ง — ในแอปมีของแทนอยู่แล้ว แต่ "ของแทน" นั้นต้องมีจริง:
+            // แชทมี ChatToast จาก long-poll ส่วนความเห็นต่อฐานเดิมไม่มีอะไรเลย ต้องรอ poll 60 วิ
+            // (นานสุดคือเงียบสนิทเกือบนาทีทั้งที่กดปิด notification ของระบบไปแล้ว) — โพสต์สัญญาณให้
+            // MainTabView โหลด progress + รายการแจ้งเตือนใหม่แทน toast เช็คอินจึงเด้งภายในไม่กี่วินาที
+            // และ badge กระดิ่งขึ้นทันทีที่ push มาถึง · ตั้งใจไม่เปิดฟอร์มให้เอง — push ที่มาถึงเฉยๆ
+            // ไม่ใช่การขออนุญาตแทรกจอที่ผู้ใช้กำลังใช้อยู่ (แตะ push ต่างหากถึงเข้าฟอร์ม ดู didReceive)
+            if type == "checkin_feedback" {
+                NotificationCenter.default.post(name: .checkinFeedbackArrived, object: nil)
+            }
+            completionHandler([])
             return
         }
         completionHandler([.banner, .sound, .badge])

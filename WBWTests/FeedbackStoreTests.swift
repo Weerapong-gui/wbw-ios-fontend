@@ -24,6 +24,26 @@ final class FeedbackStoreTests: XCTestCase {
         }
     }
 
+    /// ตัวปลอมที่ "ค้าง" ไว้ได้ที่การเรียกครั้งแรก — จำเป็นสำหรับเทส flush สองรอบที่คาบกันจริงๆ
+    /// ถ้าไม่มีประตูนี้ รอบแรกจะวิ่งจบก่อนรอบสองจะเริ่มเสมอ เทสก็ผ่านแม้ไม่มี guard = จับอะไรไม่ได้
+    private final class GatedSubmitter {
+        private(set) var calledClientIds: [String] = []
+        private var gate: CheckedContinuation<Void, Never>?
+        private var gateUsed = false
+
+        func call(_ token: String, _ draft: FeedbackDraft) async throws -> APIClient.FeedbackSubmitOutcome {
+            calledClientIds.append(draft.clientId)
+            if !gateUsed {
+                gateUsed = true
+                await withCheckedContinuation { c in gate = c }
+            }
+            return .saved
+        }
+
+        var isWaiting: Bool { gate != nil }
+        func release() { gate?.resume(); gate = nil }
+    }
+
     private func draft(_ id: String, checkpoint: Int) -> FeedbackDraft {
         FeedbackDraft(clientId: id, checkpointId: checkpoint, rating: 3,
                       comment: "ดี", deviceTime: "2026-08-29T09:00:00Z")
@@ -125,5 +145,61 @@ final class FeedbackStoreTests: XCTestCase {
         XCTAssertEqual(fake.calledClientIds, ["first"], "offline ต้องหยุดทั้งรอบ ห้ามลามไปตัวถัดไป")
         XCTAssertEqual(outboxUnderTest().all().map(\.clientId), ["first", "second"],
                        "ทั้งคู่ต้องยังอยู่ในคิว รอรอบหน้าที่เน็ตกลับมา")
+    }
+
+    // MARK: - คิวเก่าต้องไม่ทับเจตนาใหม่ของผู้ใช้
+
+    /// ตอบฐานเดิมสดๆ ต้องล้างของค้างของฐานนั้นให้หมด ไม่ใช่แค่ clientId ของรอบนี้ — ฟอร์มสร้าง
+    /// clientId ใหม่ทุกครั้งที่กดส่ง ของค้างจากรอบก่อนจึงคนละ id เสมอ เหลือไว้ = flush รอบหน้าส่ง
+    /// คำตอบเก่าตามขึ้นไป กลายเป็นคำตอบสุดท้ายของฐานนั้นแทนของที่ผู้ใช้เพิ่งพิมพ์
+    @MainActor
+    func testSubmitClearsOlderQueuedDraftForSameCheckpoint() async {
+        let fake = FakeSubmitter()
+        let store = FeedbackStore(submitCall: fake.call)
+        outboxUnderTest().add(draft("old", checkpoint: 6))
+
+        _ = await store.submit(draft("new", checkpoint: 6), token: "t")
+
+        XCTAssertTrue(outboxUnderTest().all().isEmpty, "draft เก่าของฐานเดียวกันต้องไม่รอดไปถึง flush")
+    }
+
+    /// ฟอร์มของฐานไหนเปิดค้างอยู่ flush ต้องข้ามคิวของฐานนั้น — ไม่งั้นคำตอบเก่าถูกส่งลับหลังระหว่าง
+    /// ผู้ใช้กำลังพิมพ์คำตอบใหม่ แล้ว answered ที่พลิกเป็น true ย้อนมาทับสิ่งที่พิมพ์อยู่ พร้อมป้าย
+    /// "ส่งความเห็นแล้ว ขอบคุณ" · ฐานอื่นต้องไปต่อได้ตามปกติ
+    @MainActor
+    func testFlushSkipsCheckpointWhoseFormIsOpen() async {
+        let fake = FakeSubmitter()
+        let store = FeedbackStore(submitCall: fake.call)
+        outboxUnderTest().add(draft("open", checkpoint: 6))
+        outboxUnderTest().add(draft("other", checkpoint: 2))
+
+        store.beginEditing(checkpointId: 6)
+        await store.flush(token: "t")
+
+        XCTAssertEqual(fake.calledClientIds, ["other"], "ฐานที่เปิดฟอร์มอยู่ห้ามถูกส่งลับหลัง")
+        XCTAssertEqual(outboxUnderTest().all().map(\.clientId), ["open"], "ของฐานนั้นต้องยังรออยู่")
+
+        store.endEditing(checkpointId: 6)
+        await store.flush(token: "t")
+        XCTAssertEqual(fake.calledClientIds, ["other", "open"], "ปิดฟอร์มแล้วต้องส่งได้ตามปกติ")
+    }
+
+    /// flush สองรอบที่คาบกัน (mount + scenePhase .active ตอน cold launch) ต้องยิงของชิ้นเดียวกันแค่
+    /// ครั้งเดียว — flush อ่าน outbox.all() เป็น snapshot แล้ว remove ทีละตัวแบบ read-modify-write
+    /// บน UserDefaults รอบที่สองที่ snapshot ก่อนรอบแรกเขียนจะฟื้นของที่ส่งไปแล้วกลับเข้าคิว
+    @MainActor
+    func testOverlappingFlushRunsOnlyOnce() async {
+        let fake = GatedSubmitter()
+        let store = FeedbackStore(submitCall: fake.call)
+        outboxUnderTest().add(draft("a", checkpoint: 1))
+
+        let first = Task { await store.flush(token: "t") }
+        while !fake.isWaiting { await Task.yield() }   // รอให้รอบแรกเข้าไปติดที่ประตูจริงๆ ก่อน
+        await store.flush(token: "t")                 // รอบที่สองต้องคืนทันที ไม่แตะคิวเลย
+        fake.release()
+        await first.value
+
+        XCTAssertEqual(fake.calledClientIds, ["a"], "รอบที่คาบกันต้องไม่ยิงซ้ำ")
+        XCTAssertTrue(outboxUnderTest().all().isEmpty, "ของที่ส่งแล้วต้องไม่ฟื้นกลับเข้าคิว")
     }
 }

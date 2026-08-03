@@ -218,7 +218,10 @@ final class CheckinProgressStoreTests: XCTestCase {
     // load() เรียก APIClient.shared ตรงๆ ไม่มี seam ให้ฉีดของปลอม (ทั้งไฟล์นี้เป็นแบบนั้นมาแต่แรก) จะ
     // เขียนเทสให้ดูเหมือนครอบก็ต้องปลอม APIClient ทั้งตัวซึ่งเป็นการทดสอบของปลอม ไม่ใช่ของจริง —
     // พฤติกรรมนั้นจึงพิสูจน์กับ backend จริงใน Step 6/7 ของ task-11 แทน (ดู task-11-report.md)
-    // ที่เหลือเทสได้ตรงๆ คือค่าเริ่มต้นกับการรีเซ็ต ซึ่งเป็นสองจุดที่พังแล้วเงียบที่สุด
+    //
+    // ที่เทสได้ตรงๆ คือค่าเริ่มต้นกับการรีเซ็ต · lastPendingIds/firstLoadDone เป็น private และเขียนได้
+    // ทางเดียวคือผ่าน load() ที่ต้องมีเน็ต เทสตรงๆ จึงไม่ได้ — ที่ยืนยันได้คือ progress ซึ่งอ่านได้จริง
+    // และต้องกลายเป็น nil หลัง clear()
 
     @MainActor
     func testNewlyPendingIsEmptyOnFirstLoad() {
@@ -226,11 +229,25 @@ final class CheckinProgressStoreTests: XCTestCase {
         XCTAssertTrue(store.newlyPending.isEmpty)
     }
 
+    /// เติมของจริงเข้าไปก่อนเสมอ — เรียก clear() บน store ที่ยังเป็นค่าเริ่มต้นอยู่แล้ว เทสจะผ่านแม้
+    /// clear() ลืมรีเซ็ตฟิลด์ไปทั้งตัว (ทุก assert เทียบกับค่าที่มันเป็นอยู่แล้วตั้งแต่ต้น) = เทสที่
+    /// จับอะไรไม่ได้เลย
     @MainActor
     func testClearResetsPendingDiffState() {
         let store = CheckinProgressStore()
+        let loaded = CheckinProgress(total: 8, checkedIn: [
+            CheckinProgressItem(checkpointId: 3, name: "ลานย่อย 3", activityName: nil,
+                                sequence: 3, at: "2026-08-29T09:00:00Z",
+                                answered: false, rating: nil, comment: nil),
+        ])
+        store.cache(loaded, backend: .susLocal)
+        XCTAssertNotNil(store.progress, "ต้องมีของให้ clear() ล้างจริงๆ ก่อน ไม่งั้นเทสไม่ได้พิสูจน์อะไร")
+
         store.clear()
+
         XCTAssertTrue(store.newlyPending.isEmpty)
         XCTAssertNil(store.progress)
+
+        UserDefaults.standard.removeObject(forKey: CheckinProgressStore.cacheKey(for: .susLocal))
     }
 }

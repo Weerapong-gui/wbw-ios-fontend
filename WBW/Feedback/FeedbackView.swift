@@ -42,7 +42,13 @@ struct FeedbackView: View {
                 }
             }
         }
-        .onAppear { syncFromServerIfNeeded() }
+        .onAppear {
+            syncFromServerIfNeeded()
+            // จองฐานนี้ไว้ตลอดที่ฟอร์มเปิด — กัน flush ส่ง draft เก่าของฐานเดียวกันขึ้นไปลับหลัง
+            // แล้วคำตอบจริงจาก server ย้อนกลับมาทับสิ่งที่ผู้ใช้กำลังพิมพ์ (ดู FeedbackStore.editingCheckpoint)
+            feedback.beginEditing(checkpointId: checkpointId)
+        }
+        .onDisappear { feedback.endEditing(checkpointId: checkpointId) }
         // progress อาจโหลดเสร็จ "หลัง" หน้านี้ปรากฏ (ดูคอมเมนต์หัวไฟล์) — เรียกซ้ำทุกครั้งที่ item
         // เปลี่ยนค่า ไม่ใช่แค่ครั้งเดียวตอน appear เพื่อจับจังหวะนั้นด้วย
         .onChange(of: item) { _, _ in syncFromServerIfNeeded() }
@@ -202,6 +208,13 @@ struct FeedbackView: View {
                 sent = false
                 sendError = "ส่งไม่สำเร็จ ลองอีกครั้ง"
             }
+            // ทริกเกอร์ที่สองของ outbox ตาม spec (อีกตัวคือ scenePhase == .active) — เพิ่งพิสูจน์ว่า
+            // เน็ตเดินอยู่ ของค้างของ "ฐานอื่น" ที่คิวไว้ตอนสัญญาณหายจึงไปได้แล้ว ไม่ต้องรอผู้ใช้สลับ
+            // แอปออกแล้วกลับมา (คนเดินฐานต่อฐานอาจไม่ทำแบบนั้นเลยทั้งงาน) · เรียกทุกผลลัพธ์ไม่แยกเคส
+            // เพราะ .saved เองก็คลุมทั้ง "ถึง server จริง" และ "เข้าคิวเพราะเน็ตหลุด" อยู่แล้ว
+            // (FeedbackStore ตั้งใจซ่อนความต่างนั้นจาก UI) และ flush หยุดเองทันทีที่เจอ offline ตัวแรก
+            // ฐานที่เปิดฟอร์มอยู่ตอนนี้ถูกข้ามเสมอ (ดู FeedbackStore.editingCheckpoint)
+            await feedback.flush(token: session.token ?? "")
             await progress.load(token: session.token ?? "")
         }
     }

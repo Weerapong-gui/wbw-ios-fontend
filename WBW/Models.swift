@@ -119,7 +119,9 @@ struct CheckinResult: Codable {
 
 // ===== ประกาศ / แจ้งเตือน =====
 // หมายเหตุ: id มาเป็น string (PG bigint → node ส่ง string)
-struct NotificationItem: Codable, Identifiable {
+// Equatable เพื่อให้ .onChange(of: noti.items) ใน MainTabView จับ "รายการเปลี่ยน" ได้ตรงๆ — ใช้ retry
+// การมาร์คว่าอ่านแล้วของ push ที่พาเข้าฟอร์มก่อนรายการจะโหลดทัน (ดู markFeedbackNotiRead)
+struct NotificationItem: Codable, Identifiable, Equatable {
     @FlexibleString var id: String
     let type: String?
     let title: String
