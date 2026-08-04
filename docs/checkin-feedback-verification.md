@@ -22,6 +22,12 @@ simulator (`17458066-33DC-464C-A008-9C9C05165247`), iOS 26.5.
 
 ## The short version
 
+**Update, 2026-08-04: the push now arrives.** The backend is deployed to production at
+migration 14, a real FCM push reached a real iPhone, and the app is uploaded to App Store
+Connect as build 1. What is still open is listed under "What is still open (2026-08-04)".
+The rest of this document describes the state at the end of the implementation plan and is
+kept because its reasoning is still what explains each gap.
+
 The feature works, end to end, for the path a participant will actually take **if the push
 arrives** — and the push is the part that has never been delivered by Firebase.
 
@@ -69,7 +75,16 @@ bug, but nothing anywhere flagged it as a release blocker until the final whole-
       `.prodNode` or `.susProd`; all of it, every curl call and every screenshot, was run against
       `.susLocal`.
 
-### 2. FCM push has never been delivered. This is the feature's primary realtime path.
+### 2. FCM push — CLOSED on 2026-08-04. Everything below describes the state before that.
+
+> **A real push was delivered to a real iPhone on 2026-08-04**, through every real layer:
+> staff scan → `WBWStaffService.Checkin` → notification row → `SendUserPush` → FCM → APNs →
+> banner on the device, reading "เช็คอิน วิหารพระเจ้าล้านทอง แล้ว / แตะเพื่อให้คะแนนฐานนี้".
+> Nothing was simulated. See "How the push gap was closed" below for what it took.
+
+The original text follows, because the reasoning still explains why it stayed open so long.
+
+### 2a. FCM push has never been delivered. This is the feature's primary realtime path.
 
 There is no Firebase service account in this environment. `WBWPushService.SendUserPush`
 opens with:
@@ -954,3 +969,60 @@ alert that survives app termination *and* reinstallation; it was a stale alert f
 launch, not a new request. `xcrun simctl shutdown` + `boot` clears it, after which the DEBUG
 guard works exactly as expected. Every screenshot in this document was taken on a normal,
 Firebase-configured Debug build.
+
+---
+
+## How the push gap was closed (2026-08-04)
+
+This section exists because the gap stayed open across an entire implementation plan and two
+verification passes, and the reason it stayed open was not the reason anyone assumed.
+
+**What was actually delivered.** A staff account scanned a participant into checkpoint 1 on
+production. The server wrote a `notification` row (`type=checkin_feedback`, `ref_id=1`),
+`SendUserPush` handed it to FCM, FCM delivered through APNs, and the banner appeared on an
+iPhone 13 reading *"เช็คอิน วิหารพระเจ้าล้านทอง แล้ว / แตะเพื่อให้คะแนนฐานนี้"*. Every layer was
+the real one — no `simctl push`, no stub, no hand-inserted row.
+
+**Four things had to be true at once**, and each was invisible until the one before it was fixed:
+
+1. **The backend had to be deployed.** `main` was fast-forwarded and deployed to the Arch box;
+   `schema_migrations` went 13 → 14. Before this, `/wbw/me/progress` and `/wbw/me/feedback`
+   answered 404 on production while answering 200 locally.
+2. **The server needed a Firebase service account.** Production had been logging
+   `WARN push ปิดอยู่: ไม่มี GOOGLE_APPLICATION_CREDENTIALS` at every boot, and
+   `docker-compose.yml` had no way to get a credential file into the container at all. Both
+   were fixed: a `./secrets` directory mounted read-only at `/run/secrets`, and
+   `GOOGLE_APPLICATION_CREDENTIALS` set in that host's `.env`.
+3. **Firebase needed the APNs auth key.** It was already uploaded — but only in the
+   *Development* slot. The *Production* slot is still empty, which does not affect a Debug
+   build but **will** silence push for anything shipped through TestFlight or the App Store,
+   since those carry `aps-environment: production`. See "What is still open".
+4. **The `-uitestToken` debug hook was writing the JWT to the wrong place.** This was the real
+   blocker, and the one that cost the most time. `Session`'s `#if DEBUG` block set the
+   in-memory `token` property but never wrote `UserDefaults` key `wbw.token`, while
+   `PushManager.registerCurrent()` reads that key directly rather than asking `Session`. The
+   guard therefore never passed, so a device launched with that hook **never registered a
+   device token at all** — `device_token` sat at 0 with no error anywhere, on either side.
+   Two wrong diagnoses were made first (notification permission, then the APNs key) before the
+   code was read. Fixed in `41a94ee`; the hook now persists exactly what a real login does.
+
+**The lesson worth keeping:** a test affordance that only half-simulates the state it claims to
+simulate will silently disable whatever depends on the other half. The hook looked like it
+worked, because everything it was previously used for — chat, the tree, the feedback form —
+reads the session from memory. Only push reads it from disk.
+
+## What is still open (2026-08-04)
+
+- **The Production APNs auth key slot in Firebase is empty.** The same `.p8` file must be
+  uploaded a second time into that slot. Until then, any TestFlight or App Store build gets no
+  push, with no error on any side. This is the highest-value remaining item.
+- **The push tap has been delivered but the `didReceive` route was not yet confirmed** to land
+  on the right form.
+- **Production carries almost no data** — the checkpoints exist, but there were 0 check-ins and
+  0 feedback rows before this test, and the accounts named below are synthetic.
+- **Synthetic accounts now on production**, both created for this verification and both safe to
+  delete once real data exists: `6939999999` (participant; also the App Review demo account)
+  and `wbwtest-staff` (staff, approved by hand so it could scan).
+- **Two credentials need rotating before the event**: `POSTGRES_PASSWORD`, committed in a
+  tracked `docker-compose.yml` on origin and predating this work, and the Linux password for
+  the `yion` account on the production host.
