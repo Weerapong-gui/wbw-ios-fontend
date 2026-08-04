@@ -1,12 +1,6 @@
 import SwiftUI
 
 struct LoginView: View {
-    /// หน้าสมัครผู้เข้าร่วมบนเว็บ — การสมัครไม่ได้อยู่ในแอป
-    ///
-    /// force unwrap ได้เพราะเป็นค่าคงที่ที่ตรวจแล้วว่า parse ผ่าน และมีเทสตรึงไว้
-    /// (LoginViewTests) ถ้าวันหนึ่งมีคนพิมพ์ผิดจนพังจะรู้ตอนรันเทส ไม่ใช่ตอนผู้ใช้กด
-    static let registerURL = URL(string: "https://walkbeyondthewild.studentunion.social/auth/participant/register")!
-
     @EnvironmentObject var session: Session
 
     @State private var studentId = ""
@@ -30,13 +24,16 @@ struct LoginView: View {
                 Spacer().frame(height: 14)
                 passwordField
 
-                HStack {
-                    Spacer()
-                    Text("Forget password?")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.red)
-                }
-                .padding(.top, 8)
+                // ตรงนี้เคยมี "Forget password?" (สะกดผิดด้วย) — ถอดออกด้วยเหตุผลเดียวกับปุ่ม
+                // สมัครด้านล่าง: เป็น Text เฉยๆ กดไม่ได้ ไม่มี action ซึ่ง App Review ตีกลับ
+                // ด้วย Guideline 2.1
+                //
+                // ต่างจากปุ่มสมัครตรงที่ลิงก์ไปหน้ารีเซ็ตรหัส **ไม่** กระตุ้นข้อบังคับเรื่องลบบัญชี
+                // จึงลิงก์ออกไปได้อย่างปลอดภัย — แต่ตรวจแล้วเว็บยังไม่มีหน้านั้นเลย
+                // (/auth/participant/forgot-password และอีกสาม path ตอบ 404 ทั้งหมด)
+                // จึงไม่มีอะไรให้ลิงก์ไป
+                //
+                // ใส่กลับได้เมื่อเว็บมีหน้ารีเซ็ตรหัสจริงแล้ว โดยทำเป็น Link ไม่ใช่ Text
 
                 if let error {
                     Text(error)
@@ -66,20 +63,19 @@ struct LoginView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(busy)
 
-                // เดิมเป็น Text เฉยๆ กดไม่ได้ ไม่มี action — App Review กดทุกอย่างบนจอ แล้วตีกลับ
-                // ด้วยเหตุผลว่าสมัครบัญชีไม่ได้ (Guideline 2.1) · การสมัครอยู่บนเว็บ ไม่ได้อยู่ในแอป
-                // จึงพาออกไปที่หน้าสมัครจริงแทน
-                HStack(spacing: 4) {
-                    Text("Don't have an account?")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.7))
-                    Link("Sign up", destination: Self.registerURL)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
-                        .underline()
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 16)
+                // ตรงนี้เคยมี "Don't have an account? Sign up" — ถอดออกโดยตั้งใจ ห้ามใส่กลับ
+                // โดยไม่อ่านเหตุผลก่อน
+                //
+                // ของเดิมเป็น Text เฉยๆ กดไม่ได้ ไม่มี action ซึ่ง App Review ตีกลับด้วย
+                // Guideline 2.1 แน่นอน เพราะ reviewer กดทุกอย่างบนจอแล้วสมัครไม่ได้
+                //
+                // ทางแก้ที่ตรงไปตรงมาคือทำเป็นลิงก์ไปหน้าสมัครบนเว็บ แต่พอทำแบบนั้นแล้ว Apple
+                // ถือว่าแอป "รองรับการสร้างบัญชี" ซึ่ง Guideline 5.1.1(v) บังคับให้ต้องมีทาง
+                // **ลบบัญชีในแอป** ตามมาด้วย · ตอนนี้ยังไม่มีทั้งหน้าจอในแอปและ endpoint ฝั่ง
+                // server เลย จึงเลือกถอดออกไปก่อนสำหรับรอบแรก
+                //
+                // จะใส่กลับได้ต่อเมื่อทำระบบลบบัญชีเสร็จแล้วเท่านั้น (DELETE /wbw/me + หน้ายืนยัน
+                // + ตัดสินใจว่า check_in / checkin_feedback / ข้อความแชท จะถูกลบตามหรือไม่)
 
                 Spacer()
             }
