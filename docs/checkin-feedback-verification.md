@@ -1013,9 +1013,14 @@ reads the session from memory. Only push reads it from disk.
 
 ## What is still open (2026-08-04)
 
-- **The Production APNs auth key slot in Firebase is empty.** The same `.p8` file must be
-  uploaded a second time into that slot. Until then, any TestFlight or App Store build gets no
-  push, with no error on any side. This is the highest-value remaining item.
+- ~~The Production APNs auth key slot in Firebase is empty.~~ **Closed the same day.** The key
+  was uploaded into the Production slot and then *verified rather than assumed*, because a
+  wrong key here fails silently: an ad-hoc build was archived from `Release`, exported with
+  `method: release-testing`, and installed on the iPhone 13. That build carries
+  `aps-environment: production`, `get-task-allow: false`, and an `Apple Distribution`
+  signature — identical to a store build except for the profile type. A scan of checkpoint 2
+  produced the banner "เช็คอิน สวนกุหลาบ แล้ว" on the device. **Both APNs environments are now
+  proven end to end**, so TestFlight and App Store builds will receive push.
 - **The push tap has been delivered but the `didReceive` route was not yet confirmed** to land
   on the right form.
 - **Production carries almost no data** — the checkpoints exist, but there were 0 check-ins and
