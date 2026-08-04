@@ -1,6 +1,12 @@
 import SwiftUI
 
 struct LoginView: View {
+    /// หน้าสมัครผู้เข้าร่วมบนเว็บ — การสมัครไม่ได้อยู่ในแอป
+    ///
+    /// force unwrap ได้เพราะเป็นค่าคงที่ที่ตรวจแล้วว่า parse ผ่าน และมีเทสตรึงไว้
+    /// (LoginViewTests) ถ้าวันหนึ่งมีคนพิมพ์ผิดจนพังจะรู้ตอนรันเทส ไม่ใช่ตอนผู้ใช้กด
+    static let registerURL = URL(string: "https://walkbeyondthewild.studentunion.social/auth/participant/register")!
+
     @EnvironmentObject var session: Session
 
     @State private var studentId = ""
@@ -60,13 +66,17 @@ struct LoginView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(busy)
 
+                // เดิมเป็น Text เฉยๆ กดไม่ได้ ไม่มี action — App Review กดทุกอย่างบนจอ แล้วตีกลับ
+                // ด้วยเหตุผลว่าสมัครบัญชีไม่ได้ (Guideline 2.1) · การสมัครอยู่บนเว็บ ไม่ได้อยู่ในแอป
+                // จึงพาออกไปที่หน้าสมัครจริงแทน
                 HStack(spacing: 4) {
                     Text("Don't have an account?")
                         .font(.system(size: 11))
                         .foregroundStyle(.white.opacity(0.7))
-                    Text("Sign up")
+                    Link("Sign up", destination: Self.registerURL)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.white)
+                        .underline()
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 16)
