@@ -24,12 +24,24 @@ final class Session: ObservableObject {
             user = try? JSONDecoder().decode(AuthUser.self, from: data)
         }
         #if DEBUG
-        // เทส UI บน simulator (พิมพ์ login ไม่ได้): launch ด้วย `-uitestToken <jwt> -uitestUser <username>`
+        // เทส UI บนเครื่องที่พิมพ์ login ไม่ได้: launch ด้วย `-uitestToken <jwt> -uitestUser <username>`
+        //
+        // **ต้องเขียนลง UserDefaults ด้วย ไม่ใช่ตั้งแค่ตัวแปรในหน่วยความจำ** — PushManager
+        // .registerCurrent() อ่าน JWT จาก UserDefaults คีย์ tokenKey ตรงๆ ไม่ได้ถาม Session
+        // ถ้าตั้งแค่ในหน่วยความจำ guard ตรงนั้นจะไม่ผ่านตลอดกาล เครื่องจึงไม่เคยลงทะเบียน
+        // device token เลย และ push ทดสอบไม่ได้เลยสักครั้งโดยไม่มีอะไรฟ้อง (เสียเวลาไล่หา
+        // มาแล้วรอบหนึ่ง — เห็นแค่ device_token ค้างที่ 0 โดยไม่มี error ที่ไหนเลย)
+        //
+        // เขียนให้เหมือน save() ทุกอย่าง เพื่อให้ hook นี้เทียบเท่าการ login จริง ไม่ใช่ครึ่งใบ
         if let t = UserDefaults.standard.string(forKey: "uitestToken"), !t.isEmpty {
-            token = t
             let u = UserDefaults.standard.string(forKey: "uitestUser") ?? "tester"
             let r = UserDefaults.standard.string(forKey: "uitestRole") ?? "participant"
-            user = AuthUser(userId: "", username: u, role: r)
+            let fake = AuthUser(userId: "", username: u, role: r)
+            token = t
+            user = fake
+            UserDefaults.standard.set(t, forKey: tokenKey)
+            UserDefaults.standard.set(try? JSONEncoder().encode(fake), forKey: userKey)
+            PushManager.shared.registerCurrent()
         }
         #endif
     }
