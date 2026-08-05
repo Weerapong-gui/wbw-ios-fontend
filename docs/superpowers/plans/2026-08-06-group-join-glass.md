@@ -666,10 +666,14 @@ build + ถ่ายภาพ แล้ว **revert ไฟล์ทันที*
 ```bash
 cd /Users/park/wbw-ios-fontend
 git status --short
-# ถ้ามีไฟล์เปลี่ยน:
-git add -A
+# ถ้ามีไฟล์เปลี่ยน — ระบุไฟล์ตรง ๆ:
+git add WBW/GroupJoinView.swift
 git commit -m "fix(group): <สิ่งที่แก้จริงหลังยืนยันด้วยตา>"
 ```
+
+**ห้ามใช้ `git add -A` หรือ `git add .`** ใน repo นี้มีงานที่ยังไม่ commit ของคนอื่นวางอยู่
+(`docs/superpowers/plans/2026-08-06-sos.md` — แผน Emergency SOS 151k ที่ไม่เกี่ยวกับงานนี้)
+`git add -A` จะกวาดมันเข้า commit ของเราไปด้วย ระบุไฟล์ทีละตัวเสมอ
 
 ถ้าไม่มีอะไรต้องแก้ ข้าม step นี้ อย่า commit เปล่า
 
