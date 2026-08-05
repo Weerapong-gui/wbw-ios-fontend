@@ -67,6 +67,12 @@ struct APIClient {
         return try dec.decode(Me.self, from: data)
     }
 
+    /// ความคืบหน้าเช็คอินของตัวเอง — คุมขั้นต้นไม้กับเวลาของวันที่หน้า Home
+    func progress(token: String) async throws -> CheckinProgress {
+        try await getDecoded("/me/progress", token: token, CheckinProgress.self,
+                             error: "โหลดความคืบหน้าไม่สำเร็จ")
+    }
+
     // ===== staff =====
 
     /// ฐานที่เจ้าหน้าที่คนนี้ประจำ
@@ -224,13 +230,6 @@ struct APIClient {
 
     func leaveGroup(token: String) async throws {
         try await deviceCall(path: "/groups/leave", token: token, body: [:])
-    }
-
-    /// ดึงข้อความ (poll) — after = id ล่าสุดที่มี
-    func messages(token: String, groupId: Int, after: String?, limit: Int = 50) async throws -> [MessageDTO] {
-        var path = "/groups/\(groupId)/messages?limit=\(limit)"
-        if let after, !after.isEmpty { path += "&after=\(after)" }
-        return try await getDecoded(path, token: token, [MessageDTO].self, error: "โหลดข้อความไม่สำเร็จ")
     }
 
     /// ส่งข้อความ — idempotent ด้วย clientId

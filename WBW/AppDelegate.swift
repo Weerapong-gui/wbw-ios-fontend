@@ -6,6 +6,28 @@ import FirebaseMessaging
 extension Notification.Name {
     /// โพสต์เมื่อผู้ใช้แตะ push — ให้ MainTabView สลับไปแท็บประกาศ
     static let openNotificationsTab = Notification.Name("openNotificationsTab")
+    /// โพสต์เมื่อผู้ใช้แตะ push ของแชท — ให้ MainTabView เปิดจอแชท
+    static let openGroupChat = Notification.Name("openGroupChat")
+}
+
+/// เก็บ notification name ที่แตะไว้ชั่วคราว เผื่อ NotificationCenter.post ยิงไปตอนยังไม่มีใคร subscribe
+/// (cold launch: didReceive มักมาก่อน MainTabView จะติดตั้ง .onReceive ทัน เพราะมีหน้าสแปลชคั่นอยู่) —
+/// one-shot: MainTabView.task ดึงไปโพสต์ซ้ำแล้วเคลียร์ทันทีที่มีโอกาส (ดู consume())
+enum PendingPush {
+    private static var name: Notification.Name?
+
+    static func hold(_ n: Notification.Name) { name = n }
+
+    /// อ่านแล้วเคลียร์ในตาเดียว กันโดนดึงไปใช้ซ้ำสองรอบ
+    static func consume() -> Notification.Name? {
+        defer { name = nil }
+        return name
+    }
+
+    /// เคลียร์ทิ้งหลัง .onReceive รับสดไปแล้ว (มีคน subscribe อยู่จริงตอน post — ไม่ใช่ cold launch) กันของที่
+    /// hold() พักไว้ตอน didReceive ตกค้างข้าม mount ถัดไป (เช่น logout แล้ว login บัญชีอื่น) ทำให้ consume()
+    /// ตอน mount ใหม่ดึงของเก่าที่ไม่เกี่ยวกับบัญชีนั้นมาเล่นซ้ำ
+    static func clear() { name = nil }
 }
 
 /// จัดการ push ผ่าน Firebase (FCM ครอบ APNs)
@@ -79,22 +101,30 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
         PushManager.shared.updateFcmToken(fcmToken)
     }
 
-    // แสดง banner ตอนแอปเปิดอยู่ (foreground)
+    // แสดง banner ตอนแอปเปิดอยู่ (foreground) — ยกเว้นแชท ซึ่งใช้ toast ในแอปแทน
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        let info = notification.request.content.userInfo
+        if (info["type"] as? String) == "chat" {
+            completionHandler([])   // in-app toast ของเราเด้งเอง ไม่ให้ซ้อน
+            return
+        }
         completionHandler([.banner, .sound, .badge])
     }
 
-    // แตะ notification → เปิดแท็บประกาศ
+    // แตะ notification → เปิดหน้าที่ตรงกับชนิด
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        NotificationCenter.default.post(name: .openNotificationsTab, object: nil)
+        let info = response.notification.request.content.userInfo
+        let name: Notification.Name = (info["type"] as? String) == "chat" ? .openGroupChat : .openNotificationsTab
+        PendingPush.hold(name)   // เผื่อยังไม่มีใคร subscribe (cold launch) — MainTabView.task ดึงไปโพสต์ซ้ำเอง
+        NotificationCenter.default.post(name: name, object: nil)
         completionHandler()
     }
 }

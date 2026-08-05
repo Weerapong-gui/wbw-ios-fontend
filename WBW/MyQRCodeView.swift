@@ -23,7 +23,6 @@ struct MyQRCodeView: View {
 
     var body: some View {
         ZStack {
-            Image("bg_forest").resizable().scaledToFill().ignoresSafeArea()
             VStack(spacing: 28) {
                 Text("My QR Code")
                     .font(.system(size: 22, weight: .bold))
@@ -33,6 +32,8 @@ struct MyQRCodeView: View {
                 Spacer()
             }
         }
+        // อยู่ใน MainTabView (แท็บ QR) — ใช้ bottomClearance ค่าเริ่มต้นที่พ้นแท็บบาร์ลอย
+        .forestBackground(day: ForestMath.dayStill)
         .task { if me == nil, let t = session.token { await profile.load(token: t) } }
     }
 
@@ -70,4 +71,9 @@ struct ScanFrame: Shape {
     }
 }
 
-#Preview { MyQRCodeView().environmentObject(Session()).environmentObject(ProfileStore()) }
+#Preview {
+    MyQRCodeView()
+        .environmentObject(Session())
+        .environmentObject(ProfileStore())
+        .environmentObject(ForestSceneHost())
+}

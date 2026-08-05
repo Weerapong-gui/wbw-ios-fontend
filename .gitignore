@@ -12,3 +12,6 @@ WBW/GoogleService-Info.plist
 
 # macOS
 .DS_Store
+
+# mockup ระหว่าง brainstorm (ของชั่วคราว — SDD ledger ใน .superpowers ที่เหลือยัง commit ได้)
+.superpowers/brainstorm/

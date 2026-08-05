@@ -36,6 +36,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>ใช้เชื่อมต่อเซิร์ฟเวอร์ทดสอบในวงเดียวกันตอนพัฒนาแอป</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

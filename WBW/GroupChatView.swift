@@ -3,22 +3,31 @@ import SwiftData
 
 private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255)
 
-/// แชทกลุ่ม — เต็มจอ (navbar หายไป) + bubble + floating input · offline-first ผ่าน ChatStore
+/// แชทกลุ่ม — เต็มจอ (navbar หายไป) + bubble + floating input · offline-first ผ่าน ChatSession
 struct GroupChatView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
     @EnvironmentObject var groups: GroupStore
-    @StateObject private var store: ChatStore
-    let groupId: Int
+    @ObservedObject var store: ChatSession
     let onClose: () -> Void
     @State private var draft = ""
     @State private var members: [String: GroupMember] = [:]   // senderId → member (avatar)
-
-    init(groupId: Int, token: String, myId: String, context: ModelContext, onClose: @escaping () -> Void) {
-        self.groupId = groupId
-        self.onClose = onClose
-        _store = StateObject(wrappedValue: ChatStore(groupId: groupId, token: token, myId: myId, context: context))
-    }
+    @State private var atBottom = true
+    @State private var reveal: CGFloat = 0
+    @State private var sentTick = 0
+    /// สแนปช็อต myLastReadId ตอนเปิดจอ — ต้องอ่านค่าก่อน setScreenVisible(true) จะเรียก markRead() แล้วดัน
+    /// store.myLastReadId ขึ้นไปจนสุดทันที ถ้าเอา store.myLastReadId มาใช้ตรงๆ เส้น "ข้อความใหม่" จะไม่มีวันโผล่
+    /// เพราะ rows คำนวณใหม่ทุกครั้งที่ store เปลี่ยน (@ObservedObject) ค่าที่ใช้ก็ขยับตามไปในเฟรมเดียวกันพอดี
+    /// เริ่มที่ .max ไม่ใช่ 0 — rows ถูกคำนวณตั้งแต่เฟรมแรกก่อน .task จะทันรัน ถ้าเริ่มที่ 0 (= "ยังไม่อ่านอะไร
+    /// เลย") ChatRowBuilder จะมองว่าข้อความคนอื่นแทบทุกอันยังไม่อ่าน เส้นเลยไปโผล่ที่ข้อความเก่าสุดในเฟรมแรก
+    /// ก่อนวาบไปตำแหน่งจริงตอน .task เซ็ตค่า — "ยังไม่สแนป" ต้องแปลว่า "อ่านหมดแล้ว" ไม่ใช่ "ยังไม่อ่านเลย"
+    @State private var readSnapshot: Int64 = .max
+    /// จำนวนข้อความที่เข้ามาระหว่างเรากำลังเลื่อนอ่านย้อนหลัง
+    ///
+    /// นับเองแทนที่จะใช้ store.unreadCount เพราะ ChatSession เรียก markRead() ทุกครั้งที่
+    /// sync ได้ของใหม่ตอนจอแชทเปิดอยู่ (ตั้งใจ — "เปิดจออยู่ = อ่านแล้ว" ตาม spec และเป็นค่า
+    /// ที่คนอื่นเอาไปคิด "อ่านแล้ว N") unreadCount จึงถูกกดเป็น 0 ทันทีและ pill จะไม่มีวันโผล่
+    @State private var newBelow = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,13 +36,33 @@ struct GroupChatView: View {
             messageList
         }
         .background(bg.ignoresSafeArea())
+        .sensoryFeedback(.impact(weight: .light), trigger: sentTick)
+        // overload closure แทน .error ตรงๆ — ตัวเดิมสั่นทุกครั้งที่ค่าเปลี่ยนไม่ว่าทิศไหน แม้แต่ retry สำเร็จ
+        // (1 ล้มเหลว → 0) ก็นับว่า "เปลี่ยน" เหมือนกัน สั่น error ทั้งที่จริงๆ ส่งสำเร็จแล้ว
+        .sensoryFeedback(trigger: store.messages.filter { $0.state == .failed }.count) { old, new in
+            new > old ? .error : nil
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: newBelow > 0)
+        // ของเดิมมีแค่ตัวข้างบน ซึ่งผูกกับ newBelow > 0 — ค่านั้นเปลี่ยนเฉพาะตอนเลื่อนขึ้นไปอ่านประวัติแล้วมี
+        // ข้อความใหม่เข้ามา กรณีปกติ (อยู่ล่างสุด) newBelow ค้างที่ 0 ทั้งก่อนและหลังข้อความมาถึง (markRead()
+        // กดกลับเป็น 0 ทันทีในเฟรมเดียวกัน) ค่าที่ .animation(value:) เฝ้าดูเลยไม่ขยับ ฟองใหม่จึง pop เข้ามา
+        // ทันทีไม่มี transition เลย ยืนยันด้วยตาจริงบนซิมูเลเตอร์แล้ว (เทียบ 2 ชุดภาพ burst: ไม่มี animation
+        // ผูกกับ count ฟองมาถึงสถานะสุดท้ายภายใน ~260ms เฟรมแรกหลังข้อความมาถึงกับเฟรมสุดท้ายพิกเซลเหมือนกันเป๊ะ
+        // ส่วนที่มี ฟองจางแล้วค่อยชัดขึ้นระหว่างทางชัดเจน) — ผูกกับจำนวนข้อความเพิ่มเพื่อให้ครอบกรณีอยู่ล่างสุด
+        // (กรณีปกติ) ด้วย ใช้สปริงตัวเดียวกับที่ scrollToBottom ใช้ ให้ความรู้สึกเป็นการเคลื่อนไหวชุดเดียวกัน
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: store.messages.count)
         .safeAreaInset(edge: .bottom) { inputBar }
         .task {
-            store.open()
-            let ms = await groups.members(groupId: groupId, token: session.token ?? "")
+            readSnapshot = store.myLastReadId   // ต้องสแนปก่อน setScreenVisible เปลี่ยนค่าจริงบรรทัดถัดไปเท่านั้น
+            store.setScreenVisible(true)
+            let gid = profile.me?.groupId ?? 0
+            let ms = await groups.members(groupId: gid, token: session.token ?? "")
             members = Dictionary(uniqueKeysWithValues: ms.map { ($0.userId, $0) })
         }
-        .onDisappear { store.close() }
+        .onDisappear {
+            store.setScreenVisible(false)
+            readSnapshot = .max   // เปิดใหม่ครั้งหน้าคำนวณจากค่า ณ ตอนนั้นใหม่ทั้งหมด (ไม่ใช่ 0 — เหตุผลเดียวกับด้านบน)
+        }
     }
 
     private var header: some View {
@@ -46,7 +75,7 @@ struct GroupChatView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("แชทกลุ่ม \(profile.me?.groupNumber.map(String.init) ?? "")")
                     .font(.system(size: 17, weight: .bold)).foregroundStyle(Color.wbwInk)
-                Text("\(members.count) คน").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("\(store.memberCount) คน").font(.system(size: 12)).foregroundStyle(.secondary)
             }
             Spacer()
         }
@@ -61,27 +90,101 @@ struct GroupChatView: View {
             .background(Color.gray)
     }
 
+    private var rows: [ChatRow] {
+        ChatRowBuilder.build(store.messages, myLastReadId: readSnapshot,
+                             myId: profile.me?.userId ?? "")
+    }
+
+    /// clientId ของข้อความล่าสุดที่เราส่งและส่งสำเร็จแล้ว — จุดที่โชว์สถานะอ่าน
+    private var statusAnchorId: String? {
+        store.messages.last { store.isMine($0) && $0.state == .sent }?.clientId
+    }
+
     private var messageList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(store.messages) { m in
-                        MessageBubble(message: m, isMine: store.isMine(m),
-                                      photoUrl: members[m.senderId]?.photoUrl,
-                                      onRetry: { store.retry(m) })
+                LazyVStack(spacing: 0) {
+                    ForEach(rows) { row in
+                        switch row {
+                        case let .day(d):
+                            ChatDayPill(day: d)
+                        case .unreadMark:
+                            ChatUnreadDivider()
+                        case let .message(m, layout):
+                            VStack(spacing: 0) {
+                                ChatBubble(message: m, isMine: store.isMine(m), layout: layout,
+                                           photoUrl: members[m.senderId]?.photoUrl,
+                                           onRetry: { store.retry(m) },
+                                           revealOffset: reveal)
+                                if m.clientId == statusAnchorId {
+                                    ChatReadStatusLine(
+                                        text: ChatReadStatus.text(readCount: store.readCount(for: m),
+                                                                  memberCount: store.memberCount))
+                                }
+                            }
                             .id(m.clientId)
+                            .transition(.move(edge: .bottom).combined(with: .opacity)
+                                            .combined(with: .scale(scale: 0.92, anchor: .bottom)))
+                        }
                     }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)
             }
-            .onChange(of: store.messages.count) { _, _ in scrollToLast(proxy) }
-            .onAppear { scrollToLast(proxy) }
+            .defaultScrollAnchor(.bottom)
+            .scrollDismissesKeyboard(.interactively)
+            .onScrollGeometryChange(for: Bool.self) { g in
+                g.contentOffset.y + g.containerSize.height >= g.contentSize.height - 40
+            } action: { _, isBottom in
+                atBottom = isBottom
+                if isBottom { newBelow = 0 }
+            }
+            // ปัดซ้ายค้าง = เผยเวลาทุกฟอง ปล่อยแล้วสปริงกลับ
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 12)
+                    .onChanged { v in
+                        guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                        reveal = min(max(-v.translation.width, 0), 56)
+                    }
+                    .onEnded { _ in
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { reveal = 0 }
+                    }
+            )
+            .overlay(alignment: .bottom) { newMessagePill(proxy) }
+            .onChange(of: store.messages.count) { old, new in
+                guard let last = store.messages.last else { return }
+                // ข้อความที่เราเพิ่งส่งเอง ตามลงไปเสมอ ไม่งั้นพิมพ์เสร็จแล้วไม่เห็นของตัวเอง
+                // อยู่ล่างสุดอยู่แล้วก็ตามลงไป — กำลังเลื่อนอ่านย้อนหลังห้ามกระชาก นับใส่ pill แทน
+                if store.isMine(last) || atBottom {
+                    scrollToBottom(proxy)
+                } else if new > old {
+                    newBelow += new - old
+                }
+            }
         }
     }
 
-    private func scrollToLast(_ proxy: ScrollViewProxy) {
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
         guard let last = store.messages.last else { return }
-        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last.clientId, anchor: .bottom) }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            proxy.scrollTo(last.clientId, anchor: .bottom)
+        }
+        newBelow = 0
+    }
+
+    @ViewBuilder
+    private func newMessagePill(_ proxy: ScrollViewProxy) -> some View {
+        if !atBottom && newBelow > 0 {
+            Button { scrollToBottom(proxy) } label: {
+                Label("ข้อความใหม่ \(newBelow)", systemImage: "arrow.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(Color.wbwGold, in: Capsule())
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+            }
+            .padding(.bottom, 10)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
     }
 
     private var inputBar: some View {
@@ -105,44 +208,6 @@ struct GroupChatView: View {
     private func send() {
         store.send(draft, senderName: profile.me?.displayName ?? "ฉัน")
         draft = ""
-    }
-}
-
-/// ฟองข้อความ
-private struct MessageBubble: View {
-    let message: ChatMessage
-    let isMine: Bool
-    let photoUrl: String?
-    let onRetry: () -> Void
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 6) {
-            if isMine { Spacer(minLength: 40) }
-            if !isMine {
-                ProfileAvatar(name: message.senderName, photoUrl: photoUrl, size: 30)
-            }
-            VStack(alignment: isMine ? .trailing : .leading, spacing: 2) {
-                if !isMine {
-                    Text(message.senderName).font(.system(size: 11)).foregroundStyle(.secondary)
-                }
-                HStack(alignment: .bottom, spacing: 4) {
-                    Text(message.body)
-                        .font(.system(size: 15))
-                        .foregroundStyle(isMine ? .white : Color.wbwInk)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(isMine ? Color.wbwGold : Color.white, in: RoundedRectangle(cornerRadius: 16))
-                    if isMine { stateIcon }
-                }
-            }
-            if !isMine { Spacer(minLength: 40) }
-        }
-    }
-
-    @ViewBuilder private var stateIcon: some View {
-        switch message.state {
-        case .pending: Image(systemName: "clock").font(.system(size: 10)).foregroundStyle(.secondary)
-        case .sent:    Image(systemName: "checkmark").font(.system(size: 10)).foregroundStyle(.secondary)
-        case .failed:  Button(action: onRetry) { Image(systemName: "exclamationmark.circle.fill").font(.system(size: 12)).foregroundStyle(.red) }
-        }
+        sentTick += 1
     }
 }

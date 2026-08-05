@@ -8,6 +8,8 @@ struct WBWApp: App {
     @StateObject private var settings = AppSettings()
     @StateObject private var profile = ProfileStore()
     @StateObject private var groups = GroupStore()
+    @StateObject private var progress = CheckinProgressStore()
+    @StateObject private var forestHost = ForestSceneHost()
 
     init() {
         // configure Firebase ที่นี่ — รันแน่นอนตอนแอปเริ่ม (ก่อน delegate/proxy)
@@ -21,6 +23,8 @@ struct WBWApp: App {
                 .environmentObject(settings)
                 .environmentObject(profile)
                 .environmentObject(groups)
+                .environmentObject(progress)
+                .environmentObject(forestHost)
                 .preferredColorScheme(settings.isDark ? .dark : .light)
                 .modelContainer(for: ChatMessage.self)
         }

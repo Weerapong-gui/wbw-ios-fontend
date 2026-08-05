@@ -1,7 +1,7 @@
 import Foundation
 import Network
 
-/// เฝ้าสถานะเน็ต — แจ้ง reconnect (offline→online) ให้ ChatStore flush คิว
+/// เฝ้าสถานะเน็ต — แจ้ง reconnect (offline→online) ให้ ChatSession flush คิว
 @MainActor
 final class Connectivity: ObservableObject {
     @Published var online = true
