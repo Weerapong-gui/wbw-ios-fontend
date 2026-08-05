@@ -27,16 +27,25 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: th.ac.mfu.wbwSwift
         PRODUCT_NAME: WBW
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: WBW/Info.plist
-        CODE_SIGN_ENTITLEMENTS: WBW/WBW.entitlements
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: NJL4K64JX5
         ENABLE_USER_SCRIPT_SANDBOXING: YES
+      configs:
+        # แยกตาม config เพราะสองอย่างนี้ผิดกันคนละทางระหว่าง dev กับของที่ส่งขึ้น store:
+        #   aps-environment — ถ้า build ที่ขึ้น store เป็น development แล้ว push จะไม่มา
+        #                     สักอันโดยไม่มี error ให้เห็น
+        #   Info.plist      — ตัว Debug มีคีย์วง LAN ไว้เทสบนเครื่องจริง ซึ่งห้ามหลุดขึ้น store
+        Debug:
+          INFOPLIST_FILE: WBW/Info-Debug.plist
+          CODE_SIGN_ENTITLEMENTS: WBW/WBW-Debug.entitlements
+        Release:
+          INFOPLIST_FILE: WBW/Info.plist
+          CODE_SIGN_ENTITLEMENTS: WBW/WBW-Release.entitlements
   WBWTests:
     type: bundle.unit-test
     platform: iOS

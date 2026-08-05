@@ -9,10 +9,21 @@ final class NotiStore: ObservableObject {
     var unreadCount: Int { items.filter { $0.isUnread }.count }
 
     /// ดึงรายการล่าสุด (เงียบตอนออฟไลน์ — คงรายการเดิม)
+    ///
+    /// รักษา readAt ที่เพิ่งมาร์คในเครื่องไว้ ไม่ให้ของจากเซิร์ฟเวอร์ทับกลับเป็น unread — markFeedbackNotiRead
+    /// (MainTabView) มาร์คในเครื่องก่อนแล้วยิง markRead แบบ fire-and-forget ถ้า load() รอบนี้มาถึงก่อนคำขอ
+    /// นั้นจะจบที่เซิร์ฟเวอร์ รายการที่ได้กลับมาจะยังเป็น unread และ badge จะเด้งกลับ เพราะ
+    /// pendingReadCheckpoint ถูกเคลียร์ไปแล้วตั้งแต่เจอแถวครั้งแรก ไม่มีอะไรลองมาร์คซ้ำให้อีก
     func load(token: String) async {
         guard !token.isEmpty else { return }
         if let list = try? await APIClient.shared.notifications(token: token) {
-            items = list
+            let readLocally = items.reduce(into: [String: String]()) { dict, item in
+                if let r = item.readAt { dict[item.id] = r }
+            }
+            items = list.map { item in
+                guard item.readAt == nil, let keep = readLocally[item.id] else { return item }
+                var m = item; m.readAt = keep; return m
+            }
         }
         loaded = true
     }
@@ -31,6 +42,9 @@ final class NotiStore: ObservableObject {
 struct NotificationsView: View {
     @ObservedObject var store: NotiStore
     let token: String
+    /// แตะการ์ดขอความเห็น (checkpoint id ที่มันพูดถึง) — Task 11 ผูกว่าเปิดอะไรต่อ การ์ดประกาศทั่วไป
+    /// ไม่เรียกตัวนี้เลย (feedbackCheckpointId เป็น nil)
+    let onOpenFeedback: (Int) -> Void
 
     private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255) // ครีมอ่อน #FAF7F0
 
@@ -43,7 +57,15 @@ struct NotificationsView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 12) {
-                            ForEach(store.items) { NotiCard(item: $0) }
+                            ForEach(store.items) { item in
+                                // เฉพาะการ์ดขอความเห็นกดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
+                                if let checkpointId = item.feedbackCheckpointId {
+                                    Button { onOpenFeedback(checkpointId) } label: { NotiCard(item: item) }
+                                        .buttonStyle(.plain)
+                                } else {
+                                    NotiCard(item: item)
+                                }
+                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
@@ -73,10 +95,17 @@ struct NotificationsView: View {
 }
 
 /// การ์ดประกาศ 1 รายการ — แถบสีซ้ายตามระดับความสำคัญ
+/// การ์ดขอความเห็น (feedbackCheckpointId != nil) มีสี/ไอคอน/เชฟรอนของตัวเอง เช็คก่อน switch ตาม
+/// item.level เดิมเสมอ ไม่งั้นการ์ดประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย — เช็คจาก feedbackCheckpointId
+/// (ไม่ใช่ item.type ตรงๆ) ตัวเดียวกับที่ NotificationsView ใช้ตัดสินใจห่อ Button ด้านบน กันไม่ให้การ์ด
+/// ดูกดได้ (สีเขียว+เชฟรอน) ทั้งที่แตะแล้วไม่มีอะไรเกิดขึ้นจริง
 private struct NotiCard: View {
     let item: NotificationItem
 
+    private var isFeedback: Bool { item.feedbackCheckpointId != nil }
+
     private var accent: Color {
+        if isFeedback { return Color.wbwGreen }
         switch item.level {
         case "emergency": return Color(red: 0.84, green: 0.27, blue: 0.27) // แดง
         case "warning":   return Color.wbwGold
@@ -84,6 +113,7 @@ private struct NotiCard: View {
         }
     }
     private var icon: String {
+        if isFeedback { return "checkmark.seal.fill" }
         switch item.level {
         case "emergency": return "exclamationmark.triangle.fill"
         case "warning":   return "exclamationmark.triangle"
@@ -121,6 +151,14 @@ private struct NotiCard: View {
             }
             .padding(14)
             Spacer(minLength: 0)
+            // เชฟรอนบอกว่ากดได้ — เฉพาะการ์ดขอความเห็น การ์ดประกาศทั่วไปไม่ได้ห่อ Button ไว้ (ดู
+            // NotificationsView) เชฟรอนเลยต้องไม่โผล่ให้เข้าใจผิดว่ากดได้
+            if isFeedback {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .padding(.trailing, 14)
+            }
         }
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))

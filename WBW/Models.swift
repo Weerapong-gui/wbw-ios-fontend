@@ -119,7 +119,9 @@ struct CheckinResult: Codable {
 
 // ===== ประกาศ / แจ้งเตือน =====
 // หมายเหตุ: id มาเป็น string (PG bigint → node ส่ง string)
-struct NotificationItem: Codable, Identifiable {
+// Equatable เพื่อให้ .onChange(of: noti.items) ใน MainTabView จับ "รายการเปลี่ยน" ได้ตรงๆ — ใช้ retry
+// การมาร์คว่าอ่านแล้วของ push ที่พาเข้าฟอร์มก่อนรายการจะโหลดทัน (ดู markFeedbackNotiRead)
+struct NotificationItem: Codable, Identifiable, Equatable {
     @FlexibleString var id: String
     let type: String?
     let title: String
@@ -127,10 +129,18 @@ struct NotificationItem: Codable, Identifiable {
     let level: String
     let audience: String?
     let audienceId: String?
+    /// ชี้ไปวัตถุที่แจ้งเตือนนี้พูดถึง · ตอนนี้ใช้เฉพาะ type == "checkin_feedback" = checkpoint_id
+    let refId: String?
     let createdAt: String?
     var readAt: String?
 
     var isUnread: Bool { readAt == nil }
+
+    /// เลขฐานที่แจ้งเตือนนี้ขอความเห็น · nil = ไม่ใช่แจ้งเตือนชนิดนี้
+    var feedbackCheckpointId: Int? {
+        guard type == "checkin_feedback", let refId else { return nil }
+        return Int(refId)
+    }
 
     /// เวลาแบบไทยสั้นๆ (16 ก.ค. 09:02)
     var timeText: String {
@@ -213,12 +223,22 @@ enum AppError: LocalizedError {
     case message(String)
     case groupFull(String)
     case offline
+    /// ไปถึงปลายทางแล้ว แต่ได้คำตอบว่า "ตอนนี้ยังไม่ได้" — **ค่าเริ่มต้นของทุก status ที่ไม่ได้อยู่ใน
+    /// รายชื่อ terminal** ไม่ใช่แค่ 429/5xx (ดูตารางเต็มที่ APIClient.submitFeedback)
+    ///
+    /// ต่างจาก .message ตรงที่ **ส่ง payload เดิมซ้ำมีโอกาสสำเร็จ** จึงเป็น error ที่ต้องเก็บของ
+    /// ไว้ retry ไม่ใช่ทิ้ง · แยกออกมาเพราะเดิมทุก status ที่ไม่ใช่ทางสำเร็จถูกยัดรวมเป็น
+    /// .message หมด ผู้เรียกจึงแยกไม่ออกว่า "rating ผิด 400" (ส่งซ้ำก็ไม่มีวันผ่าน) กับ "origin
+    /// ล้นชั่วคราว 503 / Cloudflare 502-524 หน้า api.studentunion.social" (เดี๋ยวก็ผ่าน)
+    /// ต่างกันอย่างไร แล้วทิ้งคำตอบของผู้ใช้ไปพร้อมกันทั้งสองแบบ
+    case retryable(String)
     case notInGroup
     var errorDescription: String? {
         switch self {
         case let .message(m): return m
         case let .groupFull(m): return m
         case .offline: return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"
+        case let .retryable(m): return m
         case .notInGroup: return "ไม่ได้อยู่ในกลุ่มนี้แล้ว"
         }
     }
@@ -228,8 +248,36 @@ enum AppError: LocalizedError {
 struct CheckinProgressItem: Codable, Equatable {
     let checkpointId: Int
     let name: String
+    let activityName: String?
     let sequence: Int?
     let at: String
+    /// ตอบความเห็นฐานนี้แล้วหรือยัง — backend คำนวณจาก LEFT JOIN ไม่ได้เก็บสถานะไว้
+    ///
+    /// decode แบบ tolerant (ดู init(from:) ด้านล่าง): ไม่มีคีย์นี้ในเน็ต = ถือว่า false ไว้ก่อน
+    /// เผื่อ cache เก่าที่เขียนไว้ก่อนฟีเจอร์นี้ขึ้น (ยังไม่มีคีย์นี้เลย) — ถ้า decode พังทั้งก้อนแทน
+    /// progress จะหาย ต้นไม้หน้า Home เหลือ 0 ทั้งที่เดินมาแล้วหลายฐาน (offline คือเรื่องปกติกลางเขา)
+    /// เคสเลวร้ายสุดของ false ผิดคือชวนตอบฐานที่ตอบไปแล้วซ้ำ ซึ่ง backend เด้ง 409 พร้อมคำตอบเดิม
+    /// ให้ฟอร์มโชว์แบบอ่านอย่างเดียว ไม่ใช่ error — ปลอดภัยกว่าเสีย progress ทั้งก้อนเยอะ
+    let answered: Bool
+    let rating: Int?
+    let comment: String?
+}
+
+// เขียน init(from:) แยกไว้ใน extension โดยตั้งใจ — ถ้าย้ายเข้าไปในตัว struct ตรงๆ Swift จะเลิก
+// synthesize memberwise init ให้ (test หลายจุดสร้าง CheckinProgressItem(...) ตรงๆ พึ่งตัวนั้นอยู่)
+// แยกไว้ใน extension แบบนี้ยังได้ทั้งคู่ — CodingKeys ก็ยังปล่อยให้ compiler synthesize ให้เหมือนเดิม
+extension CheckinProgressItem {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        checkpointId = try c.decode(Int.self, forKey: .checkpointId)
+        name = try c.decode(String.self, forKey: .name)
+        activityName = try c.decodeIfPresent(String.self, forKey: .activityName)
+        sequence = try c.decodeIfPresent(Int.self, forKey: .sequence)
+        at = try c.decode(String.self, forKey: .at)
+        answered = try c.decodeIfPresent(Bool.self, forKey: .answered) ?? false
+        rating = try c.decodeIfPresent(Int.self, forKey: .rating)
+        comment = try c.decodeIfPresent(String.self, forKey: .comment)
+    }
 }
 
 /// ความคืบหน้าเช็คอินของตัวเอง
@@ -241,4 +289,15 @@ struct CheckinProgress: Codable, Equatable {
 
     /// ขั้นของต้นไม้ = จำนวนฐานที่เช็คอินแล้ว
     var stage: Int { checkedIn.count }
+
+    /// ฐานที่เช็คอินแล้วแต่ยังไม่ได้ให้ความเห็น · ใหม่สุดก่อน (toast เด้งของฐานล่าสุด)
+    ///
+    /// เรียงด้วยการเทียบ string `at` ตรงๆ ไม่ parse เป็น Date — ใช้ได้เพราะ backend ฟอร์แมตด้วย
+    /// at.UTC().Format(time.RFC3339) เสมอ: ความกว้างคงที่ ไม่มีเศษวินาที ลงท้าย "Z" ตายตัว
+    /// lexicographic order เลยตรงกับเวลาจริงพอดี ถือเป็นสัญญากับ backend ไม่ใช่เรื่องบังเอิญ —
+    /// ถ้า backend เปลี่ยนฟอร์แมต (เติมเศษวินาที, ใช้ offset แทน Z, ความกว้างไม่คงที่) ลำดับนี้จะผิด
+    /// ทันทีโดยไม่มี error ให้เห็น
+    var pending: [CheckinProgressItem] {
+        checkedIn.filter { !$0.answered }.sorted { $0.at > $1.at }
+    }
 }

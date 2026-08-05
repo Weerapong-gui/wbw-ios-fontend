@@ -1,0 +1,105 @@
+import XCTest
+
+/// คุมค่าที่ผิดแล้ว "ไม่มีอะไรฟ้อง" จนกว่าจะสายเกินแก้
+///
+/// ทั้งสามอย่างในไฟล์นี้พังแบบเงียบทั้งหมด: build ที่ขึ้น store พร้อม
+/// aps-environment ผิดจะไม่ได้ push สักอันโดยไม่มี error, plist สองตัวที่เพี้ยนกันจะรู้ตัว
+/// ตอนของหลุดขึ้น store ไปแล้ว, และ privacy manifest ที่หายไปจะโดนตีกลับตอน validate
+/// ซึ่งกว่าจะรู้ก็ตอนกำลังจะส่งจริง
+///
+/// อ่านไฟล์จาก source tree ผ่าน #filePath ไม่ใช่จาก bundle เพราะต้องเทียบ **ทั้งสอง**
+/// config พร้อมกัน ขณะที่ bundle ที่รันเทสอยู่มีแค่ config เดียว
+final class AppStoreConfigTests: XCTestCase {
+
+    private static let repoRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()   // WBWTests
+        .deletingLastPathComponent()   // repo root
+
+    private func plist(_ relativePath: String) throws -> [String: Any] {
+        let url = Self.repoRoot.appendingPathComponent(relativePath)
+        let data = try Data(contentsOf: url)
+        guard let dict = try PropertyListSerialization.propertyList(
+            from: data, format: nil) as? [String: Any]
+        else {
+            XCTFail("อ่าน \(relativePath) เป็น dictionary ไม่ได้")
+            return [:]
+        }
+        return dict
+    }
+
+    /// คีย์ที่ยอมให้มีเฉพาะฝั่ง Debug — มีไว้ยิง backend ที่รันบนเครื่อง Mac ผ่านวง LAN
+    /// (Config.backend = .susLan) ห้ามหลุดขึ้น store เด็ดขาด
+    private static let debugOnlyKeys: Set<String> = [
+        "NSAppTransportSecurity",
+        "NSLocalNetworkUsageDescription",
+    ]
+
+    func testDebugPlistDiffersFromReleaseOnlyByTheAllowedKeys() throws {
+        let release = try plist("WBW/Info.plist")
+        let debug = try plist("WBW/Info-Debug.plist")
+
+        let extra = Set(debug.keys).subtracting(release.keys)
+        XCTAssertEqual(extra, Self.debugOnlyKeys,
+                       "Info-Debug.plist มีคีย์เกินจากที่อนุญาต หรือขาดคีย์ที่ควรมี")
+
+        let missing = Set(release.keys).subtracting(debug.keys)
+        XCTAssertTrue(missing.isEmpty,
+                      "เติมคีย์ใน Info.plist แล้วลืมเติมใน Info-Debug.plist: \(missing.sorted())")
+
+        for key in release.keys {
+            XCTAssertEqual(release[key] as? NSObject, debug[key] as? NSObject,
+                           "คีย์ \(key) ค่าไม่ตรงกันระหว่างสอง config")
+        }
+    }
+
+    func testReleasePlistCarriesNoDevOnlyKeys() throws {
+        let release = try plist("WBW/Info.plist")
+        for key in Self.debugOnlyKeys {
+            XCTAssertNil(release[key], "\(key) เป็นของ dev ห้ามอยู่ใน plist ที่ส่งขึ้น store")
+        }
+    }
+
+    /// ทั้งโปรเจกต์ไม่ import CoreLocation เลยสักไฟล์ แต่เคยมีคีย์นี้อยู่ — ผู้ใช้เห็นข้อความ
+    /// ขอตำแหน่งที่ไม่มีวันถูกใช้ และเป็นเหตุให้ App Review ตีกลับได้ตรงๆ
+    /// ถ้าวันหนึ่งเพิ่มฟีเจอร์แผนที่จริง ให้ลบเทสนี้พร้อมกับตอนเติมคีย์กลับ
+    func testNoUsageDescriptionForFrameworksTheAppDoesNotUse() throws {
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let dict = try plist(path)
+            XCTAssertNil(dict["NSLocationWhenInUseUsageDescription"],
+                         "\(path) ขอสิทธิ์ตำแหน่งทั้งที่แอปไม่ได้ใช้ CoreLocation")
+            XCTAssertNil(dict["NSPhotoLibraryUsageDescription"],
+                         "\(path) ขอสิทธิ์คลังรูปทั้งที่ใช้ PhotosPicker ซึ่งไม่ต้องขอ")
+        }
+    }
+
+    func testEncryptionDeclarationPresentSoEveryUploadDoesNotAskAgain() throws {
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let dict = try plist(path)
+            XCTAssertEqual(dict["ITSAppUsesNonExemptEncryption"] as? Bool, false,
+                           "\(path) ขาด ITSAppUsesNonExemptEncryption")
+        }
+    }
+
+    func testApsEnvironmentMatchesItsConfiguration() throws {
+        XCTAssertEqual(try plist("WBW/WBW-Debug.entitlements")["aps-environment"] as? String,
+                       "development")
+        XCTAssertEqual(try plist("WBW/WBW-Release.entitlements")["aps-environment"] as? String,
+                       "production",
+                       "build ที่ขึ้น store ถ้าเป็น development จะไม่ได้ push สักอันโดยไม่มี error")
+    }
+
+    /// UserDefaults อยู่ในรายการ required-reason API ของ Apple และแอปนี้ใช้ 13 ไฟล์
+    /// ถ้าไม่ประกาศ App Store Connect ตีกลับตั้งแต่ validate ยังไม่ทันเข้ารีวิว
+    func testPrivacyManifestDeclaresUserDefaults() throws {
+        let manifest = try plist("WBW/PrivacyInfo.xcprivacy")
+
+        XCTAssertEqual(manifest["NSPrivacyTracking"] as? Bool, false)
+
+        let apis = manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]] ?? []
+        let userDefaults = apis.first {
+            $0["NSPrivacyAccessedAPIType"] as? String == "NSPrivacyAccessedAPICategoryUserDefaults"
+        }
+        XCTAssertNotNil(userDefaults, "privacy manifest ไม่ได้ประกาศ UserDefaults")
+        XCTAssertEqual(userDefaults?["NSPrivacyAccessedAPITypeReasons"] as? [String], ["CA92.1"])
+    }
+}

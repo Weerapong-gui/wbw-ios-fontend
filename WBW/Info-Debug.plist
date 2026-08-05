@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+	plist ของ config Debug — เหมือน Info.plist ทุกอย่าง บวกสองคีย์ที่ต้องมีเฉพาะตอน
+	รันบนเครื่องจริงยิงเข้า backend ในเครื่อง Mac (Config.backend = .susLan)
+
+	แยกไฟล์เพราะสองคีย์นั้นห้ามหลุดขึ้น store: NSAllowsLocalNetworking เป็นข้อยกเว้น
+	ATS และ NSLocalNetworkUsageDescription เป็นข้อความที่ผู้ใช้จริงจะเห็น ทั้งที่แอปที่
+	ส่งขึ้น store ยิง HTTPS ออกเน็ตอย่างเดียว ไม่เคยแตะวง LAN เลย
+
+	ที่ไม่เลือกวิธี "ลบทิ้งแล้วค่อยเติมกลับตอนจะเทสเครื่องจริง" เพราะเคยพลาดมาแล้ว —
+	commit 8dfa5d4 ต้องตามมาเติม NSLocalNetworkUsageDescription ทีหลัง เพราะไม่มีคีย์นี้
+	แล้วเครื่องที่ยังไม่เคยอนุญาตจะต่อไม่ติดแบบเงียบๆ ไม่มี error ให้เห็น
+
+	**เพิ่มคีย์อะไรต้องเพิ่มทั้งสองไฟล์** InfoPlistParityTests จะ fail ถ้าเพี้ยนกัน
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>th</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleDisplayName</key>
+	<string>เดินรอบดอย</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>ใช้เชื่อมต่อเซิร์ฟเวอร์ทดสอบที่รันบนเครื่อง Mac ในวง Wi-Fi เดียวกัน</string>
+</dict>
+</plist>

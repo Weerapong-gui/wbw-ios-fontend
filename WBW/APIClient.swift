@@ -251,6 +251,125 @@ struct APIClient {
         return try dec.decode(MessageDTO.self, from: data)
     }
 
+    /// ผลของการส่งความเห็น — แยก 409/403/error จริงออกจากกัน เพราะแต่ละกลุ่ม retry แล้วผลต่างกัน:
+    /// 409/403 คือสถานะปลายทางจากเซิร์ฟเวอร์ (ตอบไปแล้ว/ไม่ได้เช็คอิน) ไม่ใช่ความผิดพลาด ส่วน .failed
+    /// คือ error อื่นที่ไม่มีทางสำเร็จซ้ำด้วย draft เดิม (rating ผิด 400, token หมดอายุ 401, เซิร์ฟเวอร์
+    /// พัง 500 ฯลฯ) — Equatable เพื่อให้ฝั่งเทส/ฟอร์มเทียบค่าตรงๆ ด้วย == ได้
+    enum FeedbackSubmitOutcome: Equatable {
+        case saved
+        case alreadyAnswered
+        case notCheckedIn
+        case failed
+    }
+
+    /// รูปร่างของ body ที่ **origin ของเราเอง** ตอบกลับมา — ใช้แยกจากของที่ Cloudflare หรืออะไรก็ตาม
+    /// ที่ขวางหน้า origin ตอบแทน (ดู submitFeedback)
+    ///
+    /// ทำไมไม่ใช้ APIErrorBody: `error` ของมันเป็น optional จึง decode ผ่านกับ JSON object **ทุกก้อน**
+    /// บนโลก รวมถึง `{}` และแถวความเห็นเดิมของ 409 — ใช้เป็นตัวแยกไม่ได้เลย ตัวนี้จึงต้องดูถึงระดับ
+    /// "มีคีย์ที่ backend ส่งจริงอยู่ในนั้นไหม"
+    private struct OriginBody: Decodable {
+        /// middleware.WriteError ฝั่ง Go ตอบ `{"error":"..."}` เสมอ และข้อความไม่เคยว่าง
+        let error: String?
+        /// 409 ฝั่ง Go ตอบเป็น **แถวความเห็นเดิม** ผ่าน WriteJSON ไม่ใช่ envelope — คีย์นี้คือตัวชี้ว่า
+        /// เป็นแถวจริง · JSONDecoder ตรงนี้ไม่ได้เปิด convertFromSnakeCase จึงต้องระบุคีย์เอง
+        let checkpointId: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case error
+            case checkpointId = "checkpoint_id"
+        }
+    }
+
+    /// body เป็น error envelope ของ backend เราเองไหม (403/401/400 ทุกตัวออกทาง WriteError)
+    private static func isOriginErrorEnvelope(_ data: Data) -> Bool {
+        guard let b = try? JSONDecoder().decode(OriginBody.self, from: data),
+              let e = b.error, !e.isEmpty
+        else { return false }
+        return true
+    }
+
+    /// body เป็น "แถวความเห็นเดิม" ที่ 409 ของ backend เราส่งกลับมาให้ฟอร์มแสดงไหม
+    private static func isOriginFeedbackRow(_ data: Data) -> Bool {
+        (try? JSONDecoder().decode(OriginBody.self, from: data))?.checkpointId != nil
+    }
+
+    /// ส่งความเห็นต่อฐาน — idempotent ด้วย clientId
+    ///
+    /// **การจำแนกกลับหัวโดยตั้งใจ: terminal คือรายชื่อที่ระบุไว้ชัด ที่เหลือทั้งหมด retry ได้**
+    ///
+    /// เดิมเขียนกลับกัน (retryable คือ 429/5xx ที่เหลือตกลง default = terminal) ซึ่งแปลว่าทุก status
+    /// ที่ไม่ได้นึกถึงตอนเขียนจะลบคำตอบของผู้ใช้ทิ้งเงียบๆ · ที่หลุดไปจริงคือ **408** (Cloudflare ตอบเมื่อ
+    /// client ส่ง body ไม่จบในเวลา — เกิดเต็มๆ บนไวไฟภูเขาที่คนสองพันคนแย่งกันใช้) และ **425**
+    /// (Too Early จาก TLS early data ที่ Cloudflare เปิดเป็นค่าเริ่มต้น) ทั้งคู่ retry แล้วผ่านได้สบาย
+    ///
+    /// ราคาของการจำแนกผิดสองทางไม่เท่ากัน: เผลอ retry = เสีย POST เปล่าอย่างมากรอบละหนึ่งครั้งต่อฐาน
+    /// (คิวมีเพดาน ~8 ชิ้น เพราะ outbox.add แทนที่ของฐานเดิม และ flush วิ่งแค่ตอน mount/.active/ส่งสำเร็จ)
+    /// ส่วนเผลอ terminal = คำตอบของผู้เข้าร่วมหายถาวร ไม่มี error ไม่มี toast ไม่มี badge
+    ///
+    /// **403/409 ต้องดู body ด้วย ไม่ใช่ดูแค่ status**
+    ///
+    /// 403 ของแอปแปลว่า "ไม่เคยเช็คอินฐานนี้" ซึ่งเป็นปลายทางจริง แต่ Cloudflare WAF/firewall rule ก็
+    /// ตอบ 403 เหมือนกัน — พร้อม HTML ไม่ใช่ envelope ของเรา · status อย่างเดียวแบกการตัดสินใจนี้ไม่ไหว
+    /// และผลที่ตามมาหนักกว่าทางอื่นทั้งหมด เพราะ .notCheckedIn ทำให้ FeedbackStore.submit เรียก
+    /// outbox.remove(checkpointId:) = ล้างคิว **ทั้งฐาน** ไม่ใช่แค่ draft เดียว
+    ///
+    /// ทิศทางพังตรงข้ามอันตรายพอกัน (คิวค้างถาวรเพราะของที่จบแล้วถูกมองว่ายัง retry ได้) ตัวจำแนกจึง
+    /// ต้องรับ **ทุกรูปที่ backend ส่งจริง**: 403 มาทาง WriteError เป็น envelope ส่วน 409 มาทาง
+    /// WriteJSON เป็นแถวความเห็นเดิม (ตรึงไว้ด้วยเทสฝั่ง Go — TestSubmitFeedbackForbiddenBodyIsErrorEnvelope
+    /// และ TestSubmitFeedbackConflictBodyIsFeedbackRow)
+    func submitFeedback(token: String, draft: FeedbackDraft) async throws -> FeedbackSubmitOutcome {
+        guard let url = URL(string: "\(Config.apiBase)/me/feedback") else {
+            throw AppError.message("URL ไม่ถูกต้อง")
+        }
+        var body: [String: Any] = [
+            "client_id": draft.clientId,
+            "checkpoint_id": draft.checkpointId,
+            "rating": draft.rating,
+            "device_time": draft.deviceTime,
+        ]
+        if let c = draft.comment { body["comment"] = c }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, resp): (Data, URLResponse)
+        do { (data, resp) = try await Self.send(req) }
+        catch { throw AppError.offline }   // เน็ตล่ม → เก็บเข้า outbox รอรอบหน้า
+
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
+        switch http.statusCode {
+        case 200, 201:
+            return .saved
+
+        // สถานะปลายทางของ backend เราเอง — เป็นปลายทางได้ก็ต่อเมื่อ body ยืนยันว่ามาจาก origin จริง
+        case 403 where Self.isOriginErrorEnvelope(data):
+            return .notCheckedIn
+        case 409 where Self.isOriginFeedbackRow(data) || Self.isOriginErrorEnvelope(data):
+            return .alreadyAnswered
+
+        // **รายชื่อ terminal ทั้งหมด** — ทุกตัวคือ error ที่เกิดจากตัว request เอง ซึ่งไม่มีอะไรเปลี่ยน
+        // ตอน retry: body เดิม (400 rating ผิด, 413 ยาวเกิน, 422 ผิดความหมาย), header เดิม
+        // (401 token หมดอายุ, 415 content-type), method/URL เดิม (405, 414) หรือหายถาวร (410)
+        //
+        // 401 อยู่ตรงนี้แต่แทบไม่มีผลจริง: Self.send โพสต์ .wbwUnauthorized ทุกครั้งที่เจอ 401
+        // ซึ่งพา Session.logout() ที่เรียก FeedbackOutbox.clear() อยู่แล้ว
+        case 400, 401, 405, 410, 413, 414, 415, 422:
+            throw AppError.message(b?.error ?? "ส่งความเห็นไม่สำเร็จ")
+
+        // **ที่เหลือทั้งหมด retry ได้** — 429/5xx (origin ล้นตอนคนเข้าฐานพร้อมกัน, Cloudflare ตอบ
+        // 502/503/524 แทน origin), 408/425 (ยิงไม่จบ/early data ของ Cloudflare), 404/407 (เส้นทาง
+        // หรือ proxy ระหว่างทางเพี้ยนชั่วคราว), 403/409 ที่ไม่ได้ออกจาก origin (WAF block page)
+        // และ status อะไรก็ตามที่ยังไม่มีใครนึกถึง — ค่าเริ่มต้นต้องคือ "เก็บคำตอบของผู้ใช้ไว้ก่อน"
+        default:
+            throw AppError.retryable(b?.error ?? "เซิร์ฟเวอร์ไม่พร้อมชั่วคราว")
+        }
+    }
+
     // helper: GET + decode (snake_case)
     private func getDecoded<T: Decodable>(_ path: String, token: String, _ type: T.Type, error: String) async throws -> T {
         guard let url = URL(string: "\(Config.apiBase)\(path)") else { throw AppError.message("URL ไม่ถูกต้อง") }

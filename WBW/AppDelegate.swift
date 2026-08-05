@@ -8,26 +8,34 @@ extension Notification.Name {
     static let openNotificationsTab = Notification.Name("openNotificationsTab")
     /// โพสต์เมื่อผู้ใช้แตะ push ของแชท — ให้ MainTabView เปิดจอแชท
     static let openGroupChat = Notification.Name("openGroupChat")
+    /// โพสต์เมื่อผู้ใช้แตะ push ขอความเห็นต่อฐาน — userInfo["checkpoint_id"] เป็น String
+    static let openCheckinFeedback = Notification.Name("openCheckinFeedback")
+    /// โพสต์เมื่อ push ขอความเห็น "มาถึง" ตอนแอปเปิดอยู่ (ยังไม่มีใครแตะ) — สัญญาณว่ามีของใหม่ฝั่ง
+    /// server เท่านั้น ไม่พา userInfo อะไรมาและไม่สั่งเปิดจอไหนทั้งสิ้น (ดู willPresent)
+    static let checkinFeedbackArrived = Notification.Name("checkinFeedbackArrived")
 }
 
 /// เก็บ notification name ที่แตะไว้ชั่วคราว เผื่อ NotificationCenter.post ยิงไปตอนยังไม่มีใคร subscribe
 /// (cold launch: didReceive มักมาก่อน MainTabView จะติดตั้ง .onReceive ทัน เพราะมีหน้าสแปลชคั่นอยู่) —
 /// one-shot: MainTabView.task ดึงไปโพสต์ซ้ำแล้วเคลียร์ทันทีที่มีโอกาส (ดู consume())
 enum PendingPush {
-    private static var name: Notification.Name?
+    private static var pending: (name: Notification.Name, info: [AnyHashable: Any]?)?
 
-    static func hold(_ n: Notification.Name) { name = n }
+    /// พก userInfo มาด้วยได้ — feedback ต้องรู้ว่าฐานไหน ไม่ใช่แค่ "เปิดหน้าไหน"
+    static func hold(_ n: Notification.Name, info: [AnyHashable: Any]? = nil) {
+        pending = (n, info)
+    }
 
     /// อ่านแล้วเคลียร์ในตาเดียว กันโดนดึงไปใช้ซ้ำสองรอบ
-    static func consume() -> Notification.Name? {
-        defer { name = nil }
-        return name
+    static func consume() -> (name: Notification.Name, info: [AnyHashable: Any]?)? {
+        defer { pending = nil }
+        return pending
     }
 
     /// เคลียร์ทิ้งหลัง .onReceive รับสดไปแล้ว (มีคน subscribe อยู่จริงตอน post — ไม่ใช่ cold launch) กันของที่
     /// hold() พักไว้ตอน didReceive ตกค้างข้าม mount ถัดไป (เช่น logout แล้ว login บัญชีอื่น) ทำให้ consume()
     /// ตอน mount ใหม่ดึงของเก่าที่ไม่เกี่ยวกับบัญชีนั้นมาเล่นซ้ำ
-    static func clear() { name = nil }
+    static func clear() { pending = nil }
 }
 
 /// จัดการ push ผ่าน Firebase (FCM ครอบ APNs)
@@ -101,15 +109,25 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
         PushManager.shared.updateFcmToken(fcmToken)
     }
 
-    // แสดง banner ตอนแอปเปิดอยู่ (foreground) — ยกเว้นแชท ซึ่งใช้ toast ในแอปแทน
+    // แสดง banner ตอนแอปเปิดอยู่ (foreground) — ยกเว้นแชทกับขอความเห็นต่อฐาน ซึ่งใช้ toast ในแอปแทน
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         let info = notification.request.content.userInfo
-        if (info["type"] as? String) == "chat" {
-            completionHandler([])   // in-app toast ของเราเด้งเอง ไม่ให้ซ้อน
+        let type = info["type"] as? String
+        if type == "chat" || type == "checkin_feedback" {
+            // ปิด banner/เสียง/badge ของระบบทิ้ง — ในแอปมีของแทนอยู่แล้ว แต่ "ของแทน" นั้นต้องมีจริง:
+            // แชทมี ChatToast จาก long-poll ส่วนความเห็นต่อฐานเดิมไม่มีอะไรเลย ต้องรอ poll 60 วิ
+            // (นานสุดคือเงียบสนิทเกือบนาทีทั้งที่กดปิด notification ของระบบไปแล้ว) — โพสต์สัญญาณให้
+            // MainTabView โหลด progress + รายการแจ้งเตือนใหม่แทน toast เช็คอินจึงเด้งภายในไม่กี่วินาที
+            // และ badge กระดิ่งขึ้นทันทีที่ push มาถึง · ตั้งใจไม่เปิดฟอร์มให้เอง — push ที่มาถึงเฉยๆ
+            // ไม่ใช่การขออนุญาตแทรกจอที่ผู้ใช้กำลังใช้อยู่ (แตะ push ต่างหากถึงเข้าฟอร์ม ดู didReceive)
+            if type == "checkin_feedback" {
+                NotificationCenter.default.post(name: .checkinFeedbackArrived, object: nil)
+            }
+            completionHandler([])
             return
         }
         completionHandler([.banner, .sound, .badge])
@@ -122,9 +140,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let info = response.notification.request.content.userInfo
-        let name: Notification.Name = (info["type"] as? String) == "chat" ? .openGroupChat : .openNotificationsTab
-        PendingPush.hold(name)   // เผื่อยังไม่มีใคร subscribe (cold launch) — MainTabView.task ดึงไปโพสต์ซ้ำเอง
-        NotificationCenter.default.post(name: name, object: nil)
+        let type = info["type"] as? String
+        let name: Notification.Name
+        var carried: [AnyHashable: Any]?
+        switch type {
+        case "chat":
+            name = .openGroupChat
+        case "checkin_feedback":
+            name = .openCheckinFeedback
+            carried = ["checkpoint_id": info["checkpoint_id"] as? String ?? ""]
+        default:
+            name = .openNotificationsTab
+        }
+        PendingPush.hold(name, info: carried)   // เผื่อยังไม่มีใคร subscribe (cold launch) — MainTabView.task ดึงไปโพสต์ซ้ำเอง
+        NotificationCenter.default.post(name: name, object: nil, userInfo: carried)
         completionHandler()
     }
 }
