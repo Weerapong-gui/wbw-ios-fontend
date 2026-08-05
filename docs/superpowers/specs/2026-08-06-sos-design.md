@@ -240,9 +240,15 @@ cancel is allowed while `acked_at IS NULL` and `server_received_at` is within
 
 | Method | Path | |
 |---|---|---|
-| GET | `/wbw/staff/sos?wait=25&since=<updated_at>` | Every open case, plus cases closed within the last 30 minutes so a base can see what just happened; long-poll |
+| GET | `/wbw/staff/sos?wait=25&since=<updated_at>\|<id>` | Every open case, plus cases closed within the last 30 minutes so a base can see what just happened; long-poll |
 | POST | `/wbw/staff/sos/{id}/ack` | "On my way". A second staff member gets `200` and sees who was first — not an error |
 | POST | `/wbw/staff/sos/{id}/resolve` | `{reason}` from the four-value list; anything else is `400` |
+
+The `since` cursor is the pair `updated_at|id`, not a bare timestamp. `updated_at` is not
+unique, and a strict `>` on it drops any case that shares an instant with the cursor — from
+that client's every later poll, permanently, because nothing paginates it back. The pair is
+compared with Postgres row-value ordering. A `since` with no `|` is read as that timestamp
+with id `0`, so an older client keeps working.
 
 ### Who sees which case
 
