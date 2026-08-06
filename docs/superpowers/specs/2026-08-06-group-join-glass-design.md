@@ -1,6 +1,11 @@
-# หน้าจับกลุ่ม — Liquid Glass บนฉากป่า 3D
+# หน้าจับกลุ่ม — Liquid Glass บนพื้นทึบ
 
-**เป้าหมาย:** เปลี่ยนหน้าจับกลุ่มจากพื้นครีมทึบ + การ์ดขาวทึบ ให้เป็นการ์ด Liquid Glass ลอยบนฉากป่า 3D
+> **แก้ 2026-08-07:** สเปกนี้เขียนตอนพื้นหลังยังเป็นฉากป่า 3D ตอนนี้ฉากถูกปิดด้วย
+> `Config.forest3D` (ดู `2026-08-07-forest-3d-off-design.md`) `.forestBackground()` ยังเป็น
+> ตัวเดิมที่ต้องเรียก แต่มันวาดพื้นทึบ `Color.wbwForestVoid` (#0A1610) ให้แทนฉาก
+> การ์ด liquid glass และเนื้อหาอื่นคงเดิมทั้งหมด
+
+**เป้าหมาย:** เปลี่ยนหน้าจับกลุ่มจากพื้นครีมทึบ + การ์ดขาวทึบ ให้เป็นการ์ด Liquid Glass ลอยบนพื้นทึบ #0A1610
 ตัวเดียวกับที่ Home / Login / QR ใช้ พร้อมหัวข้อใหญ่สองบรรทัดและปุ่มเข้ากลุ่มขาวทึบตัวหนังสือเขียว
 
 **ที่มา:** ภาพ mockup ที่ Park ส่งเมื่อ 2026-08-06 ("Choose your Adventure group") บรีฟสามข้อคือ
@@ -22,7 +27,7 @@
 | ของที่มี | ที่อยู่ | หน้าที่ |
 |---|---|---|
 | `.glassSurface(_ shape:, interactive:)` | `WBW/GlassSurface.swift` | Liquid Glass เนทีฟบน iOS 26 · fallback `.ultraThinMaterial` + เส้นขอบขาว 60% บน iOS 18-25 |
-| `.forestBackground(day:plantStep:plantTotal:bottomClearance:)` | `WBW/Scene3D/ForestSceneHost.swift:196` | ฉากป่า 3D ที่ `HomeView`, `LoginView`, `MyQRCodeView` ใช้ร่วมกัน |
+| `.forestBackground(day:plantStep:plantTotal:bottomClearance:)` | `WBW/Scene3D/ForestSceneHost.swift:196` | พื้นหลังร่วมของ `HomeView`, `LoginView`, `MyQRCodeView` — วาดพื้นทึบตอน `Config.forest3D` ปิด |
 
 deployment target คือ iOS 18.0 ดังนั้น `glassEffect` เรียกตรง ๆ ไม่ได้ ต้องผ่าน `glassSurface`
 ซึ่ง gate ด้วย `#available(iOS 26.0, *)` ไว้แล้ว
@@ -96,55 +101,25 @@ deployment target คือ iOS 18.0 ดังนั้น `glassEffect` เร�
 
 `.padding(16)` รอบเดียวไม่พอให้การ์ดใบสุดท้ายพ้นแท็บบาร์ลอย (ในภาพ mockup เองก็เห็นการ์ด Group 8
 โดนทับครึ่งใบ) เพิ่ม `.padding(.bottom, ForestSceneHost.tabBarClearance)` ที่ `LazyVStack`
-ใช้ค่าเดียวกับที่ฉากป่าใช้กันเครดิตโมเดล จะได้ไม่ต้องมีเลขวิเศษสองตัวที่หมายถึงระยะเดียวกัน
+ค่านี้คือระยะพ้นแท็บบาร์ลอยที่วัดจากเครื่องจริงสองรุ่น (ดูคอมเมนต์ที่ `ForestSceneHost.tabBarClearance`)
+ยังใช้ได้เหมือนเดิมแม้ฉากป่าจะถูกปิดไปแล้ว
 
 ---
 
 ## 3. ความเสี่ยง
 
-### 3.1 `NavigationStack` ทับฉากป่า — ความเสี่ยงหลัก
+### 3.1 ความเสี่ยงเดิมที่หายไปทั้งคู่
 
-ในแอปทั้งตัวยังไม่มีจอไหนเคยใช้ `NavigationStack` ร่วมกับ `forestBackground`:
-
-| จอ | `NavigationStack` | `forestBackground` |
-|---|---|---|
-| `HomeView` | 0 | 1 |
-| `LoginView` | 0 | 1 |
-| `MyQRCodeView` | 0 | 1 |
-| `ForestBlank` (`MainTabView.swift:400`) | 0 | 1 |
-| `GroupJoinView` | **1** | จะเพิ่ม |
-
-ในทางกลับกัน จอที่มี `NavigationStack` อยู่แล้ว (`SettingsView`, `NotificationsView`, `SURunView`,
-`GroupHomeView`) ไม่มีจอไหนใช้ฉากป่าเลย ทั้งสองฝั่งจึงไม่มีใครพิสูจน์คู่นี้ให้
-
-คู่นี้ไม่เคยพิสูจน์ และมีเหตุให้กังวลจริง: คอมเมนต์ที่ `ForestSceneHost.swift:203` บันทึกไว้ว่า
-per-tab root ของ `TabView` เป็น `UIHostingController` แยกที่ `backgroundColor` ทึบและ `isOpaque = true`
-เสมอ จนต้องเขียน `TabRootOpaqueBackgroundRemover` ไต่ `view.superview` ขึ้นไปเคลียร์เอง
-`NavigationStack` เป็นชั้นเพิ่มอีกชั้นที่ตัวแก้เดิมอาจไม่ครอบ
-
-ทางรับมือ ไล่ตามลำดับ หยุดที่ข้อแรกที่ได้ผล:
-
-1. ใส่ตรง ๆ แล้วรันดูด้วยตา — อาจผ่านเลยเพราะ `TabRootOpaqueBackgroundRemover` ไต่ superview
-   ขึ้นไปเรื่อย ๆ ไม่ได้ผูกกับ type ใดโดยเฉพาะ
-2. `.toolbarBackground(.hidden, for: .navigationBar)` และ/หรือ `.scrollContentBackground(.hidden)`
-3. ถอด `NavigationStack` ออก เปลี่ยนการกดดูสมาชิกจาก `NavigationLink` push เป็น `.sheet`
-   — เสียท่า push เข้าออก แต่ `GroupMembersView` เป็นจอปลายทางที่ไม่ push ต่อ จึงไม่เสีย
-   ความสามารถอะไรจริง
-
-### 3.2 claim ฉากตอน push ไปหน้าสมาชิก
-
-ฉากป่าใช้ระบบ claim เจ้าของทีละจอ (`claimScene()` / `releaseScene()`) ถ้า SwiftUI ยิง `onDisappear`
-ของ `GroupJoinView` ตอน push ไป `GroupMembersView` ฉากจะถูกปล่อยคืน ป่าหายระหว่างดูสมาชิก แล้ว
-โผล่ใหม่ตอนกดกลับ
-
-ต้องเห็นด้วยตาบนซิมูเลเตอร์ว่าเกิดจริงหรือไม่ ห้ามเดา ถ้าเกิดและกวนตา ทางแก้คือให้
-`GroupMembersView` claim ต่อด้วย `forestBackground` ของตัวเอง (คอมเมนต์ที่ `ForestSceneHost`
-ระบุว่า `onAppear` ของจอใหม่มาก่อน `onDisappear` ของจอเก่าเสมอ จึงส่งไม้ต่อได้โดยไม่มีช่องว่าง)
+ฉบับก่อนมีความเสี่ยงสองข้อ: `NavigationStack` ทับฉากป่าจนพื้นดำ และ `claimScene()`/
+`releaseScene()` ส่งไม้ต่อไม่ทันตอน push ไป `GroupMembersView` จนฉากหายกลางทาง
+ทั้งคู่ผูกกับฉาก 3D ที่ `RootView` ซึ่งอยู่คนละ hosting context กับจอ ตอนนี้ฉากไม่ถูก mount
+แล้ว พื้นหลังถูกวาดใน `.background` ของจอเอง — อยู่ต้นไม้เดียวกับจอ ไม่มีอะไรให้ทับหรือ
+หลุดมือได้อีก แผนถอย 3 ขั้นและการถอด `NavigationStack` จึงไม่ต้องใช้แล้ว
 
 ### 3.3 `.ultraThinMaterial` บน iOS 18-25
 
-fallback ของ `glassSurface` เบลอสิ่งที่อยู่หลังมัน แต่ฉากป่าถูกวาดที่ `RootView` ซึ่งอยู่คนละ
-hosting context material อาจสุ่มสีป่าไม่ติดแล้วออกมาเป็นแผ่นเทาเปล่า
+fallback ของ `glassSurface` เบลอสิ่งที่อยู่หลังมัน ซึ่งตอนนี้คือพื้นทึบสีเดียวในกรอบเดียวกับการ์ด
+material จะได้สีเดียวสม่ำเสมอ ไม่ใช่ลายป่า — ยังต้องดูด้วยตาว่ามันไม่กลายเป็นแผ่นเทาที่กลืนกับพื้นจนมองไม่เห็นขอบการ์ด
 
 `GlassRing` ใน `HomeView` ใช้แพทเทิร์นเดียวกันและอยู่บน production แล้ว จึงน่าจะผ่าน แต่วงแหวนเล็ก
 กับการ์ดเต็มใบขนาดต่างกันมาก ต้องดูบนซิมที่ตั้ง iOS 18 ด้วย ไม่ใช่ดูแค่ 26
@@ -183,7 +158,7 @@ hosting context material อาจสุ่มสีป่าไม่ติด�
 
    แล้วรันซ้ำบนซิมที่ตั้ง iOS 18 เพื่อดู fallback `.ultraThinMaterial` โดยเฉพาะ
 
-นอกจากนั้นต้องเดินเข้าหน้าสมาชิกแล้วกดกลับหนึ่งรอบ เพื่อดูข้อ 3.2 ว่าป่าหายหรือไม่
+ความเสี่ยงเรื่องป่าหายตอนเดินเข้าหน้าสมาชิกหมดไปแล้ว (ดู §3.1) — ไม่ต้องมีขั้นตอนนี้อีก
 
 ---
 

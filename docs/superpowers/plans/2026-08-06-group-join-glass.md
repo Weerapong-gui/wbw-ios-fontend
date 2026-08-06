@@ -2,9 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** เปลี่ยนหน้าจับกลุ่มจากพื้นครีมทึบ + การ์ดขาวทึบ ให้เป็นการ์ด Liquid Glass ลอยบนฉากป่า 3D ตัวเดียวกับที่ Home / Login / QR ใช้ พร้อมหัวข้อใหญ่สองบรรทัดและปุ่มเข้ากลุ่มขาวทึบตัวหนังสือเขียว
+> **แก้ 2026-08-07:** แผนนี้เขียนตอนพื้นหลังยังเป็นฉากป่า 3D ตอนนี้ฉากถูกปิดด้วย
+> `Config.forest3D` (ดู `2026-08-07-forest-3d-off-design.md`) `.forestBackground()` ยังเป็น
+> ตัวเดิมที่ต้องเรียก แต่มันวาดพื้นทึบ `Color.wbwForestVoid` (#0A1610) ให้แทนฉาก
+> การ์ด liquid glass และเนื้อหาอื่นคงเดิมทั้งหมด
 
-**Architecture:** แตะไฟล์เดียว `WBW/GroupJoinView.swift` ไม่สร้างไฟล์ใหม่ ใช้ของที่มีอยู่แล้วสองชิ้น — `.glassSurface(_:interactive:)` จาก `WBW/GlassSurface.swift` (Liquid Glass เนทีฟ iOS 26 · fallback `.ultraThinMaterial` สำหรับ 18-25) และ `.forestBackground(day:)` จาก `WBW/Scene3D/ForestSceneHost.swift` ตรรกะ join / ค้นหา / จัดการ error เดิมคงไว้ครบ เปลี่ยนเฉพาะชั้นการแสดงผล
+**Goal:** เปลี่ยนหน้าจับกลุ่มจากพื้นครีมทึบ + การ์ดขาวทึบ ให้เป็นการ์ด Liquid Glass ลอยบนพื้นหลังตัวเดียวกับที่ Home / Login / QR ใช้ (พื้นทึบ #0A1610 ตอนฉาก 3D ปิด) พร้อมหัวข้อใหญ่สองบรรทัดและปุ่มเข้ากลุ่มขาวทึบตัวหนังสือเขียว
+
+**Architecture:** แตะไฟล์เดียว `WBW/GroupJoinView.swift` ไม่สร้างไฟล์ใหม่ ใช้ของที่มีอยู่แล้วสองชิ้น — `.glassSurface(_:interactive:)` จาก `WBW/GlassSurface.swift` (Liquid Glass เนทีฟ iOS 26 · fallback `.ultraThinMaterial` สำหรับ 18-25) และ `.forestBackground(day:)` (วาดพื้นทึบตอน `Config.forest3D` ปิด) จาก `WBW/Scene3D/ForestSceneHost.swift` ตรรกะ join / ค้นหา / จัดการ error เดิมคงไว้ครบ เปลี่ยนเฉพาะชั้นการแสดงผล
 
 **Tech Stack:** SwiftUI, iOS 18.0 deployment target, XcodeGen, XCTest
 
@@ -103,14 +108,14 @@ xcrun simctl io booted screenshot /tmp/group-join-before.png
 |---|---|---|
 | `WBW/GroupJoinView.swift` | **แก้** | หน้าจับกลุ่มทั้งหน้า — ไฟล์เดียวที่งานนี้แตะ |
 | `WBW/GlassSurface.swift` | อ่านอย่างเดียว | ให้ `.glassSurface(_:interactive:)` |
-| `WBW/Scene3D/ForestSceneHost.swift` | อ่านอย่างเดียว | ให้ `.forestBackground(day:)` และ `ForestSceneHost.tabBarClearance` (= 89) |
+| `WBW/Scene3D/ForestSceneHost.swift` | อ่านอย่างเดียว | ให้ `.forestBackground(day:)` และ `ForestSceneHost.tabBarClearance` (= 89) · วาดพื้นทึบตอน `Config.forest3D` ปิด |
 | `WBW/Config.swift` | อ่านอย่างเดียว | ให้ `Color.wbwGreen` (`#40916C`), `Color.wbwInk`, `Color.wbwGold` |
 
 ---
 
-## Task 1: พื้นหลังฉากป่า 3D
+## Task 1: พื้นหลังจาก .forestBackground
 
-นี่คือ task ที่มีความเสี่ยงจริงข้อเดียวของแผน ทำก่อนและทำลำพัง — ถ้าไม่ผ่าน แผนที่เหลือเปลี่ยนรูปหมด (ต้องถอด `NavigationStack`) จึงต้องรู้ผลก่อนจะไปแตะสีอะไร
+ความเสี่ยงเดิมของ task นี้ (`NavigationStack` ทับฉาก) หายไปแล้วตั้งแต่ฉาก 3D ถูกปิด — พื้นหลังถูกวาดในกรอบของจอเอง ยังทำก่อนอยู่เพราะ task ที่เหลือวางสีทับพื้นนี้
 
 **Files:**
 - Modify: `WBW/GroupJoinView.swift:3` (ลบ `private let bg`)
@@ -123,7 +128,7 @@ xcrun simctl io booted screenshot /tmp/group-join-before.png
 **ทำไมใช้ค่าพวกนี้:**
 - `day: ForestMath.dayStill` — เหมือน `LoginView.swift:85` และ `MyQRCodeView.swift:36` (จอที่ไม่ผูกกับความคืบหน้าเช็คอิน) ตรึงความสว่างไว้คงที่
 - ไม่ส่ง `plantStep` → `nil` → ไม่มีต้นไม้ มีแค่ `HomeView` ที่ส่งต้นไม้
-- ไม่ส่ง `bottomClearance` → ค่าเริ่มต้น `ForestSceneHost.tabBarClearance` (89) ถูกแล้วเพราะหน้านี้อยู่ใต้แท็บบาร์ลอย
+- ไม่ส่ง `bottomClearance` → ค่าเริ่มต้น `ForestSceneHost.tabBarClearance` (89) ถูกแล้วเพราะหน้านี้อยู่ใต้แท็บบาร์ลอย (ตอนฉากปิด ค่านี้ไม่มีใครอ่าน เพราะมันมีไว้กันเครดิตโมเดลที่ `ForestOverlay` ซึ่งไม่ถูก mount — ไม่ต้องแก้ call site)
 
 - [ ] **Step 1: ลบค่าสีครีมที่ไม่ใช้แล้ว**
 
@@ -209,48 +214,18 @@ xcrun simctl io booted screenshot /tmp/group-join-01-bg.png
 
 เปิด `/tmp/group-join-01-bg.png` ด้วย Read tool
 
-Expected: **เห็นฉากป่า 3D เป็นพื้นหลัง** การ์ดยังขาวทึบอยู่ (ยังไม่แก้ใน task นี้) แต่พื้นหลังรอบ ๆ การ์ดต้องเป็นป่า ไม่ใช่ขาวโพลนหรือครีม
+Expected: **เห็นพื้นทึบเขียวเกือบดำ (#0A1610) เป็นพื้นหลัง** การ์ดยังขาวทึบอยู่ (ยังไม่แก้ใน task นี้) แต่พื้นหลังรอบ ๆ การ์ดต้องเป็นพื้นทึบเขียวเกือบดำ ไม่ใช่ขาวโพลนหรือครีม
 
 - [ ] **Step 6: ถ้าเห็นป่า → ข้ามไป Step 7 · ถ้าเห็นขาวทึบ → ไล่แผนถอย**
 
-`NavigationStack` ไม่เคยถูกใช้ร่วมกับ `forestBackground` ที่ไหนในแอปนี้มาก่อน (`HomeView`, `LoginView`, `MyQRCodeView`, `ForestBlank` ไม่มีจอไหนมี `NavigationStack`) ถ้าโดนบัง ลองตามลำดับ หยุดที่ข้อแรกที่ได้ผล แล้วถ่ายภาพยืนยันใหม่ทุกครั้ง:
-
-**ถอยขั้น 1** — เติมสองบรรทัดนี้ต่อจาก `.navigationBarHidden(true)`:
-
-```swift
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .scrollContentBackground(.hidden)
-```
-
-**ถอยขั้น 2** — ถอด `NavigationStack` ออก เปลี่ยนการกดดูสมาชิกจาก `NavigationLink` เป็น `.sheet` `GroupMembersView` เป็นจอปลายทางที่ไม่ push ต่อ จึงไม่เสียความสามารถอะไร ต้องแก้สามจุด:
-
-ก) ถอด `NavigationStack { ... }` ออกจาก `body` (เหลือ `ZStack` เป็นตัวนอกสุด) และลบ `.navigationBarHidden(true)`
-
-ข) เพิ่ม state ที่ `GroupJoinView`:
-
-```swift
-    /// กลุ่มที่กำลังเปิดดูสมาชิกอยู่ — nil = ไม่ได้เปิด
-    @State private var memberSheet: GroupSummary?
-```
-
-ค) ที่ `GroupCard` เปลี่ยน `NavigationLink { ... } label: { ... }` เป็น `Button { onOpenMembers() } label: { ... }` แล้วเพิ่ม `let onOpenMembers: () -> Void` เป็น property ตัวที่ห้าของ struct ฝั่งเรียกส่ง `onOpenMembers: { memberSheet = g }` และแขวน sheet ไว้ที่ `ZStack`:
-
-```swift
-            .sheet(item: $memberSheet) { g in
-                GroupMembersView(groupId: g.groupId, groupNumber: g.groupNumber)
-            }
-```
-
-`.sheet(item:)` ต้องการ `GroupSummary` conform `Identifiable` — ยืนยันแล้วว่าใช่: `WBW/Models.swift:160` ประกาศ `struct GroupSummary: Codable, Identifiable` ใช้ได้เลยไม่ต้องเติม conformance
-
-**ถ้าถอยถึงขั้น 2 ให้บันทึกไว้ในแผนนี้ใต้ task ว่าใช้ทางไหนและเพราะอะไร** แล้วบอกผู้ใช้ก่อนไป Task 2 เพราะโครงหน้าเปลี่ยนจากสเปก
+ความเสี่ยงนี้หายไปแล้ว ดูสเปก §3.1 — ไม่ต้องมีแผนถอย
 
 - [ ] **Step 7: commit**
 
 ```bash
 cd /Users/park/wbw-ios-fontend
 git add WBW/GroupJoinView.swift
-git commit -m "feat(group): หน้าจับกลุ่มใช้ฉากป่า 3D เป็นพื้นหลังแทนพื้นครีมทึบ"
+git commit -m "feat(group): หน้าจับกลุ่มใช้พื้นหลังร่วมของแอปแทนพื้นครีมทึบ"
 ```
 
 ---
@@ -384,7 +359,7 @@ git commit -m "feat(group): หัวจอจับกลุ่ม — หั�
 แทนบรรทัด 102 ถึงท้ายไฟล์ด้วย:
 
 ```swift
-/// การ์ดกลุ่ม 1 กลุ่ม — กระจกลอยบนฉากป่า ตัวหนังสือขาวทั้งใบ
+/// การ์ดกลุ่ม 1 กลุ่ม — กระจกลอยบนพื้นทึบ ตัวหนังสือขาวทั้งใบ
 private struct GroupCard: View {
     let group: GroupSummary
     let previews: [GroupMemberIndex]
@@ -543,7 +518,7 @@ git commit -m "feat(group): การ์ดกลุ่มเป็นกระ�
 
 ```swift
                         .padding(16)
-                        // ใช้ค่าเดียวกับที่ฉากป่าใช้กันเครดิตโมเดล จะได้ไม่มีเลขวิเศษสองตัวที่หมายถึงระยะเดียวกัน
+                        // ค่านี้คือระยะพ้นแท็บบาร์ลอยที่วัดจากเครื่องจริงสองรุ่น (ดูคอมเมนต์ที่ ForestSceneHost.tabBarClearance) ยังใช้ได้เหมือนเดิมแม้ฉากป่าจะถูกปิดไปแล้ว
                         .padding(.bottom, ForestSceneHost.tabBarClearance)
 ```
 
@@ -593,24 +568,12 @@ git commit -m "feat(group): ผลค้นหาคนและข้อคว�
 
 ## Task 5: ยืนยันข้อที่เหลือ — fallback iOS 18 และ claim ฉากตอน push
 
-task นี้ไม่มีโค้ดใหม่เป็นค่าตั้งต้น มีไว้ปิดสองความเสี่ยงที่สเปกสั่งให้ยืนยัน (§3.2, §3.3) ถ้าพบปัญหาถึงจะมีโค้ดแก้
+task นี้ไม่มีโค้ดใหม่เป็นค่าตั้งต้น มีไว้ปิดความเสี่ยงที่สเปกสั่งให้ยืนยัน (§3.3) ถ้าพบปัญหาถึงจะมีโค้ดแก้ (อีกความเสี่ยงเดิมของ task นี้ — claim ฉากตอน push — หายไปแล้ว ดูสเปก §3.1)
 
 **Files:**
 - Modify (เฉพาะถ้าพบปัญหา): `WBW/GroupJoinView.swift` หรือ `WBW/GlassSurface.swift`
 
-- [ ] **Step 1: ยืนยันว่าฉากป่าไม่หายตอนเข้าหน้าสมาชิก (สเปก §3.2)**
-
-ฉากป่าใช้ระบบ claim เจ้าของทีละจอ (`claimScene()` / `releaseScene()`) ถ้า SwiftUI ยิง `onDisappear` ของ `GroupJoinView` ตอน push ป่าจะถูกปล่อยคืนแล้วหายระหว่างดูสมาชิก
-
-ต้องแตะการ์ดเพื่อ push ซึ่ง headless ทำไม่ได้ **ขอให้ผู้ใช้แตะการ์ดกลุ่มบนซิม** แล้ว:
-
-```bash
-xcrun simctl io booted screenshot /tmp/group-join-05-members.png
-```
-
-Expected: หน้าสมาชิกโผล่ **โดยฉากป่ายังอยู่** (หรืออย่างน้อยไม่มีจอดำ/ขาววาบ)
-
-ถ้าป่าหาย ทางแก้คือให้ `GroupMembersView` claim ต่อ — เติม `.forestBackground(day: ForestMath.dayStill)` ที่ตัวนอกสุดของ `GroupMembersView` คอมเมนต์ที่ `ForestSceneHost` ระบุว่า `onAppear` ของจอใหม่มาก่อน `onDisappear` ของจอเก่าเสมอ จึงส่งไม้ต่อได้โดยไม่มีช่องว่าง **แต่การแก้นี้แตะไฟล์นอกขอบเขตสเปก (§5 ระบุว่าไม่แตะ `GroupMembersView`) ต้องถามผู้ใช้ก่อน**
+ความเสี่ยงนี้หายไปแล้ว ดูสเปก §3.1 — ไม่มีฉากให้หาย
 
 - [ ] **Step 2: ยืนยัน fallback `.ultraThinMaterial` (สเปก §3.3) — อ่านข้อจำกัดก่อน**
 
@@ -642,7 +605,7 @@ xcrun simctl list runtimes | grep iOS
 
 build + ถ่ายภาพ แล้ว **revert ไฟล์ทันที** ด้วย `git checkout WBW/GlassSurface.swift`
 
-ทาง ข พิสูจน์ได้ว่า `.ultraThinMaterial` สุ่มสีฉากป่าติดหรือกลายเป็นแผ่นเทาเปล่า ซึ่งเป็นความเสี่ยงตัวจริงใน §3.3 แต่ **ไม่ได้พิสูจน์ว่าหน้าตาบน iOS 18 เหมือนกันเป๊ะ** เพราะ `.ultraThinMaterial` ของ iOS 26 กับ iOS 18 ไม่ใช่ของตัวเดียวกัน ต้องเขียนข้อจำกัดนี้ลงรายงานตรง ๆ ไม่ใช่บอกว่า "ยืนยัน iOS 18 แล้ว"
+ทาง ข พิสูจน์ได้ว่า `.ultraThinMaterial` บนพื้นทึบยังเห็นขอบการ์ดหรือกลืนไปกับพื้น ซึ่งเป็นความเสี่ยงตัวจริงใน §3.3 แต่ **ไม่ได้พิสูจน์ว่าหน้าตาบน iOS 18 เหมือนกันเป๊ะ** เพราะ `.ultraThinMaterial` ของ iOS 26 กับ iOS 18 ไม่ใช่ของตัวเดียวกัน ต้องเขียนข้อจำกัดนี้ลงรายงานตรง ๆ ไม่ใช่บอกว่า "ยืนยัน iOS 18 แล้ว"
 
 - [ ] **Step 3: ปิดข้อที่ค้างจาก Task 3 Step 4**
 
@@ -684,13 +647,11 @@ git commit -m "fix(group): <สิ่งที่แก้จริงหลั�
 | หัวข้อในสเปก | Task |
 |---|---|
 | §1 ใช้ `glassSurface` / `forestBackground` ที่มีอยู่ | 1, 2, 3, 4 |
-| §2.1 พื้นหลังฉากป่า | 1 |
+| §2.1 พื้นหลังจาก .forestBackground | 1 |
 | §2.2 หัวจอสามชั้น + placeholder อ่านออก | 2 |
 | §2.3 การ์ดกระจก + ตารางสี + ปุ่มขาวตัวเขียว | 3 |
 | §2.4 `peopleSection`, "ไม่พบกลุ่ม" | 4 |
 | §2.5 ระยะล่างพ้นแท็บบาร์ | 4 |
-| §3.1 `NavigationStack` ทับฉาก + แผนถอย 3 ขั้น | 1 Step 6 |
-| §3.2 claim ฉากตอน push | 5 Step 1 |
 | §3.3 fallback `.ultraThinMaterial` | 5 Step 2 |
 | §3.4 scrim ใต้หัวข้อถ้าจม | 2 Step 4 |
 | §3.5 รอยต่อ `GroupHomeView` — ไม่แก้โดยตั้งใจ | ไม่มี task (ตั้งใจ) |
