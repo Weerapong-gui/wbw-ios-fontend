@@ -26,6 +26,23 @@ final class StaffSOSStore: ObservableObject {
     /// (SwiftUI ตั้งกลับเป็น nil เองตอนปิดจอทับ ผ่าน dismiss() ในสภาพแวดล้อมของจอที่เปิดมา)
     @Published var newCase: SOSStaffCase?
 
+    /// จำนวนรอบ poll ที่ล้มเหลวติดกัน · > 0 = ฟีดกำลังพัง จอต้องบอก (ดู StaffSOSView.header)
+    ///
+    /// **มีอยู่เพราะ `try?` ใน start() กลืน error ทุกชนิดโดยไม่มีใครเห็น** (พบจากรีวิวรอบสุดท้าย) —
+    /// รวมถึง 500 จาก cursor ที่เซิร์ฟเวอร์ปฏิเสธ ซึ่งเป็นอาการที่ "ซ่อมตัวเองไม่ได้": cursor ถูกเขียน
+    /// ใน apply() เท่านั้น ซึ่งรันเฉพาะตอนสำเร็จ ค่าที่เซิร์ฟเวอร์ไม่ยอมรับจึงถูกส่งซ้ำตลอดกาล ฟีดตาย
+    /// ถาวรโดยที่จอยังโชว์ชุดที่โหลดได้ก่อนหน้าและดูปกติทุกประการ · ตัวสาเหตุถูกแก้ที่ฝั่งเซิร์ฟเวอร์
+    /// แล้ว (รูปแบบ updated_at) แต่ "ฟีดตายเงียบ" เป็นคนละเรื่องกับสาเหตุใดสาเหตุหนึ่ง — เน็ตหลุด
+    /// token หมดอายุ เซิร์ฟเวอร์ล่ม ก็ให้ผลเดียวกันบนจอที่ต้องเชื่อถือได้ที่สุดของงาน
+    @Published private(set) var consecutiveFeedFailures = 0
+    var feedIsFailing: Bool { consecutiveFeedFailures > 0 }
+
+    /// ผลของ ack/resolve ครั้งล่าสุดที่ล้มเหลว · การ์ดโชว์ให้เห็น แล้วเคลียร์เมื่อลองใหม่สำเร็จ
+    /// เดิมทั้งสองเมธอดกลืน error ด้วย `try?` แล้วไม่บอกอะไรเลย — เจ้าหน้าที่กด "กำลังไป" แล้วปุ่ม
+    /// ไม่เปลี่ยน จะสรุปว่าแตะไม่โดน กดซ้ำ หรือสรุปว่าสำเร็จแล้วเดินออกไปก็ได้ทั้งคู่ (พบจากรีวิว Task 15
+    /// ค้างไว้เป็นรายการรอ) บนจอที่คุมความปลอดภัยของคน การกดที่ล้มเหลวเงียบๆ ยอมรับไม่ได้
+    @Published var actionError: String?
+
     /// เคส id ที่เคยเห็นแล้ว (ไม่ว่าจะ resolved หรือไม่ก็ตาม) — ใช้แยก "เพิ่งเข้ามาใหม่" ออกจาก
     /// "แค่แถวเดิมถูกอัปเดต" (เช่น มีคนกดรับเรื่อง) เพราะ apply() รวมสองเหตุการณ์นี้เข้าด้วยกันเป็น
     /// การเขียนทับ dictionary แบบเดียวกันหมด แยกไม่ออกจากกันเองถ้าไม่จำ id ที่เคยเห็นไว้ต่างหาก
@@ -106,13 +123,21 @@ final class StaffSOSStore: ObservableObject {
         newCase = alert
     }
 
+    /// รอบ poll ที่ล้มเหลวติดกันกี่รอบถึงจะเชื่อว่า "พังจริง" ไม่ใช่แค่สะดุด — 1 รอบพลาดเป็นเรื่องปกติ
+    /// ของเน็ตบนดอย ขึ้นแบนเนอร์ทุกครั้งที่สะดุดจะกลายเป็นเสียงรบกวนที่คนเลิกมองภายในสิบนาที
+    private static let feedFailuresBeforeWarning = 3
+
     func start(token: String) {
         loop?.cancel()
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                if let batch = try? await self.feedCall(token, self.cursor) {
-                    self.apply(batch)
+                do {
+                    self.apply(try await self.feedCall(token, self.cursor))
+                    self.consecutiveFeedFailures = 0
+                } catch {
+                    // แยก "พลาดไปหนึ่งรอบ" ออกจาก "ตายแล้ว" ด้วยการนับ ไม่ใช่กลืนทิ้งทั้งคู่
+                    self.consecutiveFeedFailures += 1
                 }
                 try? await Task.sleep(for: self.pollInterval)
             }
@@ -121,12 +146,34 @@ final class StaffSOSStore: ObservableObject {
 
     func stop() { loop?.cancel() }
 
-    func ack(id: Int64, token: String) async {
-        _ = try? await APIClient.shared.ackSOS(token: token, id: id)
+    var feedWarning: String? {
+        guard consecutiveFeedFailures >= Self.feedFailuresBeforeWarning else { return nil }
+        return "โหลดรายการเคสไม่สำเร็จ \(consecutiveFeedFailures) ครั้งติดกัน — ที่เห็นอาจไม่ใช่ล่าสุด"
     }
 
-    func resolve(id: Int64, reason: String, token: String) async {
-        _ = try? await APIClient.shared.resolveSOS(token: token, id: id, reason: reason)
+    /// คืน true เมื่อเซิร์ฟเวอร์รับจริง · false = ล้มเหลว และ actionError ถูกตั้งไว้ให้จอแสดง
+    @discardableResult
+    func ack(id: Int64, token: String) async -> Bool {
+        do {
+            _ = try await APIClient.shared.ackSOS(token: token, id: id)
+            actionError = nil
+            return true
+        } catch {
+            actionError = "กด \u{201c}กำลังไป\u{201d} ไม่สำเร็จ ยังไม่มีใครถูกบันทึกว่ารับเรื่อง — ลองใหม่อีกครั้ง"
+            return false
+        }
+    }
+
+    @discardableResult
+    func resolve(id: Int64, reason: String, token: String) async -> Bool {
+        do {
+            _ = try await APIClient.shared.resolveSOS(token: token, id: id, reason: reason)
+            actionError = nil
+            return true
+        } catch {
+            actionError = "ปิดเคสไม่สำเร็จ เคสนี้ยังเปิดอยู่ — ลองใหม่อีกครั้ง"
+            return false
+        }
     }
 }
 
@@ -141,6 +188,10 @@ struct StaffSOSCard: View {
     let token: String
     @ObservedObject var store: StaffSOSStore
     @State private var showReasons = false
+    /// มีคำสั่งกำลังวิ่งอยู่ — ปุ่มต้องกดซ้ำไม่ได้และต้องบอกว่ากำลังทำงาน (พบจากรีวิว Task 15
+    /// ค้างไว้เป็นรายการรอ) เดิมปุ่ม "กำลังไป" ไม่มีสถานะ disabled เลย กดรัวได้ตามใจโดยไม่มีอะไร
+    /// เปลี่ยนบนจอ ซึ่งบนเน็ตที่ช้าแยกไม่ออกจาก "แตะไม่โดน"
+    @State private var busy = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -188,23 +239,42 @@ struct StaffSOSCard: View {
                 // ไม่ใช่ nil ปุ่มด้านล่างก็หายไปแล้ว ไม่มีทาง POST ack ซ้ำจาก UI นี้ได้อีก
                 Text("\(by) กำลังไป")
             } else {
-                Button("กำลังไป") { Task { await store.ack(id: c.id, token: token) } }
+                Button(busy ? "กำลังส่ง…" : "กำลังไป") { run { await store.ack(id: c.id, token: token) } }
                     .buttonStyle(.borderedProminent)
+                    .disabled(busy)
             }
 
             if !c.resolved {
                 Button("ปิดเคส") { showReasons = true }
+                    .disabled(busy)
                     .confirmationDialog("ปิดเคสเพราะ", isPresented: $showReasons) {
-                        Button("ช่วยแล้ว") { Task { await store.resolve(id: c.id, reason: "helped", token: token) } }
-                        Button("แจ้งเท็จ") { Task { await store.resolve(id: c.id, reason: "false_alarm", token: token) } }
-                        Button("ติดต่อไม่ได้") { Task { await store.resolve(id: c.id, reason: "unreachable", token: token) } }
+                        Button("ช่วยแล้ว") { run { await store.resolve(id: c.id, reason: "helped", token: token) } }
+                        Button("แจ้งเท็จ") { run { await store.resolve(id: c.id, reason: "false_alarm", token: token) } }
+                        Button("ติดต่อไม่ได้") { run { await store.resolve(id: c.id, reason: "unreachable", token: token) } }
                         Button("ยกเลิก", role: .cancel) {}
                     }
+            }
+
+            // การกดที่ล้มเหลวต้องเห็น ไม่ใช่หายไปกับ try? — บนจอนี้ "ไม่มีอะไรเปลี่ยน" แปลได้ทั้ง
+            // "สำเร็จแล้วแต่ยังไม่รีเฟรช" และ "ไม่มีอะไรเกิดขึ้นเลย" ซึ่งเป็นคนละเรื่องกันคนละขั้ว
+            if let err = store.actionError {
+                Label(err, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding()
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// ล้อม busy รอบคำสั่งเดียว — ทุกปุ่มบนการ์ดนี้ผ่านทางนี้ทางเดียว จะได้ไม่มีปุ่มไหนลืม
+    private func run(_ work: @escaping () async -> Void) {
+        busy = true
+        Task {
+            await work()
+            busy = false
+        }
     }
 }
 
@@ -220,6 +290,21 @@ struct StaffSOSView: View {
             Color.wbwInk.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
+                // ฟีดพังต้องเห็น ไม่ใช่ปล่อยให้จอโชว์ชุดเก่าค้างไว้แล้วดูปกติดี (ดูคอมเมนต์ยาวที่
+                // StaffSOSStore.consecutiveFeedFailures) — วางไว้ใต้หัวจอ ก่อนรายการ เพื่อให้เห็นทั้ง
+                // ตอนมีเคสและตอนไม่มี ซึ่งเป็นสองสถานะที่แยกจาก "โหลดไม่ขึ้น" ไม่ออกถ้าไม่มีบรรทัดนี้
+                if let warning = store.feedWarning {
+                    Label(warning, systemImage: "wifi.exclamationmark")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(.red.opacity(0.35))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+                }
                 if store.cases.isEmpty {
                     Spacer()
                     emptyState

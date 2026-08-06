@@ -149,6 +149,66 @@ final class StaffSOSTests: XCTestCase {
         XCTAssertEqual(store.cases.first?.id, 1)
     }
 
+    // MARK: - ฟีดที่ตายต้องเห็น (รีวิวรอบสุดท้าย)
+
+    /// เดิม start() ห่อ feedCall ด้วย `try?` — error ทุกชนิดหายไปโดยไม่มีใครเห็น
+    ///
+    /// อาการที่แย่ที่สุดของทรงนั้นคือ 500 จาก cursor ที่เซิร์ฟเวอร์ปฏิเสธ ซึ่งซ่อมตัวเองไม่ได้เลย:
+    /// cursor ถูกเขียนใน apply() เท่านั้น ซึ่งรันเฉพาะตอนสำเร็จ ค่าที่พังจึงถูกส่งซ้ำไปตลอดกาล ฟีดตาย
+    /// ถาวรตั้งแต่เคสจริงเคสแรกของวัน โดยที่จอยังโชว์ชุดที่โหลดได้ก่อนหน้าและดูปกติทุกประการ · สาเหตุนั้น
+    /// ถูกแก้ที่ฝั่งเซิร์ฟเวอร์แล้ว แต่ "ตายเงียบ" เป็นคนละเรื่องกับสาเหตุใดสาเหตุหนึ่ง — เน็ตหลุด token
+    /// หมดอายุ เซิร์ฟเวอร์ล่ม ให้ผลเดียวกันหมดบนจอที่ต้องเชื่อถือได้ที่สุดของงาน
+    func testAFeedThatKeepsFailingBecomesVisibleThenClearsWhenItRecovers() async {
+        let polled = expectation(description: "poll ต้องยิงต่อแม้ล้มเหลว")
+        polled.expectedFulfillmentCount = 4
+        polled.assertForOverFulfill = false
+
+        var shouldFail = true
+        let store = StaffSOSStore(feedCall: { _, _ in
+            polled.fulfill()
+            if shouldFail { throw AppError.retryable("500") }
+            return []
+        }, pollInterval: .milliseconds(5))
+
+        store.start(token: "t")
+        // รอบที่ 4 เริ่มแล้ว = รอบที่ 1-3 จบครบทั้ง catch แล้ว (ลูปเดินทีละรอบบน MainActor)
+        await fulfillment(of: [polled], timeout: 5)
+        XCTAssertGreaterThanOrEqual(store.consecutiveFeedFailures, 3)
+        XCTAssertTrue(store.feedIsFailing)
+        XCTAssertNotNil(store.feedWarning, "ฟีดที่ตายต้องขึ้นบนจอ ไม่ใช่หายไปกับ try?")
+
+        shouldFail = false
+        var attempts = 0
+        while store.feedWarning != nil && attempts < 300 {
+            try? await Task.sleep(for: .milliseconds(10))
+            attempts += 1
+        }
+        store.stop()
+        XCTAssertNil(store.feedWarning, "poll ที่กลับมาสำเร็จต้องล้างคำเตือนเอง ไม่ต้องรอใครมากด")
+        XCTAssertEqual(store.consecutiveFeedFailures, 0)
+    }
+
+    /// สะดุดรอบเดียวไม่ใช่ "พัง" — แบนเนอร์ที่ขึ้นทุกครั้งที่เน็ตกระตุกจะกลายเป็นเสียงรบกวนที่คนเลิกมอง
+    /// ภายในสิบนาที แล้วครั้งที่พังจริงก็ไม่มีใครเห็นอยู่ดี
+    func testASingleMissedPollDoesNotCryWolf() async {
+        let polled = expectation(description: "poll รอบที่สองต้องเริ่ม")
+        polled.expectedFulfillmentCount = 2
+        polled.assertForOverFulfill = false
+
+        var calls = 0
+        let store = StaffSOSStore(feedCall: { _, _ in
+            calls += 1
+            polled.fulfill()
+            if calls == 1 { throw AppError.offline }
+            return []
+        }, pollInterval: .milliseconds(5))
+
+        store.start(token: "t")
+        await fulfillment(of: [polled], timeout: 5)
+        store.stop()
+        XCTAssertNil(store.feedWarning, "พลาดรอบเดียวยังไม่ใช่เรื่องที่ต้องเตือน")
+    }
+
     private static func make(id: Int64, updated: String, resolved: Bool = false,
                              accuracy: Double? = 12, lat: Double? = 20.04, lng: Double? = 99.89,
                              participantId: String = "11111111-1111-1111-1111-111111111111") -> SOSStaffCase {
