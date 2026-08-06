@@ -46,7 +46,7 @@ struct MainTabView: View {
         ZStack {
             TabView(selection: $tab) {
                 Tab(value: 0) { HomeView(noti: noti) } label: { Image(systemName: "house.fill") }
-                Tab(value: 1) { MapScreen() } label: { Image(systemName: "map.fill") }
+                Tab(value: 1) { Map3DScreen() } label: { Image(systemName: "map.fill") }
                 Tab(value: 2) { SURunView() } label: { Image(systemName: "figure.run") }
                 Tab(value: 3) {
                     GroupTabView(onBack: { tab = 0 }, onOpenChat: { chatOpen = true })
