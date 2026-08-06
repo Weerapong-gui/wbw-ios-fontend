@@ -1,7 +1,9 @@
 # Map Tab — Replace MapLibre with 3D GLB Model (maps3d.io export)
 
 - **Date:** 2026-07-31
-- **Status:** Approved (design), pending implementation plan
+- **Status:** **ถูกแทนที่แล้วตั้งแต่ 2026-08-07** ด้วย `2026-08-07-map3d-usdz-design.md`
+  ซึ่งทำเรื่องเดียวกันด้วยไฟล์ต้นทางคนละตัว (usdz ที่แปลงเสร็จแล้ว แทน GLB บนไดรฟ์นอกที่หายไป)
+  เนื้อหาที่เหลือของไฟล์นี้ไม่แก้ เป็นบันทึกของตอนนั้น อย่าใช้เป็นคำสั่ง
 - **Source asset:** `/Volumes/Untitled/MAP/maps3d-glb-2026-07-18_16-47-29/`
   (`.glb` 15 MB, `.blend` 20 MB, `.maps3d.json` settings)
 
