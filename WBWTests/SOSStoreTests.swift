@@ -1,6 +1,27 @@
 import XCTest
 @testable import WBW
 
+/// ประตูสองบานสำหรับหยุด raiseCall ค้างกลางอากาศแบบควบคุมได้ ไม่ใช่ Task.sleep เดา — เทสสั่ง
+/// wait() บาน "started" เพื่อรู้แน่ว่า raiseCall เริ่มทำงานแล้วและกำลังค้างอยู่จริง ก่อนจะแทรก
+/// cancel()/clearForLogout() แล้วค่อยเปิดบาน "proceed" ให้ raiseCall เดินต่อจนสำเร็จ จำลอง race
+/// ที่รีวิว Task 12 จับได้: เน็ตช้าแล้วเพิ่งตอบสำเร็จหลังผู้ใช้กด cancel/logout ไปแล้ว
+private actor Gate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func open() {
+        isOpen = true
+        let w = waiters
+        waiters.removeAll()
+        w.forEach { $0.resume() }
+    }
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+}
+
 @MainActor
 final class SOSStoreTests: XCTestCase {
 
@@ -83,6 +104,52 @@ final class SOSStoreTests: XCTestCase {
         store.clearForLogout()
         XCTAssertNil(SOSOutbox().current())
         XCTAssertNil(store.status)
+    }
+
+    /// พบจากรีวิว Task 12: raise() เรียก send() ซึ่งค้างอยู่กลาง await raiseCall — ถ้า clearForLogout()
+    /// แทรกเข้ามาตรงนั้นพอดีแล้ว raiseCall ที่ค้างอยู่ดันสำเร็จทีหลัง ผลที่มาสายต้องไม่ฟื้นเคสที่เพิ่ง
+    /// ล็อกเอาต์ไปกลับมา — มิฉะนั้นบัญชีถัดไปจะสืบทอดเคสของบัญชีก่อนหน้าซึ่งเป็นเหตุผลทั้งหมดที่
+    /// clearForLogout() มีอยู่ตั้งแต่แรก
+    func testClearForLogoutDuringASuspendedSendDoesNotResurrectTheCase() async {
+        let started = Gate()
+        let proceed = Gate()
+        let store = SOSStore(raiseCall: { _, _ in
+            await started.open()
+            await proceed.wait()
+            return Self.sampleCase(acked: false)
+        })
+
+        let raising = Task { await store.raise(forOther: false, token: "t") }
+        await started.wait()               // รอให้แน่ใจว่า raiseCall เริ่มค้างอยู่จริงแล้ว
+        store.clearForLogout()             // แทรกเข้ามาระหว่างที่ค้างรอเน็ตอยู่พอดี
+        await proceed.open()               // ปล่อยให้ raiseCall ที่ค้างอยู่สำเร็จทีหลัง
+        await raising.value
+
+        XCTAssertNil(SOSOutbox().current(), "เคสที่ล็อกเอาต์ไปแล้วต้องไม่ฟื้นกลับมาแม้ raiseCall จะเพิ่งสำเร็จทีหลัง")
+        XCTAssertNil(store.draft, "draft ต้องยังเป็น nil หลัง raiseCall ที่มาสาย")
+    }
+
+    /// เหมือนเทสด้านบนแต่ผ่านทาง cancel() สาขาที่ยังไม่เคยถึงเซิร์ฟเวอร์ (local-only) — สอง gap
+    /// รวมกันเป็นบั๊กเดียวตามที่รีวิวอธิบาย: chaseTask ที่ไม่มีใครเก็บ handle ไว้ก่อน (แก้แล้ว) และ
+    /// send() ที่ไม่เช็ค generation หลังตื่นจาก await (แก้แล้วเช่นกัน)
+    func testCancelDuringASuspendedSendDoesNotResurrectTheCase() async {
+        let started = Gate()
+        let proceed = Gate()
+        let store = SOSStore(raiseCall: { _, _ in
+            await started.open()
+            await proceed.wait()
+            return Self.sampleCase(acked: false)
+        })
+
+        let raising = Task { await store.raise(forOther: false, token: "t") }
+        await started.wait()
+        let outcome = await store.cancel(token: "t")   // draft.serverId ยังไม่มี ณ จุดนี้ = สาขา local-only
+        await proceed.open()
+        await raising.value
+
+        XCTAssertEqual(outcome, .canceled)
+        XCTAssertNil(SOSOutbox().current(), "เคสที่ยกเลิกไปแล้วต้องไม่ฟื้นกลับมาแม้ raiseCall จะเพิ่งสำเร็จทีหลัง")
+        XCTAssertNil(store.draft, "draft ต้องยังเป็น nil หลัง raiseCall ที่มาสาย")
     }
 
     /// resolved มีดีฟอลต์เป็น false เพื่อให้ call site เดิมจากบรีฟ (sampleCase(acked:)) ไม่ต้องแก้ —

@@ -18,6 +18,13 @@ final class SOSStore: ObservableObject {
     private var retryTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var fallbackTask: Task<Void, Never>?
+    private var chaseTask: Task<Void, Never>?
+
+    /// เพิ่มทุกครั้งที่ cancel()/clearForLogout() ล้างเคสทิ้ง — send() จับค่านี้ไว้ก่อน await
+    /// raiseCall แล้วเทียบใหม่ตอนตื่น ถ้าไม่ตรงแปลว่ามีการล้างเกิดขึ้นระหว่างที่ค้างรอเน็ตอยู่
+    /// (พบจากรีวิว Task 12: ส่งช้าแล้วเพิ่งสำเร็จหลังผู้ใช้กด cancel/logout ไปแล้ว — ผลที่มาสาย
+    /// ต้องถูกทิ้ง ไม่ใช่เขียนทับสิ่งที่เพิ่งถูกล้าง เคสที่เพิ่งยกเลิก/ล็อกเอาต์ไปห้ามฟื้นกลับมา)
+    private var generation = 0
 
     /// ฉีดของปลอมเข้าได้ตอนเทสด้วย closure ตรงๆ ตามแบบเดียวกับ FeedbackStore.submitCall
     /// — โปรเจกต์นี้ไม่มี protocol ครอบ APIClient ที่ไหนเลย ไม่ต้องเพิ่มตอนนี้
@@ -85,10 +92,18 @@ final class SOSStore: ObservableObject {
     }
 
     /// ยิงหนึ่งครั้ง · **ทุกทางที่ผิดพลาดจบลงที่ "เก็บไว้ ลองใหม่" ไม่มีข้อยกเว้น**
+    ///
+    /// จับ generation ไว้ก่อน await ตัวเดียวในฟังก์ชันนี้ (raiseCall) แล้วเทียบใหม่ทันทีที่ตื่น —
+    /// ถ้า cancel()/clearForLogout() แทรกเข้ามาระหว่างที่ค้างรอเน็ตอยู่ generation จะเปลี่ยนไปแล้ว
+    /// ผลที่เพิ่งได้มา (ไม่ว่าจะสำเร็จหรือพัง) ถือว่าสายเกินไป ห้ามเขียนอะไรทับสิ่งที่เพิ่งถูกล้าง
+    /// (พบจากรีวิว: ไม่มีการเช็คนี้มาก่อน เคสที่เพิ่งยกเลิก/ล็อกเอาต์ไปฟื้นกลับมาได้ถ้า raiseCall
+    /// ที่ค้างอยู่ดันสำเร็จทีหลัง)
     private func send(token: String) async {
         guard let d = draft else { return }
+        let gen = generation
         do {
             let c = try await raiseCall(token, d)
+            guard gen == generation else { return }
             var updated = d
             updated.serverId = c.id
             outbox.save(updated)
@@ -101,6 +116,7 @@ final class SOSStore: ObservableObject {
             // ถามไปก็ได้ค่าว่าง เปลืองแบตและเปลืองเน็ตที่มีน้อยอยู่แล้ว
             startStatusPoll(token: token)
         } catch {
+            guard gen == generation else { return }
             // ไม่มี catch สาขาไหนเรียก outbox.clear() — ตั้งใจ และมีเทสไล่ทุก error ค้ำไว้
             status = .queued
         }
@@ -125,10 +141,19 @@ final class SOSStore: ObservableObject {
     }
 
     /// ไล่ตาม GPS คู่ขนานกับการส่ง · ได้ fix แล้วยิงอัปเดตด้วย client_id เดิม
+    ///
+    /// เก็บ handle ไว้ใน chaseTask และเช็ค Task.isCancelled ทันทีที่ตื่นจาก oneShot (เหมือนที่
+    /// fallbackTask ทำ) — เดิม Task นี้เป็น bare Task { } ไม่มีใครเก็บ handle ไว้เลย finish()
+    /// จึงหยุดมันไม่ได้ (พบจากรีวิว) แม้ oneShot เองจะไม่ตอบสนอง cancel ทันที (withCheckedContinuation
+    /// ไม่ใช่ withTaskCancellationHandler — ดูคอมเมนต์ที่ SOSLocator.oneShot) แต่การเช็คตรงนี้ก็ยัง
+    /// กัน fix เก่าที่มาถึงหลัง cancel/logout ไม่ให้เขียนทับ draft ที่เพิ่งถูกล้าง หรือปนเข้าไปในเคส
+    /// ใหม่ที่เพิ่งเปิดหลังจากนั้น
     private func startLocationChase(token: String) {
-        Task { [weak self] in
+        chaseTask?.cancel()
+        chaseTask = Task { [weak self] in
             guard let self else { return }
             guard let fix = await self.locator.oneShot(timeout: .seconds(8)) else { return }
+            guard !Task.isCancelled else { return }
             guard var d = self.draft else { return }
             // ค่าใหม่ทับก็ต่อเมื่อแม่นกว่าเดิมจริง — fix ที่หยาบกว่าไม่ใช่ข่าวดี
             if let old = d.accuracyM, old <= fix.accuracyM { return }
@@ -169,6 +194,7 @@ final class SOSStore: ObservableObject {
         guard let id = draft?.serverId else {
             // ยังไม่เคยถึงเซิร์ฟเวอร์ — ยกเลิกได้ในเครื่องล้วน ไม่มีใครเคยรู้ว่ามีเคสนี้
             finish()
+            generation += 1   // ผลของ send() ที่อาจค้างรออยู่ (ถ้ามี) ต้องถูกทิ้งเมื่อกลับมา
             outbox.clear()
             draft = nil
             status = nil
@@ -177,6 +203,7 @@ final class SOSStore: ObservableObject {
         guard let outcome = try? await cancelCall(token, id) else { return nil }
         if outcome == .canceled {
             finish()
+            generation += 1
             outbox.clear()
             draft = nil
             status = .closed(reason: "canceled_by_user")
@@ -193,6 +220,7 @@ final class SOSStore: ObservableObject {
     /// (จอที่เรียกตัวนี้ต้องถามยืนยันก่อน ไม่ใช่ล้างเงียบๆ)
     func clearForLogout() {
         finish()
+        generation += 1   // ผลของ send() ที่อาจค้างรออยู่ (ถ้ามี) ต้องถูกทิ้งเมื่อกลับมา
         outbox.clear()
         draft = nil
         serverCase = nil
@@ -201,6 +229,6 @@ final class SOSStore: ObservableObject {
     }
 
     private func finish() {
-        retryTask?.cancel(); pollTask?.cancel(); fallbackTask?.cancel()
+        retryTask?.cancel(); pollTask?.cancel(); fallbackTask?.cancel(); chaseTask?.cancel()
     }
 }
