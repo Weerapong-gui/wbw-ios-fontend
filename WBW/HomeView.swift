@@ -1,6 +1,9 @@
 import SwiftUI
 
-/// หน้าหลัก (DOI-APP) — พื้นป่า 3D + คำทักทาย "Hey! <ชื่อ>" มุมซ้ายบน + ต้นไม้โตตามความคืบหน้าเช็คอินจริง
+/// หน้าหลัก (DOI-APP) — คำทักทาย "Hey! <ชื่อ>" มุมซ้ายบน บนพื้นหลังที่ .forestBackground() จัดให้
+///
+/// ตัวอักษรเป็นสีขาวเพราะพื้นหลังเป็นโทนเข้มเสมอ (พื้นทึบ #0A1610 ตอน Config.forest3D ปิด
+/// หรือฉากป่า 3D ตอนเปิด) — ไม่ผูกกับ flag เพราะขาวอ่านออกทั้งสองโหมด
 struct HomeView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
@@ -40,10 +43,10 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Hey!")
                         .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(Color.wbwInk)
+                        .foregroundStyle(.white)
                     Text(name)
                         .font(.system(size: 21, weight: .heavy))
-                        .foregroundStyle(Color.wbwInk)
+                        .foregroundStyle(.white)
                 }
                 Spacer()
 
@@ -52,7 +55,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "bell.fill")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Color.wbwInk)
+                        .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
                         .modifier(GlassRing())
                         .overlay(alignment: .topTrailing) {
