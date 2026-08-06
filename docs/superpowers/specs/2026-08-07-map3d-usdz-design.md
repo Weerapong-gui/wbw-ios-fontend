@@ -82,6 +82,16 @@
 | `WBW/Config.swift` | แก้ | เพิ่ม `Config.map3D` |
 | `project.yml` | แก้ | ถอด package `MapLibre` (บรรทัด 8-10 และ 21-22) |
 | `WBW/Info.plist` · `WBW/Info-Debug.plist` | แก้ | เพิ่ม `NSLocationWhenInUseUsageDescription` ทั้งสองไฟล์ |
+| `WBWTests/AppStoreConfigTests.swift:65` | แก้ | เทสที่บังคับว่า**ห้ามมี**คีย์ตำแหน่ง ต้องกลับด้าน |
+
+### สิทธิ์ตำแหน่ง
+
+เคยมี `NSLocationWhenInUseUsageDescription` ค้างอยู่ทั้งที่ไม่มีไฟล์ไหน import CoreLocation
+จนต้องเขียนเทสคุมไว้ที่ `WBWTests/AppStoreConfigTests.swift:65` คอมเมนต์ของเทสนั้นเขียนไว้เองว่า
+*"ถ้าวันหนึ่งเพิ่มฟีเจอร์แผนที่จริง ให้ลบเทสนี้พร้อมกับตอนเติมคีย์กลับ"* — งานนี้คือกรณีนั้น
+เปลี่ยนข้อความยืนยันให้บังคับว่า**ต้องมี**คีย์ตำแหน่งแทน ส่วน `NSPhotoLibraryUsageDescription`
+ยังต้องห้ามมีเหมือนเดิม และอีกเทสในไฟล์เดียวกันบังคับให้ Info.plist กับ Info-Debug.plist
+มีคีย์ตรงกัน จึงต้องเติมทั้งสองไฟล์
 
 ### พิกัดโมเดล (ยังค้าง)
 
@@ -114,12 +124,16 @@
 - หา entity ด้วย `root.findEntity(named:)` ทรงเดียวกับ `ForestSceneView.swift:126`
 - ใส่ `CollisionComponent` + `InputTargetComponent` ให้แต่ละแท่ง แล้วรับแตะด้วย
   `SpatialTapGesture` ที่ `RealityView`
-- ชื่อฐานมาจาก `CheckinProgressStore` ที่มีอยู่แล้ว — `GET /wbw/me/progress` คืน `name`
-  กับ `sequence` ทั้งใน `items` (เช็คอินแล้ว) และ `pending` (ยังไม่เช็คอิน) ดู
-  `WBW/Models.swift:248` **ไม่ต้องต่อ endpoint ใหม่และไม่ฮาร์ดโค้ดชื่อฐาน**
+- **ชื่อฐานมีให้เฉพาะฐานที่เช็คอินไปแล้ว** — `GET /wbw/me/progress` คืน `{total, checked_in[]}`
+  เท่านั้น (`WBW/Models.swift:286`) แต่ละแถวมี `name`/`sequence` ส่วน `CheckinProgress.pending`
+  ที่มีอยู่ **ไม่ใช่** ฐานที่ยังไม่เดินไปถึง — มันคือฐานที่เช็คอินแล้วแต่ยังไม่ได้ให้ความเห็น
+  ลิสต์ชื่อฐานทั้งหมดอยู่ที่ `GET /wbw/staff/checkpoints` ซึ่งเป็น staff/admin เท่านั้น
+  (`docs/backend-contract.md:50`) participant เรียกไม่ได้
+- ดังนั้นการ์ดชื่อฐานทำงานสองแบบ: ฐานที่เช็คอินแล้ว → ชื่อจริงจาก `CheckinProgressStore`
+  ฐานที่ยังไม่เช็คอิน → `"ฐานที่ N"` ตามลำดับในตาราง **ห้ามฮาร์ดโค้ดชื่อฐานเดา**
+  ถ้าอยากได้ชื่อครบต้องเปิด endpoint ฝั่ง participant ก่อน ซึ่งอยู่นอกขอบเขตงานนี้
 - จับคู่ prim ↔ ลำดับฐานด้วยตารางฮาร์ดโค้ดใน `Map3DPins.swift` เพราะโมเดลตั้งชื่อว่า
   `Cylinder_004` ไม่ได้บอกว่าเป็นฐานไหน — **คู่ที่ถูกต้องยืนยันด้วยสกรีนช็อตเท่านั้น**
-  ถ้า progress ยังโหลดไม่เสร็จ การ์ดโชว์ "ฐานที่ N" ตามลำดับในตาราง ไม่โชว์ค่าว่าง
 
 ## 7. เครดิตข้อมูล
 
