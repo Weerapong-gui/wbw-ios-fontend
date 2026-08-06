@@ -15,6 +15,10 @@ final class SOSStore: ObservableObject {
     private var outbox: SOSOutbox { SOSOutbox() }
     private let locator: SOSLocator
     private let callFallbackDelay: Duration
+    /// ช่วงพักระหว่างรอบ poll สถานะ — แยกเป็นพารามิเตอร์ฉีดได้เหมือน callFallbackDelay เพื่อให้เทส
+    /// เพดานหยุด poll (ดู maxConsecutiveEmptyPolls) ไม่ต้องรอนาทีจริง ค่าเริ่มต้น 1 วิเหมือนของเดิม
+    /// ก่อนรีวิว Task 14 รอบสอง
+    private let pollInterval: Duration
     private var retryTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var fallbackTask: Task<Void, Never>?
@@ -50,12 +54,14 @@ final class SOSStore: ObservableObject {
          raiseCall: @escaping (String, SOSDraft) async throws -> SOSCase = APIClient.shared.raiseSOS,
          cancelCall: @escaping (String, Int64) async throws -> APIClient.SOSCancelOutcome = APIClient.shared.cancelSOS,
          activeCall: @escaping (String, Int) async throws -> SOSCase? = APIClient.shared.activeSOS,
-         callFallbackDelay: Duration = .seconds(20)) {
+         callFallbackDelay: Duration = .seconds(20),
+         pollInterval: Duration = .seconds(1)) {
         self.locator = locator ?? SOSLocator()
         self.raiseCall = raiseCall
         self.cancelCall = cancelCall
         self.activeCall = activeCall
         self.callFallbackDelay = callFallbackDelay
+        self.pollInterval = pollInterval
         self.draft = SOSOutbox().current()
         if draft != nil { status = .queued }
     }
@@ -164,17 +170,46 @@ final class SOSStore: ObservableObject {
         }
     }
 
+    /// เพดาน poll ที่ได้ผลว่าง (nil) ติดกัน ก่อนยอมเลิก — กันเคสที่เซิร์ฟเวอร์ลืมไปแล้วจริงๆ วน
+    /// ตลอดกาล (พบจากรีวิว Task 14 รอบสอง — ดูคอมเมนต์ที่ startStatusPoll ว่าทำไมเคสแบบนี้เกิดได้)
+    /// เลขนี้เป็นตัวเลขกลมๆ ที่เผื่อสัญญาณหลุดจริงยังทนได้อยู่ ไม่ใช่ค่าที่วัดจากอะไรตายตัว — nil ที่นี่
+    /// รวมทั้ง "ไม่มีเคสจริงๆ" และ error ที่ try? กลืนไปด้วย (activeSOS ไม่ได้แยกสองอย่างนี้ให้)
+    /// จึงนับรวมกันไปก่อน เพดานสูงพอที่จะไม่ตัดเคสจริงทิ้งกลางสัญญาณหลุดสั้นๆ
+    private static let maxConsecutiveEmptyPolls = 20
+
+    /// long-poll สถานะไปเรื่อยๆ จนกว่าจะปิด · เคสจบ (resolved) ต้องล้าง **draft ที่ persist ไว้บนดิสก์**
+    /// ด้วย ไม่ใช่แค่หยุด task — เดิม finish() อย่างเดียวปล่อย outbox.clear()/draft=nil ไว้ไม่ทำ ทำให้
+    /// เคสที่จบไปแล้วยังเหลือ draft ค้างในเครื่อง ถ้าแอปถูกปิดแล้วเปิดใหม่ init() จะกู้ draft นั้นมาเป็น
+    /// queued อีกรอบทั้งที่จบไปแล้วจริงๆ (พบจากรีวิว Task 14 รอบสอง) — serverCase/status ยังคงค่า
+    /// .closed ไว้ให้จอสถานะแสดงผลจบเรื่องได้ตามปกติ สิ่งที่ต้องไม่รอดคือ draft/outbox เท่านั้น
+    ///
+    /// ถ้าเซิร์ฟเวอร์ไม่รู้จักเคสนี้เลย (nil ติดกันเกินเพดาน — ดู maxConsecutiveEmptyPolls) ให้เลิก
+    /// poll เช่นกัน ไม่ล้าง draft ในกรณีนี้เพราะไม่รู้จริงว่าเคสจบหรือแค่เน็ตหลุด — ปล่อยให้ retryTask/
+    /// ผู้ใช้กด cancel เองตัดสินใจแทน
     private func startStatusPoll(token: String) {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
+            var consecutiveEmpty = 0
             while !Task.isCancelled {
                 guard let self else { return }
                 if let c = try? await self.activeCall(token, 25) {
+                    consecutiveEmpty = 0
                     self.serverCase = c
                     self.status = c.status
-                    if c.resolved { self.finish(); return }
+                    if c.resolved {
+                        self.finish()
+                        self.outbox.clear()
+                        self.draft = nil
+                        return
+                    }
+                } else {
+                    consecutiveEmpty += 1
+                    if consecutiveEmpty >= Self.maxConsecutiveEmptyPolls {
+                        self.finish()
+                        return
+                    }
                 }
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(for: self.pollInterval)
             }
         }
     }
@@ -235,8 +270,32 @@ final class SOSStore: ObservableObject {
         startLocationChase(token: token)
     }
 
+    /// จุดตัดสินใจเดียวที่ MainTabView.onDisappear เรียกทุกครั้งที่ล็อกเอาต์ — ตัดสินใจแทนว่าจะล้าง
+    /// เคสทิ้งหรือปล่อยไว้ ตาม automatic (ดู Session.logout(automatic:))
+    ///
+    /// **ล็อกเอาต์อัตโนมัติจาก 401 ต้องไม่ล้าง** (พบจากรีวิว Task 14 รอบสอง) — Session ยิง logout()
+    /// เองทันทีที่เจอ 401 จากที่ไหนก็ได้ในแอป โดยไม่มีการยืนยันจากผู้ใช้เลยสักครั้ง ถ้าเรียก
+    /// clearForLogout() ตรงๆ ตรงนี้ คนที่มีเคสฉุกเฉินเปิดอยู่จะถูกเด้งไปหน้า login พร้อมกับเคสหายไป
+    /// เงียบๆ กลางเหตุฉุกเฉิน โดยไม่มีอะไรเตือนเลย — ขัดกับ spec ที่บอกว่า "logout ตอนมีเคสเปิดต้อง
+    /// ถามยืนยันก่อน" ตรงๆ ปล่อย draft ไว้ในเครื่องแทน (ไม่เรียกอะไรเลย) ให้ resumeIfNeeded หยิบต่อ
+    /// ได้ทันทีที่ล็อกอินกลับมา (SOSStore ตัวใหม่ที่ MainTabView สร้างตอน mount ใหม่จะอ่าน draft เดิม
+    /// กลับมาใน init() เอง) ทรงเดียวกับ relaunch ทุกอย่าง
+    ///
+    /// ล็อกเอาต์ที่ผู้ใช้กดเอง (ผ่านปุ่ม "ออกจากระบบ" ใน SettingsView ซึ่งมี .alert
+    /// "ออกจากระบบใช่หรือไม่" ถามยืนยันก่อนเรียก session.logout() เสมออยู่แล้ว) ถึงล้างจริงตามเดิม —
+    /// ยืนยันแล้วจริงๆ ตรงตามที่คอมเมนต์ของ clearForLogout() ด้านล่างต้องการ
+    ///
+    /// เหลือความเสี่ยงที่รู้แล้วแต่ไม่แก้ในนี้: SOSOutbox ผูกกับ backend เท่านั้น ไม่ผูกกับ user id
+    /// เลย ถ้ามีคนอื่นมา login บนเครื่องเดียวกันก่อนเจ้าของเคสตัวจริงจะกลับมา login ใหม่ คนนั้นจะ
+    /// เห็น/สืบทอด draft ของคนแรกได้ — ยอมรับความเสี่ยงนี้เพราะ 401 อัตโนมัติในทางปฏิบัติแทบทั้งหมด
+    /// คือคนเดิม re-authenticate ต่อ ไม่ใช่มีคนอื่นมาแย่งเครื่องใช้กลางเหตุฉุกเฉินพอดี
+    func handleLogout(automatic: Bool) {
+        guard !automatic else { return }
+        clearForLogout()
+    }
+
     /// ล็อกเอาต์ตอนมีเคสค้าง — ต้องล้าง ไม่งั้นเคสของคนก่อนถูกส่งด้วย token ของคนถัดไป
-    /// (จอที่เรียกตัวนี้ต้องถามยืนยันก่อน ไม่ใช่ล้างเงียบๆ)
+    /// (จอที่เรียกตัวนี้ต้องถามยืนยันก่อน ไม่ใช่ล้างเงียบๆ — ตอนนี้มีทางเข้าเดียวคือ handleLogout(automatic: false) ด้านบน)
     func clearForLogout() {
         finish()
         generation += 1   // ผลของ send() ที่อาจค้างรออยู่ (ถ้ามี) ต้องถูกทิ้งเมื่อกลับมา

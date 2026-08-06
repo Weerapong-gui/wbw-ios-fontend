@@ -4,6 +4,12 @@ import Foundation
 final class Session: ObservableObject {
     @Published var user: AuthUser?
     @Published var token: String?
+    /// true เฉพาะตอน logout() ล่าสุดถูกเรียกจาก authObserver (401 อัตโนมัติ) ไม่ใช่จากปุ่มที่ผู้ใช้กด
+    /// เอง — MainTabView.onDisappear อ่านค่านี้ตัดสินใจว่าจะล้างเคส SOS ที่ค้างอยู่หรือไม่ (ผ่าน
+    /// SOSStore.handleLogout(automatic:) ดูคอมเมนต์ยาวที่นั่น) ค่าเริ่มต้น false เพราะ logout()
+    /// เขียนทับค่านี้ทุกครั้งที่ถูกเรียกไม่ว่าทางไหน (พบจากรีวิว Task 14 รอบสอง) ไม่มีทางค้างค่าเก่า
+    /// ข้ามการล็อกเอาต์ครั้งถัดไป
+    @Published private(set) var lastLogoutWasAutomatic = false
 
     private let tokenKey = "wbw.token"
     private let userKey = "wbw.user"
@@ -12,12 +18,14 @@ final class Session: ObservableObject {
     init() {
         token = UserDefaults.standard.string(forKey: tokenKey)
         // 401 จากที่ไหนก็ตาม (token หมดอายุ/เปลี่ยน secret) → logout อัตโนมัติ (แทนจอว่าง)
+        // automatic: true — ไม่มีการยืนยันจากผู้ใช้เกิดขึ้นเลยสักครั้งในเส้นทางนี้ (ดูคอมเมนต์ที่
+        // lastLogoutWasAutomatic และ logout(automatic:) ว่าทำไมเรื่องนี้สำคัญ)
         authObserver = NotificationCenter.default.addObserver(
             forName: .wbwUnauthorized, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.token != nil else { return }
-                self.logout()
+                self.logout(automatic: true)
             }
         }
         if let data = UserDefaults.standard.data(forKey: userKey) {
@@ -66,7 +74,11 @@ final class Session: ObservableObject {
         SOSLocator.shared.requestPermission()
     }
 
-    func logout() {
+    /// automatic: true เฉพาะตอนเรียกจาก authObserver ด้านบน (401 ที่ไม่มีใครขอ) · ปุ่ม "ออกจากระบบ"
+    /// ทั้งสองจอ (SettingsView, StaffScanView) เรียกแบบไม่ใส่ค่านี้ = false เสมอ ค่าเริ่มต้นจึงตรงกับ
+    /// เส้นทางที่พบบ่อยที่สุด (พบจากรีวิว Task 14 รอบสอง — ดูคอมเมนต์ที่ lastLogoutWasAutomatic)
+    func logout(automatic: Bool = false) {
+        lastLogoutWasAutomatic = automatic
         // ถอน device token ก่อนล้าง JWT (unregister อ่าน JWT)
         PushManager.shared.unregister()
         user = nil

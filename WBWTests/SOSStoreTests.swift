@@ -183,6 +183,93 @@ final class SOSStoreTests: XCTestCase {
         XCTAssertNil(store.status)
     }
 
+    // MARK: - รีวิว Task 14 รอบสอง
+
+    /// .wbwUnauthorized ใน Session.init ยิง logout() เองทันทีที่เจอ 401 จากไหนก็ได้ในแอป โดยไม่มีการ
+    /// ยืนยันจากผู้ใช้เลยสักครั้ง — เคสที่ยังเปิดอยู่ต้องไม่ถูกล้างในเส้นทางนี้ ไม่งั้นคนที่มีเหตุฉุกเฉิน
+    /// เปิดอยู่จะถูกเด้งไปหน้า login พร้อมเคสหายไปเงียบๆ กลางเหตุฉุกเฉิน ปล่อย draft ไว้ในเครื่องแทน
+    /// ให้ resumeIfNeeded หยิบต่อได้ทันทีที่ล็อกอินกลับมา (ดูคอมเมนต์ที่ SOSStore.handleLogout)
+    func testAutomaticLogoutLeavesTheOutboxIntactForReAuthenticationToResume() async {
+        let store = SOSStore(raiseCall: { _, _ in throw AppError.offline })
+        await store.raise(forOther: false, token: "t")
+        XCTAssertNotNil(SOSOutbox().current())
+
+        store.handleLogout(automatic: true)
+
+        XCTAssertNotNil(SOSOutbox().current(),
+                         "ล็อกเอาต์อัตโนมัติต้องไม่ล้างเคส — คนกลางเหตุฉุกเฉินไม่ควรเจอเคสหายไปเฉยๆ")
+        XCTAssertNotNil(store.draft)
+    }
+
+    /// เส้นทางที่ผู้ใช้กด "ออกจากระบบ" เอง (SettingsView ถามยืนยันก่อนเรียก session.logout() เสมอ)
+    /// ต้องล้างเหมือนเดิมทุกอย่าง — handleLogout(automatic: false) คือค่าที่เส้นทางนั้นส่งมา
+    func testUserInitiatedLogoutStillClearsTheOutbox() async {
+        let store = SOSStore(raiseCall: { _, _ in throw AppError.offline })
+        await store.raise(forOther: false, token: "t")
+        XCTAssertNotNil(SOSOutbox().current())
+
+        store.handleLogout(automatic: false)
+
+        XCTAssertNil(SOSOutbox().current(), "ล็อกเอาต์ที่ผู้ใช้กดเอง (ยืนยันแล้ว) ต้องล้างเหมือนเดิม")
+        XCTAssertNil(store.draft)
+    }
+
+    /// startStatusPoll เดิมเรียก finish() ตอนเจอเคส resolved แต่ไม่เคยล้าง draft/outbox — เคสที่จบไป
+    /// แล้วจริงยังเหลือร่องรอยในเครื่อง ถ้าแอปถูกปิดแล้วเปิดใหม่ init() จะกู้ draft นั้นมาเป็น queued
+    /// อีกรอบทั้งที่จบไปแล้ว serverCase/status ต้องยังคง .closed ไว้ให้จอสถานะแสดงผลจบเรื่องได้ปกติ —
+    /// เฉพาะ draft/outbox เท่านั้นที่ต้องไม่รอด
+    func testAPollThatObservesResolutionClearsTheOutboxButKeepsClosedStatusVisible() async {
+        let started = Gate()
+        let proceed = Gate()
+        let store = SOSStore(raiseCall: { _, _ in Self.sampleCase(acked: false) },
+                             activeCall: { _, _ in
+                                 await started.open()
+                                 await proceed.wait()
+                                 return Self.sampleCase(acked: true, resolved: true)
+                             })
+        await store.raise(forOther: false, token: "t")
+        await started.wait()   // ยืนยันว่า poll เรียก activeCall ครั้งแรกแล้วและกำลังค้างอยู่จริง
+        await proceed.open()   // ปล่อยให้ activeCall คืนเคสที่ resolved แล้ว
+
+        // pollTask เป็น private เทสตรงๆ ไม่ได้ — รอผลที่สังเกตได้จากภายนอกแทน มีเพดานกันเทสค้างถ้า
+        // อะไรพัง (โค้ดจริงไม่มี await คั่นระหว่างตื่นจาก activeCall กับ outbox.clear()/draft=nil เลย)
+        var attempts = 0
+        while SOSOutbox().current() != nil && attempts < 100 {
+            try? await Task.sleep(for: .milliseconds(10))
+            attempts += 1
+        }
+
+        XCTAssertNil(SOSOutbox().current(), "เคสที่ resolved แล้วต้องไม่เหลือ draft ค้างในเครื่อง")
+        XCTAssertNil(store.draft)
+        XCTAssertEqual(store.status, .closed(reason: "helped"), "สถานะยังต้องโชว์ผลจบเรื่องได้ตามปกติ")
+    }
+
+    /// เซิร์ฟเวอร์ไม่รู้จักเคสนี้เลย (activeCall ตอบ nil รัวๆ) ต้องมีเพดานให้ poll หยุดเอง ไม่งั้นวน
+    /// ตลอดกาลกินแบต/เน็ตของเคสที่จบไปนานแล้ว (ดู SOSStore.maxConsecutiveEmptyPolls) — pollInterval
+    /// สั้นมากเฉพาะเทสนี้ ไม่ต้องรอเป็นนาทีจริงตามค่าเริ่มต้นจริง 1 วิ
+    func testStatusPollGivesUpAfterRepeatedlyFindingNoCase() async {
+        var callCount = 0
+        let store = SOSStore(raiseCall: { _, _ in Self.sampleCase(acked: false) },
+                             activeCall: { _, _ in callCount += 1; return nil },
+                             pollInterval: .milliseconds(1))
+        await store.raise(forOther: false, token: "t")
+
+        // รอจนตัวนับ "นิ่ง" (ไม่ขยับต่ออีกแล้วหลายรอบติด) แทนที่จะรอเวลาคงที่ — ทนต่อความช้าของเครื่อง
+        // ที่รันเทสได้ดีกว่าเดาเวลาตรงๆ
+        var lastSeen = -1
+        var stableRounds = 0
+        while stableRounds < 5 {
+            try? await Task.sleep(for: .milliseconds(20))
+            if callCount == lastSeen { stableRounds += 1 } else { stableRounds = 0 }
+            lastSeen = callCount
+        }
+
+        XCTAssertGreaterThanOrEqual(callCount, 20, "ต้องลองจนถึงเพดาน (20 ครั้งติด) ก่อนจะยอมเลิก")
+        let settledCount = callCount
+        try? await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(callCount, settledCount, "เกินเพดานแล้วต้องไม่ยิงต่อ — poll loop ต้องหยุดจริง")
+    }
+
     /// resolved มีดีฟอลต์เป็น false เพื่อให้ call site เดิมจากบรีฟ (sampleCase(acked:)) ไม่ต้องแก้ —
     /// เพิ่มพารามิเตอร์นี้เข้ามาเพื่อฉีดเป็นค่าตอบของ activeCall stub ด้านบนเท่านั้น (ดูคอมเมนต์ที่เทส)
     private static func sampleCase(acked: Bool, resolved: Bool = false) -> SOSCase {
