@@ -38,6 +38,15 @@ private final class OneShotResume: @unchecked Sendable {
 
 @MainActor
 final class SOSLocator {
+    /// ตัวที่ Session.save(_:) เรียกหลังล็อกอิน — ต้องมีคนถือ SOSLocator (และ CLLocationManager
+    /// ข้างในมัน ผ่าน SystemLocationProvider) ไว้จริงจนกว่า OS จะเก็บกล่องขอสิทธิ์เสร็จ สร้าง
+    /// `SOSLocator()` ลอยๆ แล้วไม่เก็บตัวแปรไว้เลย ปล่อยให้ ARC เก็บทันทีที่จบ statement จะทำให้
+    /// กล่องขอสิทธิ์อาจไม่ขึ้นเลย หรือขึ้นแล้วไม่มีวันได้ผลลัพธ์กลับมา — SOS ที่ไม่มีพิกัดโดยไม่มี
+    /// error ให้เห็น เหตุผลเดียวกับที่ PushManager เป็น singleton (บรรทัดถัดจากที่เรียกตัวนี้ใน
+    /// Session.save เลย) · SOSStore ยังคงสร้าง SOSLocator ของตัวเองแยกต่างหาก ถือไว้ตลอดชีวิต
+    /// ของเคส SOS ที่กำลังทำงานอยู่ — คนละวงจรชีวิต คนละเหตุผล ไม่ต้องมาใช้ตัวนี้ร่วมกัน
+    static let shared = SOSLocator()
+
     private let provider: SOSLocationProviding
 
     init(provider: SOSLocationProviding = SystemLocationProvider()) {

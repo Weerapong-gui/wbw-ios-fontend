@@ -32,7 +32,11 @@ final class Session: ObservableObject {
         // device token เลย และ push ทดสอบไม่ได้เลยสักครั้งโดยไม่มีอะไรฟ้อง (เสียเวลาไล่หา
         // มาแล้วรอบหนึ่ง — เห็นแค่ device_token ค้างที่ 0 โดยไม่มี error ที่ไหนเลย)
         //
-        // เขียนให้เหมือน save() ทุกอย่าง เพื่อให้ hook นี้เทียบเท่าการ login จริง ไม่ใช่ครึ่งใบ
+        // เขียนให้เหมือน save() แทบทุกอย่าง เพื่อให้ hook นี้เทียบเท่าการ login จริง ไม่ใช่ครึ่งใบ —
+        // ข้อยกเว้นเดียวที่ตั้งใจ: **ไม่** เรียก SOSLocator.shared.requestPermission() ที่นี่ hook นี้
+        // มีไว้ข้ามการพิมพ์รหัสผ่านตอนเทส UI ไม่ใช่ให้เจอกล่องขอสิทธิ์ตำแหน่งจริงทุกครั้งที่ launch
+        // ด้วย flag นี้ ผลคือ authorization ค้างที่ .notDetermined เท่านั้น — เป็นสถานะของระบบที่
+        // ตรวจสอบได้ตรงๆ ไม่ใช่ contract ที่ซ่อนอยู่แบบที่เคยพลาดกับ UserDefaults ด้านบน
         if let t = UserDefaults.standard.string(forKey: "uitestToken"), !t.isEmpty {
             let u = UserDefaults.standard.string(forKey: "uitestUser") ?? "tester"
             let r = UserDefaults.standard.string(forKey: "uitestRole") ?? "participant"
@@ -55,9 +59,11 @@ final class Session: ObservableObject {
         PushManager.shared.registerCurrent()
         // ขอสิทธิ์ตำแหน่งหลังล็อกอินสำเร็จเท่านั้น — ตอนเปิดแอปครั้งแรกผู้ใช้ยังไม่รู้ว่าแอปนี้คืออะไร
         // และการขอสิทธิ์ตอนกด SOS คือทั้งช้าที่สุดและถูกปฏิเสธมากที่สุด (แนวเดียวกับที่วางแผนไว้กับ
-        // push notification — ดู push-notification-gaps) · SOSLocator เป็น @MainActor เหมือน Session
-        // ตรงนี้เองอยู่แล้ว เรียกตรงๆ ได้โดยไม่ต้อง await (ไม่ข้าม actor และ save() เองก็ไม่ใช่ async)
-        SOSLocator().requestPermission()
+        // push notification — ดู push-notification-gaps) · เรียกผ่าน .shared ไม่ใช่ SOSLocator()
+        // ลอยๆ — ต้องมีคนถือ CLLocationManager ข้างในไว้จนกว่า OS จะเก็บกล่องขอสิทธิ์เสร็จ ไม่งั้น ARC
+        // เก็บทันทีที่จบ statement (ดูคอมเมนต์ที่ SOSLocator.shared) · เรียกตรงๆ ได้โดยไม่ต้อง await
+        // (SOSLocator เป็น @MainActor เหมือน Session ตรงนี้เอง ไม่ข้าม actor และ save() เองก็ไม่ใช่ async)
+        SOSLocator.shared.requestPermission()
     }
 
     func logout() {

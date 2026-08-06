@@ -68,4 +68,15 @@ final class SOSLocatorTests: XCTestCase {
         let fix = await locator.oneShot(timeout: .milliseconds(200))
         XCTAssertNil(fix)
     }
+
+    /// `SOSLocator().requestPermission()` ลอยๆ (ไม่มีตัวแปรถือ) ให้ ARC เก็บทั้งอินสแตนซ์รวมถึง
+    /// CLLocationManager ข้างในทันทีที่จบ statement — กล่องขอสิทธิ์อาจไม่ขึ้นเลย หรือขึ้นแล้วไม่มีวัน
+    /// ได้ผลลัพธ์กลับมา (Session.save เรียกผ่าน .shared เพื่อเลี่ยงเรื่องนี้) เทสนี้ค้ำแค่ว่า .shared
+    /// เป็นอินสแตนซ์เดียวกันทุกครั้งที่เรียก ไม่ใช่ factory ที่คืนของใหม่ทุกครั้ง (ซึ่งจะพา
+    /// CLLocationManager ตัวเก่ากลับไปให้ ARC เก็บเหมือนเดิม) — พิสูจน์แค่ property ระดับโค้ด
+    /// ไม่ได้พิสูจน์ว่ากล่องขึ้นจริงบนเครื่อง ยังต้องเทสบนเครื่องจริงอยู่ดี
+    func testSharedIsTheSameRetainedInstanceEveryTime() {
+        XCTAssertTrue(SOSLocator.shared === SOSLocator.shared,
+                      "ถ้า .shared คืนอินสแตนซ์ใหม่ทุกครั้ง CLLocationManager จะไม่มีใครถือไว้เลย")
+    }
 }
