@@ -5,9 +5,6 @@ options:
     iOS: "18.0"
   createIntermediateGroups: true
 packages:
-  MapLibre:
-    url: https://github.com/maplibre/maplibre-gl-native-distribution
-    from: 6.0.0
   Firebase:
     url: https://github.com/firebase/firebase-ios-sdk
     from: 11.0.0
@@ -18,8 +15,6 @@ targets:
     sources:
       - WBW
     dependencies:
-      - package: MapLibre
-        product: MapLibre
       - package: Firebase
         product: FirebaseMessaging
     settings:
