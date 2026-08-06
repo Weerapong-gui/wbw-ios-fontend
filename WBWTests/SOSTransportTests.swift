@@ -158,7 +158,7 @@ final class SOSTransportTests: XCTestCase {
     func testRaiseSOSTreatsAnUnparsableSuccessBodyAsRetryableNotARawError() async {
         SOSStubURLProtocol.status = 201
         SOSStubURLProtocol.body = Self.unparsableCaseBody
-        let draft = SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false)
+        let draft = SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false, ownerId: "u1")
         do {
             _ = try await APIClient.shared.raiseSOS(token: "t", draft: draft)
             XCTFail("body ที่ decode ไม่ได้ต้อง throw")

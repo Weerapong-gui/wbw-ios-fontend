@@ -157,11 +157,16 @@ final class SOSStoreTests: XCTestCase {
     /// resumeIfNeeded) ผู้สร้าง store ต้องเรียกตัวนี้เองตอนพร้อมจริง — เทสนี้ยืนยันว่ามันยิงต่อด้วย
     /// token ที่ส่งเข้ามาใหม่ (ไม่ใช่ token ตอน raise() ครั้งแรกซึ่งไม่มีอยู่แล้วหลัง relaunch) และอัปเดต
     /// สถานะจากคำตอบจริงของเซิร์ฟเวอร์ ไม่ใช่ค้างคำว่า "queued" รอ poll รอบแรก
+    ///
+    /// (รีวิว Task 14 รอบสาม: เจตนาของเทสนี้คือ "คนเดิม re-authenticate" — currentUserId ของ store
+    /// กับ ownerId ของ draft ที่ save() ไว้ล่วงหน้าจึงต้องตรงกัน "u1" ทั้งคู่ ต่างจาก
+    /// testADifferentOwnerNeverAdoptsTheStoredDraft ด้านล่างที่ตั้งใจให้ไม่ตรงกัน)
     func testResumeIfNeededContinuesAQueuedCaseFoundAtInit() async {
-        SOSOutbox().save(SOSDraft(clientId: "resume-1", deviceTime: "2026-08-06T10:00:00Z", forOther: false))
+        SOSOutbox().save(SOSDraft(clientId: "resume-1", deviceTime: "2026-08-06T10:00:00Z",
+                                  forOther: false, ownerId: "u1"))
 
         var sentTokens: [String] = []
-        let store = SOSStore(raiseCall: { token, _ in
+        let store = SOSStore(currentUserId: "u1", raiseCall: { token, _ in
             sentTokens.append(token)
             return Self.sampleCase(acked: false)
         }, activeCall: { _, _ in Self.sampleCase(acked: false, resolved: true) })
@@ -171,6 +176,25 @@ final class SOSStoreTests: XCTestCase {
 
         XCTAssertEqual(sentTokens, ["resumed-token"], "resumeIfNeeded ต้องยิงต่อด้วย token ที่ส่งเข้ามา")
         XCTAssertEqual(store.status, .received, "ต้องอัปเดตเป็นสถานะจริงจากเซิร์ฟเวอร์ ไม่ใช่ค้างที่ queued")
+    }
+
+    /// รีวิว Task 14 รอบสาม: บัญชีที่สอง login บนเครื่องเดียวกันหลังบัญชีแรกเจอ 401 อัตโนมัติ (ซึ่งไม่
+    /// ล้าง outbox แล้วตามการแก้ของรอบสอง — ดู handleLogout) ต้องไม่ได้รับ draft ของบัญชีแรกมาเป็นของ
+    /// ตัวเองเด็ดขาด ไม่งั้น resumeIfNeeded ยิงมันต่อด้วย token ของบัญชีที่สอง ซึ่งถ้า draft ยังไม่เคย
+    /// ถึงเซิร์ฟเวอร์เลย (serverId เป็น nil — เกิดขึ้นจริงเมื่อ 401 ที่ทำให้ล็อกเอาต์คือคำตอบของการยิง
+    /// SOS เอง) เซิร์ฟเวอร์จะ INSERT เคสใหม่ที่ผูกกับบัญชีที่สอง แต่มีพิกัด/ข้อความของบัญชีแรก
+    func testADifferentOwnerNeverAdoptsTheStoredDraft() {
+        SOSOutbox().save(SOSDraft(clientId: "stranger-1", deviceTime: "2026-08-06T10:00:00Z",
+                                  forOther: false, lat: 18.79, lng: 98.95, ownerId: "user-A"))
+
+        let store = SOSStore(currentUserId: "user-B", raiseCall: { _, _ in
+            XCTFail("เจ้าของไม่ตรง ต้องไม่ยิง raiseCall จากการรับ draft ของคนอื่นมาเลย")
+            return Self.sampleCase(acked: false)
+        })
+
+        XCTAssertNil(store.draft, "เจ้าของไม่ตรง ต้องไม่รับ draft มาเป็นของตัวเอง")
+        XCTAssertNil(store.status)
+        XCTAssertNil(SOSOutbox().current(), "draft ของเจ้าของเก่าต้องถูกล้างทิ้ง ไม่ปล่อยค้างรอใครมาสืบทอด")
     }
 
     /// เปิดแอปแบบไม่มีเคสค้างเลย (คนส่วนใหญ่ทุกครั้งที่เปิดแอป) — resumeIfNeeded ต้องไม่ยิงเน็ตเปล่าๆ
@@ -244,9 +268,10 @@ final class SOSStoreTests: XCTestCase {
         XCTAssertEqual(store.status, .closed(reason: "helped"), "สถานะยังต้องโชว์ผลจบเรื่องได้ตามปกติ")
     }
 
-    /// เซิร์ฟเวอร์ไม่รู้จักเคสนี้เลย (activeCall ตอบ nil รัวๆ) ต้องมีเพดานให้ poll หยุดเอง ไม่งั้นวน
+    /// เซิร์ฟเวอร์ตอบสำเร็จว่า "ไม่มีเคส" รัวๆ (ไม่ใช่ error) ต้องมีเพดานให้ poll หยุดเอง ไม่งั้นวน
     /// ตลอดกาลกินแบต/เน็ตของเคสที่จบไปนานแล้ว (ดู SOSStore.maxConsecutiveEmptyPolls) — pollInterval
-    /// สั้นมากเฉพาะเทสนี้ ไม่ต้องรอเป็นนาทีจริงตามค่าเริ่มต้นจริง 1 วิ
+    /// สั้นมากเฉพาะเทสนี้ ไม่ต้องรอเป็นนาทีจริงตามค่าเริ่มต้นจริง 1 วิ — ต้องส่งสัญญาณ statusCheckStopped
+    /// ให้จอเห็นด้วย ไม่ใช่แค่หยุด task เงียบๆ (แก้จากรีวิว Task 14 รอบสาม)
     func testStatusPollGivesUpAfterRepeatedlyFindingNoCase() async {
         var callCount = 0
         let store = SOSStore(raiseCall: { _, _ in Self.sampleCase(acked: false) },
@@ -268,6 +293,59 @@ final class SOSStoreTests: XCTestCase {
         let settledCount = callCount
         try? await Task.sleep(for: .milliseconds(100))
         XCTAssertEqual(callCount, settledCount, "เกินเพดานแล้วต้องไม่ยิงต่อ — poll loop ต้องหยุดจริง")
+        XCTAssertTrue(store.statusCheckStopped, "ต้องส่งสัญญาณให้จอสถานะรู้ว่าเลิกเช็คแล้ว ไม่ใช่หยุดเงียบๆ")
+    }
+
+    /// เน็ตหลุดจริง (request พังเอง throw ออกมา ไม่ใช่เซิร์ฟเวอร์ตอบสำเร็จว่า "ไม่มีเคส") ต้องไม่นับ
+    /// เข้าเพดานเลย ไม่งั้นสัญญาณหลุดธรรมดาไม่กี่สิบวินาที — ซึ่งเป็นสิ่งที่ฟีเจอร์นี้ทั้งอันมีไว้ทนอยู่แล้ว
+    /// — จะทำให้เลิก poll ไปเฉยๆ (พบจากรีวิว Task 14 รอบสาม) ยิงเกินเพดานไปมากแล้วแต่ต้องยังไม่หยุด
+    /// errorBackoffSchedule สั้นมากเฉพาะเทสนี้เหมือนกับ pollInterval ด้านบน
+    func testRepeatedNetworkErrorsDoNotTripTheCeiling() async {
+        var callCount = 0
+        let store = SOSStore(raiseCall: { _, _ in Self.sampleCase(acked: false) },
+                             activeCall: { _, _ in callCount += 1; throw AppError.offline },
+                             pollInterval: .milliseconds(1),
+                             errorBackoffSchedule: [.milliseconds(1)])
+        await store.raise(forOther: false, token: "t")
+
+        // รอให้ยิงเกินเพดาน (20) ไปมากพอที่จะพิสูจน์ได้จริงว่า error ไม่ถูกนับเข้าไป มีเพดานเวลากันเทส
+        // ค้างถ้าอะไรพัง
+        var attempts = 0
+        while callCount < 40 && attempts < 500 {
+            try? await Task.sleep(for: .milliseconds(10))
+            attempts += 1
+        }
+
+        XCTAssertGreaterThanOrEqual(callCount, 40, "error ต้องไม่ทำให้ poll หยุดก่อนถึง 40 ครั้ง (เกินเพดาน 20 ไปเท่าตัว)")
+        XCTAssertFalse(store.statusCheckStopped, "error ไม่ใช่คำตอบว่าไม่มีเคส ต้องไม่นับเข้าเพดานจนหยุด")
+    }
+
+    /// เมื่อ poll หยุดจริง (ชนเพดาน "ไม่มีเคส" ติดกัน) ต้องมีทางกลับมา poll ต่อได้ — ปุ่ม "เช็คสถานะอีก
+    /// ครั้ง" ใน SOSStatusView เรียกตัวนี้ (พบจากรีวิว Task 14 รอบสาม: เดิมไม่มีทางกลับมาเลยหลังหยุด)
+    func testRetryStatusCheckRestartsPollingAfterItStopped() async {
+        var callCount = 0
+        let store = SOSStore(raiseCall: { _, _ in Self.sampleCase(acked: false) },
+                             activeCall: { _, _ in callCount += 1; return nil },
+                             pollInterval: .milliseconds(1))
+        await store.raise(forOther: false, token: "t")
+
+        var attempts = 0
+        while !store.statusCheckStopped && attempts < 300 {
+            try? await Task.sleep(for: .milliseconds(10))
+            attempts += 1
+        }
+        XCTAssertTrue(store.statusCheckStopped, "ต้องหยุดจริงหลังชนเพดานก่อน ไม่งั้นเทสนี้ไม่ได้ทดสอบอะไร")
+        let countWhenStopped = callCount
+
+        store.retryStatusCheck(token: "t")
+        XCTAssertFalse(store.statusCheckStopped, "กดลองใหม่ต้องล้างสถานะ 'หยุดแล้ว' ทันที")
+
+        attempts = 0
+        while callCount <= countWhenStopped && attempts < 300 {
+            try? await Task.sleep(for: .milliseconds(10))
+            attempts += 1
+        }
+        XCTAssertGreaterThan(callCount, countWhenStopped, "ต้องยิง activeCall ต่อจริงหลังกดลองใหม่ ไม่ใช่แค่ล้างธง")
     }
 
     /// resolved มีดีฟอลต์เป็น false เพื่อให้ call site เดิมจากบรีฟ (sampleCase(acked:)) ไม่ต้องแก้ —

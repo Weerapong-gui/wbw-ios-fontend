@@ -12,7 +12,10 @@ final class Session: ObservableObject {
     @Published private(set) var lastLogoutWasAutomatic = false
 
     private let tokenKey = "wbw.token"
-    private let userKey = "wbw.user"
+    /// static (ไม่ใช่ instance) เพราะ currentUserIdFromDisk() ด้านล่างต้องอ่านคีย์เดียวกันนี้ได้โดย
+    /// ไม่ต้องมี Session instance อยู่ก่อน (ดูคอมเมนต์ที่นั่น) — แหล่งเดียวกัน ไม่ใช่ string ซ้ำสอง
+    /// ที่ต้องคอยแก้พร้อมกันเอง
+    private static let userKey = "wbw.user"
     private var authObserver: NSObjectProtocol?
 
     init() {
@@ -28,7 +31,7 @@ final class Session: ObservableObject {
                 self.logout(automatic: true)
             }
         }
-        if let data = UserDefaults.standard.data(forKey: userKey) {
+        if let data = UserDefaults.standard.data(forKey: Self.userKey) {
             user = try? JSONDecoder().decode(AuthUser.self, from: data)
         }
         #if DEBUG
@@ -52,7 +55,7 @@ final class Session: ObservableObject {
             token = t
             user = fake
             UserDefaults.standard.set(t, forKey: tokenKey)
-            UserDefaults.standard.set(try? JSONEncoder().encode(fake), forKey: userKey)
+            UserDefaults.standard.set(try? JSONEncoder().encode(fake), forKey: Self.userKey)
             PushManager.shared.registerCurrent()
         }
         #endif
@@ -62,7 +65,7 @@ final class Session: ObservableObject {
         user = res.user
         token = res.token
         UserDefaults.standard.set(res.token, forKey: tokenKey)
-        UserDefaults.standard.set(try? JSONEncoder().encode(res.user), forKey: userKey)
+        UserDefaults.standard.set(try? JSONEncoder().encode(res.user), forKey: Self.userKey)
         // ผูก device token กับผู้ใช้ที่เพิ่ง login (ถ้ามี FCM token แล้ว)
         PushManager.shared.registerCurrent()
         // ขอสิทธิ์ตำแหน่งหลังล็อกอินสำเร็จเท่านั้น — ตอนเปิดแอปครั้งแรกผู้ใช้ยังไม่รู้ว่าแอปนี้คืออะไร
@@ -84,7 +87,7 @@ final class Session: ObservableObject {
         user = nil
         token = nil
         UserDefaults.standard.removeObject(forKey: tokenKey)
-        UserDefaults.standard.removeObject(forKey: userKey)
+        UserDefaults.standard.removeObject(forKey: Self.userKey)
         // ต้นไม้ของบัญชีก่อนหน้าต้องไม่ตกทอดไปให้บัญชีถัดไปบนเครื่องเดียวกัน — เจ้าของเดียวของการลบ
         // UserDefaults key นี้ (เดิมเคยลบซ้ำที่ CheckinProgressStore.clear() ด้วย รวมมาไว้ที่เดียวเพราะ
         // ที่นี่เป็นจุดเดียวที่ยิงทุกเส้นทาง logout จริง ทั้งบัญชี participant และ staff — staff ไม่ mount
@@ -102,5 +105,21 @@ final class Session: ObservableObject {
         // ไม่ mount MainTabView จึงไม่มี consume() มาดึงไป) ต้องไม่รอดข้ามไปถึงบัญชีถัดไปบนเครื่องเดียวกัน
         // แล้วเปิดฟอร์มให้คะแนนฐานของคนก่อนหน้าให้เอง — ตัว MainTabView เคลียร์เฉพาะตอนรับสดได้เท่านั้น
         PendingPush.clear()
+    }
+
+    /// อ่าน user id ปัจจุบันตรงจาก UserDefaults โดยไม่ต้องมี Session instance เลย — ใช้ตอนที่ยังไม่มี
+    /// @EnvironmentObject ให้อ่านได้ (พบจากรีวิว Task 14 รอบสาม: MainTabView ต้องรู้ user id ตอนสร้าง
+    /// @StateObject ของ SOSStore เอง ซึ่งเกิดก่อนที่ environment จะถูกฉีดเข้ามาตามลำดับของ SwiftUI —
+    /// @StateObject default-value expression อ้าง @EnvironmentObject ไม่ได้ ดูคอมเมนต์ที่ SOSStore.init)
+    ///
+    /// ปลอดภัยเพราะ save()/logout() เขียนทั้ง in-memory (user/token) และ UserDefaults (คีย์เดียวกันนี้)
+    /// ในฟังก์ชันเดียวกันก่อน return เสมอ ไม่มีช่องให้สองที่ไม่ตรงกัน — คืน "" (ไม่ใช่ nil) เมื่อยังไม่
+    /// เคย login เลยหรือ decode ไม่ผ่าน เพื่อให้ SOSStore.init เทียบตรงๆ กับ SOSDraft.ownerId (String
+    /// ไม่ใช่ String?) ได้โดยไม่ต้อง unwrap
+    static func currentUserIdFromDisk() -> String {
+        guard let data = UserDefaults.standard.data(forKey: userKey),
+              let user = try? JSONDecoder().decode(AuthUser.self, from: data)
+        else { return "" }
+        return user.userId
     }
 }

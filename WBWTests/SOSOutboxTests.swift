@@ -14,7 +14,7 @@ final class SOSOutboxTests: XCTestCase {
     }
 
     func testSavedDraftSurvivesAFreshOutboxInstance() {
-        let draft = SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false)
+        let draft = SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false, ownerId: "u1")
         SOSOutbox(backend: backend).save(draft)
         XCTAssertEqual(SOSOutbox(backend: backend).current(), draft)
     }
@@ -22,8 +22,8 @@ final class SOSOutboxTests: XCTestCase {
     /// เคสมีได้ทีละหนึ่ง — เขียนทับเสมอ ไม่ต่อท้าย
     func testSavingAgainReplacesRatherThanQueues() {
         let outbox = SOSOutbox(backend: backend)
-        outbox.save(SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false))
-        let second = SOSDraft(clientId: "c2", deviceTime: "2026-08-06T10:05:00Z", forOther: true)
+        outbox.save(SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false, ownerId: "u1"))
+        let second = SOSDraft(clientId: "c2", deviceTime: "2026-08-06T10:05:00Z", forOther: true, ownerId: "u1")
         outbox.save(second)
         XCTAssertEqual(outbox.current(), second)
     }
@@ -35,7 +35,7 @@ final class SOSOutboxTests: XCTestCase {
 
     func testUpdatingWithAServerIDKeepsTheSameClientID() {
         let outbox = SOSOutbox(backend: backend)
-        var draft = SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false)
+        var draft = SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false, ownerId: "u1")
         outbox.save(draft)
         draft.serverId = 42
         outbox.save(draft)

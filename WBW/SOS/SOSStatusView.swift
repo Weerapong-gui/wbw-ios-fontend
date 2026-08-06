@@ -16,6 +16,18 @@ struct SOSStatusView: View {
         VStack(spacing: 20) {
             statusBlock
 
+            if store.statusCheckStopped {
+                // poll ชนเพดาน "ไม่มีเคส" ติดกันแล้วเลิกเช็คไปเอง (ดู SOSStore.maxConsecutiveEmptyPolls)
+                // ต้องบอกตรงๆ ว่าหยุดแล้ว ไม่ใช่ปล่อยให้จอค้างสถานะเก่าเงียบๆ โดยดูเหมือนยังติดตามอยู่
+                // (พบจากรีวิว Task 14 รอบสาม)
+                VStack(spacing: 8) {
+                    Text("หยุดเช็คสถานะอัตโนมัติแล้ว สัญญาณอาจหลุดนานเกินไป — ที่เห็นอาจไม่ใช่ล่าสุด")
+                        .multilineTextAlignment(.center)
+                    Button("เช็คสถานะอีกครั้ง") { store.retryStatusCheck(token: token) }
+                }
+                .padding().background(.yellow.opacity(0.2)).clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+
             if SOSLocator.shared.authorization == .denied {
                 // บอกความจริงว่าเสียอะไรไป แทนที่จะเงียบแล้วให้เจ้าหน้าที่หาไม่เจอ
                 VStack(spacing: 8) {

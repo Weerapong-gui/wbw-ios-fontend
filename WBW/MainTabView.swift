@@ -16,7 +16,14 @@ struct MainTabView: View {
     // แท็บทั้งหมด — สร้างที่นี่แทนที่จะสร้างในตัว SOSButton เอง ไม่งั้นสลับแท็บ (ซึ่ง MainTabView ไม่ได้
     // สร้างใหม่ แต่ SOSButton ก็ไม่ได้อยู่ใต้แท็บใดแท็บหนึ่งอยู่แล้ว) จะไม่มีปัญหานี้จริงๆ ก็ตาม —
     // แต่ยังต้องสร้างที่นี่เพื่อให้ .fullScreenCover ข้างล่างอ่าน store เดียวกันกับที่ SOSButton ยิง raise()
-    @StateObject private var sos = SOSStore()
+    //
+    // ไม่มี default value ตรงนี้ (ต่างจาก noti/chat/feedback ด้านบน) เพราะต้องส่ง currentUserId เข้าไป
+    // ตอนสร้าง ซึ่งอ่านจาก UserDefaults ตรงๆ ผ่าน Session.currentUserIdFromDisk() ใน init() ด้านล่าง
+    // ไม่ใช่จาก @EnvironmentObject session — @StateObject default-value expression ถูกประเมินก่อนที่
+    // environment จะถูกฉีดเข้ามาตามลำดับของ SwiftUI เขียน session.user?.userId ตรงนี้ไม่ได้เลย (พบจาก
+    // รีวิว Task 14 รอบสาม — ดูคอมเมนต์ยาวที่ SOSStore.init และ SOSDraft.ownerId ว่าทำไมต้องรู้เจ้าของ
+    // ตั้งแต่ก่อน draft จะถูกกู้จาก outbox ด้วยซ้ำ ไม่ใช่รอถึง .task ตอน environment พร้อมแล้ว)
+    @StateObject private var sos: SOSStore
     @State private var tab = 0
     @State private var chatOpen = false
     @State private var showNotifications = false
@@ -46,6 +53,9 @@ struct MainTabView: View {
     @State private var pendingFeedbackFromNoti: Int?
 
     init() {
+        // ดูคอมเมนต์ยาวที่ประกาศ @StateObject private var sos ด้านบนว่าทำไมต้องอ่านจากดิสก์ตรงนี้
+        // แทนที่จะพึ่ง @EnvironmentObject session
+        _sos = StateObject(wrappedValue: SOSStore(currentUserId: Session.currentUserIdFromDisk()))
         #if DEBUG
         _tab = State(initialValue: UserDefaults.standard.integer(forKey: "uitestTab"))
         #endif
