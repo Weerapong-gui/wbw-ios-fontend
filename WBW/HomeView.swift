@@ -47,6 +47,15 @@ struct HomeView: View {
                     Text(name)
                         .font(.system(size: 21, weight: .heavy))
                         .foregroundStyle(.white)
+                    // ของแทนต้นไม้ในฉาก 3D ที่ถูกปิดไว้ — ผูกกับ Config.forest3D ตั้งใจ (ต่างจากสี
+                    // ตัวอักษรด้านบนที่เป็นสไตล์ ไม่ใช่ของแทน) เปิดฉากกลับเมื่อไหร่ ต้นไม้บอกเรื่อง
+                    // เดียวกันนี้อยู่แล้ว ไม่ควรมีสองที่พูดซ้ำกัน · ไม่วางกลางจอเพราะกลางจอคือที่ที่
+                    // รูปพื้นหลังจะมาลงทีหลัง
+                    if !Config.forest3D, let progressText = CheckinProgressLabel.text(stage: stage, total: total) {
+                        Text(progressText)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
                 }
                 Spacer()
 
