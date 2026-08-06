@@ -59,7 +59,12 @@ extension APIClient {
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        // ตั้งเพดานเวลาเอง ไม่ปล่อยให้ใช้ค่าเริ่มต้น 60 วิของ URLSession (แก้จากรีวิวรอบสุดท้าย) —
+        // นี่คือ request ที่ทั้งเคสรออยู่ ในจุดอับสัญญาณมันค้างได้เต็มเพดานโดยไม่มีใครรู้ 60 วิยาว
+        // กว่าหน้าต่างที่ปุ่ม "โทรหาทีมกลาง" จะโผล่ (20 วิ) เสียอีก · 20 วิผูกกับหน้าต่างนั้นโดยตั้งใจ:
+        // ถ้าเส้นนี้ยังไม่ได้คำตอบภายในเวลาที่เราเริ่มบอกให้คนโทรแล้ว มันหมดประโยชน์ในรอบนี้ ปล่อยให้
+        // retry loop (2/5/10/20/30/60 วิ — ตอนนี้เริ่มขนานไปตั้งแต่ก่อน await ครั้งแรก) ยิงรอบใหม่แทน
+        req.timeoutInterval = 20
 
         let (data, resp): (Data, URLResponse)
         do { (data, resp) = try await Self.send(req) }
@@ -190,9 +195,26 @@ extension APIClient {
         try await getSOSDecoded("/me/sos/\(id)", token: token, SOSCase.self)
     }
 
+    /// อักขระที่ปลอดภัยจริงในค่าของ query parameter หนึ่งตัว
+    ///
+    /// **ไม่ใช่ `.urlQueryAllowed`** — ชุดนั้นคืออักขระที่ถูกกฎหมายใน query "ทั้งก้อน" จึงปล่อย
+    /// `&`, `=`, `+`, `;` ผ่านออกไปดิบๆ ทั้งที่สามตัวแรกเป็นตัวคั่น/ตัวเข้ารหัสของ query เอง
+    /// ตัวที่กัดจริงคือ `+`: ฝั่งรับ (net/url ของ Go และเกือบทุก framework) ถอดกลับเป็นช่องว่างตาม
+    /// กติกา form-urlencoded ค่าที่ส่งไปกับที่อ่านได้จึงไม่ใช่ค่าเดียวกัน
+    ///
+    /// เซิร์ฟเวอร์เลิกใส่ `+` ลงใน cursor แล้ว (updated_at เป็น RFC3339 UTC — ดูคอมเมนต์ที่
+    /// sosUpdatedAtExpr ฝั่ง Go) จุดนี้จึงเป็นชั้นที่สอง ไม่ใช่ทางแก้หลัก: ค่าที่ยังไม่รู้ที่มา
+    /// ไม่ควรถูกส่งออกไปโดยไว้ใจว่าไม่มีอักขระพิเศษ
+    private static let sosQueryValueAllowed: CharacterSet = {
+        var set = CharacterSet.alphanumerics
+        set.insert(charactersIn: "-._~")
+        return set
+    }()
+
     func staffSOSFeed(token: String, since: String?, wait: Int) async throws -> [SOSStaffCase] {
         var path = "/staff/sos?wait=\(wait)"
-        if let since, let esc = since.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+        if let since,
+           let esc = since.addingPercentEncoding(withAllowedCharacters: Self.sosQueryValueAllowed) {
             path += "&since=\(esc)"
         }
         guard let url = URL(string: "\(Config.apiBase)\(path)") else {

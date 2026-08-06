@@ -116,18 +116,51 @@ final class SOSStore: ObservableObject {
         status = .queued
         startFallbackTimer()
 
-        await send(token: token)
-        startRetryLoop(token: token)
+        // **สามอย่างนี้ต้องเริ่มก่อน await send() ไม่ใช่หลัง** (แก้จากรีวิวรอบสุดท้าย) — เดิม
+        // await send(...) มาก่อน แล้วค่อยเริ่ม retry loop กับการไล่ตาม GPS ซึ่งกลับหัวกฎข้อแรกของ
+        // สเปกทั้งฉบับ ("อย่ารอ GPS — การกดกับการได้พิกัดเป็นสองเส้นขนานกัน") พอดีในสถานการณ์
+        // เดียวที่ฟีเจอร์นี้มีไว้รับมือ: ในจุดอับสัญญาณ request แรกกิน timeout เต็ม (ตอนนี้ตั้งไว้
+        // ชัดเจนที่ 20 วิใน raiseSOS เดิมใช้ค่าเริ่มต้น 60 วิของ URLSession) ตลอดช่วงนั้น oneShot
+        // ยังไม่ถูกเรียกเลยแม้แต่ครั้งเดียว และ retry ครั้งแรกไปตกที่ ~62 วิแทนที่จะเป็น 2 วิ
+        //
+        // ยิงซ้อนกันไม่เป็นไร: ทุกเส้นทางใช้ clientId เดิมเสมอ เซิร์ฟเวอร์ตอบแถวเดิมกลับมา
+        // (idempotent) และ retry loop ออกทันทีที่เห็น draft.serverId ไม่ nil
         startLocationChase(token: token)
+        startRetryLoop(token: token)
+        await send(token: token)
     }
 
     /// โน้ตที่พิมพ์จากจอสถานะระหว่างรอ — ไปทางเดียวกับการยิงปกติ client_id เดิม
-    func attachNote(_ text: String, token: String) async {
-        guard var d = draft else { return }
-        d.message = text
+    ///
+    /// คืน true ก็ต่อเมื่อเซิร์ฟเวอร์สะท้อนข้อความนั้นกลับมาจริงในเคส (sosSelect คืน s.message
+    /// เสมอ) ไม่ใช่แค่ "เรียกไปแล้ว" — จอสถานะใช้ค่านี้บอกความจริงว่าเจ้าหน้าที่ได้เห็นข้อความ
+    /// หรือยัง แทนที่จะขึ้นว่าส่งแล้วทั้งที่ยังไม่ถึงไหน
+    @discardableResult
+    func attachNote(_ text: String, token: String) async -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard var d = draft, !trimmed.isEmpty else { return false }
+        d.message = trimmed
         outbox.save(d)
         draft = d
         await send(token: token)
+        return serverCase?.message == trimmed
+    }
+
+    /// "คนที่เจ็บคือคนอื่น ไม่ใช่ฉัน" — ยิงซ้ำด้วย clientId เดิม พร้อม for_other = true
+    ///
+    /// เซิร์ฟเวอร์ OR ค่านี้เข้ากับของเดิมเสมอ (`for_other = for_other OR $8` ใน Raise) กดครั้งเดียว
+    /// จึงพอ และไม่มีทางถอนกลับได้ — ซึ่งถูกต้อง: ถ้ามีคนบอกว่ามีคนเจ็บอยู่ ทีมที่ไปถึงต้องเตรียมตัว
+    /// แบบนั้นไว้ก่อนเสมอ · ค่านี้เป็นตัวสั่งงานจริงสามอย่างฝั่งเซิร์ฟเวอร์/เจ้าหน้าที่: ข้อความ push
+    /// ของกลุ่มเปลี่ยนเป็น "แจ้งว่ามีคนเจ็บ" การ์ดเจ้าหน้าที่ขึ้นแบนเนอร์ "คนอื่นเจ็บ" และประวัติ
+    /// สุขภาพของ "คนกด" ถูกปิดไม่ให้เจ้าหน้าที่เห็น (เพราะไม่ใช่ประวัติของคนที่เจ็บ)
+    @discardableResult
+    func markForOther(token: String) async -> Bool {
+        guard var d = draft, !d.forOther else { return false }
+        d.forOther = true
+        outbox.save(d)
+        draft = d
+        await send(token: token)
+        return serverCase?.forOther ?? false
     }
 
     /// ยิงหนึ่งครั้ง · **ทุกทางที่ผิดพลาดจบลงที่ "เก็บไว้ ลองใหม่" ไม่มีข้อยกเว้น**
@@ -336,9 +369,10 @@ final class SOSStore: ObservableObject {
     func resumeIfNeeded(token: String) async {
         guard let draft, draft.ownerId == currentUserId, let status, status.isActive else { return }
         startFallbackTimer()
-        await send(token: token)
-        startRetryLoop(token: token)
+        // ลำดับเดียวกับ raise() เป๊ะ และด้วยเหตุผลเดียวกัน — ดูคอมเมนต์ยาวที่นั่น
         startLocationChase(token: token)
+        startRetryLoop(token: token)
+        await send(token: token)
     }
 
     /// จุดตัดสินใจเดียวที่ MainTabView.onDisappear เรียกทุกครั้งที่ล็อกเอาต์ — ตัดสินใจแทนว่าจะล้าง

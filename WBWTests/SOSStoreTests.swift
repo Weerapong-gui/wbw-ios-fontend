@@ -1,3 +1,4 @@
+import CoreLocation
 import XCTest
 @testable import WBW
 
@@ -393,13 +394,117 @@ final class SOSStoreTests: XCTestCase {
         XCTAssertGreaterThan(callCount, countWhenStopped, "ต้องยิง activeCall ต่อจริงหลังกดลองใหม่ ไม่ใช่แค่ล้างธง")
     }
 
+    // MARK: - รีวิวรอบสุดท้าย: สองเส้นขนาน โน้ต และ for_other
+
+    /// **กฎข้อแรกของสเปกทั้งฉบับ: "อย่ารอ GPS — การกดกับการได้พิกัดเป็นสองเส้นขนานกัน"**
+    ///
+    /// เดิม raise() ทำ `await send(...)` ให้จบก่อนแล้วค่อยเริ่มไล่ตาม GPS กับ retry loop ซึ่งกลับหัวกฎนี้
+    /// พอดีในสถานการณ์เดียวที่ฟีเจอร์นี้มีไว้รับมือ: ในจุดอับสัญญาณ request แรกกินเวลาจนเต็มเพดาน และ
+    /// ตลอดช่วงนั้นไม่มีการขอพิกัดเลยแม้แต่ครั้งเดียว
+    ///
+    /// เทสนี้แดงกับโค้ดเดิมโดยการ "ค้างจนหมดเวลา" ไม่ใช่ assert ผิด: ประตูกัน raiseCall ไว้ ถ้าการไล่ตาม
+    /// GPS ยังอยู่หลัง await เส้นนั้น provider จะไม่ถูกแตะเลยจนกว่าประตูจะเปิด — ซึ่งไม่มีวันเกิด
+    func testTheGPSChaseStartsWithoutWaitingForTheFirstSendToAnswer() async {
+        let gate = Gate()
+        let provider = ChaseProbeProvider()
+        let asked = expectation(description: "ต้องเริ่มขอพิกัดก่อนที่การส่งครั้งแรกจะได้คำตอบ")
+        provider.onRequest = { asked.fulfill() }
+
+        let store = SOSStore(locator: SOSLocator(provider: provider),
+                             raiseCall: { _, _ in
+                                 await gate.wait()
+                                 throw AppError.offline
+                             },
+                             activeCall: { _, _ in nil },
+                             pollInterval: .seconds(60))
+
+        let raising = Task { await store.raise(forOther: false, token: "t") }
+        await fulfillment(of: [asked], timeout: 3)
+        await gate.open()
+        await raising.value
+
+        XCTAssertNotNil(SOSOutbox().current(), "เคสยังต้องอยู่ในเครื่องตามเดิม")
+    }
+
+    /// สเปกข้อ 5 — for_other ต้องมีทางเข้าจริงในแอป ไม่ใช่แค่มีคอลัมน์รออยู่ฝั่งเซิร์ฟเวอร์
+    ///
+    /// SOSButton hard-code `forOther: false` ไว้เป็นผู้เรียก raise() เดียวของทั้งแอป ทางเข้าเดียวจึงเป็น
+    /// ตัวนี้ · ต้องเป็น "เคสเดิม client_id เดิม" ไม่ใช่เคสที่สอง และกดซ้ำต้องไม่ยิงอะไรอีก
+    func testMarkingSomeoneElseIsHurtBumpsTheSameCaseAndCannotBeUndone() async {
+        var sent: [(clientId: String, forOther: Bool)] = []
+        let store = SOSStore(raiseCall: { _, d in
+                                 sent.append((d.clientId, d.forOther))
+                                 return Self.sampleCase(acked: false, forOther: d.forOther)
+                             },
+                             activeCall: { _, _ in nil },
+                             pollInterval: .seconds(60))
+
+        await store.raise(forOther: false, token: "t")
+        let marked = await store.markForOther(token: "t")
+
+        XCTAssertTrue(marked, "เซิร์ฟเวอร์สะท้อน for_other กลับมาแล้วต้องรายงานว่าสำเร็จ")
+        XCTAssertEqual(sent.count, 2)
+        XCTAssertEqual(sent[0].clientId, sent[1].clientId, "ต้องเป็นเคสเดิม ไม่ใช่เคสที่สอง")
+        XCTAssertFalse(sent[0].forOther)
+        XCTAssertTrue(sent[1].forOther)
+        XCTAssertEqual(SOSOutbox().current()?.forOther, true, "ต้องติดไปกับ draft ที่ retry ใช้ด้วย")
+
+        let markedAgain = await store.markForOther(token: "t")
+        XCTAssertFalse(markedAgain, "กดซ้ำต้องไม่ยิงอะไรอีก")
+        XCTAssertEqual(sent.count, 2)
+    }
+
+    /// โน้ตต้องส่งได้จริง และต้องบอกความจริงว่าถึงหรือยัง
+    ///
+    /// เดิมช่องพิมพ์มีแต่ `.onSubmit` ซึ่งไม่มีวันยิงกับ TextField(axis: .vertical) — ไม่มีทางส่งเลย
+    /// สักทาง เทสนี้ค้ำเส้นทางที่ปุ่มส่งใช้ รวมถึงกรณีที่ต้องไม่ยิง (ข้อความว่าง) และกรณีที่ยิงแล้วไม่ถึง
+    func testTheNoteIsSentAndOnlyReportsSuccessWhenTheServerEchoesItBack() async {
+        var sentMessages: [String?] = []
+        var shouldFail = false
+        let store = SOSStore(raiseCall: { _, d in
+                                 sentMessages.append(d.message)
+                                 if shouldFail { throw AppError.offline }
+                                 return Self.sampleCase(acked: false, message: d.message)
+                             },
+                             activeCall: { _, _ in nil },
+                             pollInterval: .seconds(60))
+
+        await store.raise(forOther: false, token: "t")
+        let ok = await store.attachNote("  ขาหัก เดินต่อไม่ไหว  ", token: "t")
+        XCTAssertTrue(ok)
+        XCTAssertEqual(sentMessages.last ?? nil, "ขาหัก เดินต่อไม่ไหว", "ต้องตัดช่องว่างหัวท้ายก่อนส่ง")
+        XCTAssertEqual(SOSOutbox().current()?.message, "ขาหัก เดินต่อไม่ไหว")
+
+        let countBefore = sentMessages.count
+        let blank = await store.attachNote("   ", token: "t")
+        XCTAssertFalse(blank, "ข้อความว่างไม่ใช่ข้อความ")
+        XCTAssertEqual(sentMessages.count, countBefore, "ข้อความว่างต้องไม่ยิงอะไรออกไปเลย")
+
+        shouldFail = true
+        let undelivered = await store.attachNote("เลือดออกเยอะ", token: "t")
+        XCTAssertFalse(undelivered, "ส่งไม่ถึงต้องบอกว่าไม่ถึง ไม่ใช่ขึ้นว่าส่งแล้ว")
+        XCTAssertEqual(SOSOutbox().current()?.message, "เลือดออกเยอะ", "ส่งไม่ถึงก็ต้องเก็บข้อความไว้")
+    }
+
     /// resolved มีดีฟอลต์เป็น false เพื่อให้ call site เดิมจากบรีฟ (sampleCase(acked:)) ไม่ต้องแก้ —
     /// เพิ่มพารามิเตอร์นี้เข้ามาเพื่อฉีดเป็นค่าตอบของ activeCall stub ด้านบนเท่านั้น (ดูคอมเมนต์ที่เทส)
-    private static func sampleCase(acked: Bool, resolved: Bool = false) -> SOSCase {
-        SOSCase(id: 7, forOther: false, lat: nil, lng: nil, accuracyM: nil, locSource: "none",
-                checkpointId: nil, checkpointName: nil, message: nil, resolved: resolved,
+    /// forOther/message เพิ่มทีหลังด้วยเหตุผลเดียวกัน — ให้ stub สะท้อนค่าที่รับมาได้เหมือนเซิร์ฟเวอร์จริง
+    private static func sampleCase(acked: Bool, resolved: Bool = false,
+                                   forOther: Bool = false, message: String? = nil) -> SOSCase {
+        SOSCase(id: 7, forOther: forOther, lat: nil, lng: nil, accuracyM: nil, locSource: "none",
+                checkpointId: nil, checkpointName: nil, message: message, resolved: resolved,
                 resolveReason: resolved ? "helped" : nil, ackedAt: acked ? "2026-08-06T10:01:00Z" : nil,
                 ackedByName: acked ? "พี่หมอ" : nil,
                 createdAt: "2026-08-06T10:00:00Z", emergencyPhone: "053-916-000")
     }
+}
+
+/// provider ที่ "ไม่เคยส่งพิกัดกลับมาเลย" แต่บอกได้ว่าถูกขอเมื่อไหร่ — จำลองจุดอับสัญญาณจริง
+/// ซึ่งเป็นเงื่อนไขเดียวที่ทำให้ลำดับใน raise() มีผลต่างกันจริง (ถ้า fix มาทันที ลำดับไหนก็เหมือนกัน)
+private final class ChaseProbeProvider: SOSLocationProviding {
+    var onRequest: (() -> Void)?
+    var authorizationStatus: CLAuthorizationStatus { .authorizedWhenInUse }
+    var lastKnownLocation: CLLocation? { nil }
+    func requestWhenInUseAuthorization() {}
+    func requestLocation(_ completion: @escaping (CLLocation?) -> Void) { onRequest?() }
 }
