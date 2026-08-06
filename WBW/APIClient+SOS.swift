@@ -23,6 +23,20 @@ extension APIClient {
         return true
     }
 
+    /// decode ที่ไม่ปล่อย DecodingError ดิบออกไปให้ผู้เรียกเจอ — เจอจากรีวิว Task 10: 200/201
+    /// ที่ body ไม่ตรงรูปที่คาดไว้ (ส่งไม่จบ, proxy แทรกกลาง, backend เปลี่ยน schema) ไม่ต่างจาก
+    /// 503 ในแง่ที่ว่า "ลองใหม่มีโอกาสผ่าน" จึงจัดเป็น retryable เหมือนกัน ไม่ใช่ปล่อยชนิด error
+    /// ที่ไม่มีใครดักไว้หลุดออกไป — จุดนี้คือสิ่งที่ทำให้คอมเมนต์ของ raiseSOS ข้างล่างที่บอกว่า
+    /// "ไม่มีทางออกอื่น" เป็นจริง แทนที่จะเป็นแค่ความตั้งใจ
+    private static func decodeSOS<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
+        do {
+            return try dec.decode(T.self, from: data)
+        } catch {
+            throw AppError.retryable("อ่านข้อมูลที่เซิร์ฟเวอร์ตอบไม่สำเร็จ")
+        }
+    }
+
     /// เปิดหรืออัปเดตเคส SOS — idempotent ด้วย clientId
     ///
     /// ทุก error ออกทาง AppError.retryable หรือ .offline เท่านั้น ไม่มีทางออกอื่น
@@ -45,7 +59,7 @@ extension APIClient {
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, resp): (Data, URLResponse)
         do { (data, resp) = try await Self.send(req) }
@@ -56,8 +70,7 @@ extension APIClient {
             let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
             throw AppError.retryable(b?.error ?? "ส่งไม่สำเร็จ กำลังลองใหม่")
         }
-        let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
-        return try dec.decode(SOSCase.self, from: data)
+        return try Self.decodeSOS(SOSCase.self, from: data)
     }
 
     enum SOSCancelOutcome: Equatable { case canceled, alreadyAcked, tooLate }
@@ -162,9 +175,14 @@ extension APIClient {
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             throw AppError.retryable("อ่านสถานะไม่สำเร็จ")
         }
-        if data.isEmpty || String(data: data, encoding: .utf8) == "null" { return nil }
-        let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
-        return try dec.decode(SOSCase.self, from: data)
+        // เจอจากรีวิว: เคยเทียบ String(data:) == "null" ตรงๆ ซึ่งพลาดกรณีจริงที่สุด —
+        // json.NewEncoder(w).Encode(nil) ฝั่ง Go (middleware.WriteJSON) ต่อ "\n" ท้ายเสมอ
+        // ตอนไม่มีเคสเปิดอยู่ (คือกรณีส่วนใหญ่ของทุก poll) body จริงคือ "null\n" (5 ไบต์)
+        // ไม่ใช่ "null" (4 ไบต์) เทียบ string ตรงๆ จึงพลาดทุกครั้ง ไม่ใช่บางครั้ง แล้วร่วงไป
+        // decode ต่อจน throw DecodingError ดิบ · แก้โดย decode เข้า Optional โดยตรง ซึ่งเรียก
+        // decodeNil() ก่อนและไม่แคร์ byte ท้ายๆ อยู่แล้วโดยธรรมชาติ
+        if data.isEmpty { return nil }
+        return try Self.decodeSOS(SOSCase?.self, from: data)
     }
 
     /// เคสหนึ่งอัน สำหรับเพื่อนในกลุ่ม · 404 = ไม่ใช่กลุ่มเรา
@@ -191,8 +209,7 @@ extension APIClient {
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             throw AppError.retryable("โหลดรายการเคสไม่สำเร็จ")
         }
-        let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
-        return try dec.decode([SOSStaffCase].self, from: data)
+        return try Self.decodeSOS([SOSStaffCase].self, from: data)
     }
 
     @discardableResult
@@ -214,7 +231,7 @@ extension APIClient {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
         let (_, resp): (Data, URLResponse)
         do { (_, resp) = try await Self.send(req) }
@@ -237,7 +254,6 @@ extension APIClient {
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             throw AppError.retryable("โหลดข้อมูลไม่สำเร็จ")
         }
-        let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
-        return try dec.decode(T.self, from: data)
+        return try Self.decodeSOS(T.self, from: data)
     }
 }

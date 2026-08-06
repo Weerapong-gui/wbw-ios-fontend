@@ -74,4 +74,122 @@ final class SOSTransportTests: XCTestCase {
         let c = try dec.decode(SOSCase.self, from: json)
         XCTAssertEqual(c.status, .closed(reason: "helped"))
     }
+
+    // MARK: - พบจากรีวิว: activeSOS ต้องเดินผ่านเครือข่ายจริง ไม่ใช่แค่ decode เฉยๆ
+
+    /// URLProtocol ปลอม — ดักเฉพาะ path ที่มี "/sos" เท่านั้น ไม่แตะ endpoint อื่นที่ไฟล์เทสอื่น
+    /// (เช่น FeedbackTransportTests) อาจลงทะเบียนดักอยู่พร้อมกันในโปรเซสเดียวกัน
+    final class SOSStubURLProtocol: URLProtocol {
+        nonisolated(unsafe) static var status = 200
+        nonisolated(unsafe) static var body = Data()
+        nonisolated(unsafe) static var contentType = "application/json"
+
+        override class func canInit(with request: URLRequest) -> Bool {
+            request.url?.path.contains("/sos") == true
+        }
+        override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+        override func startLoading() {
+            let resp = HTTPURLResponse(url: request.url!, statusCode: Self.status,
+                                       httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Type": Self.contentType])!
+            client?.urlProtocol(self, didReceive: resp, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Self.body)
+            client?.urlProtocolDidFinishLoading(self)
+        }
+        override func stopLoading() {}
+    }
+
+    override func setUp() {
+        super.setUp()
+        URLProtocol.registerClass(SOSStubURLProtocol.self)
+        SOSStubURLProtocol.status = 200
+        SOSStubURLProtocol.body = Data()
+        SOSStubURLProtocol.contentType = "application/json"
+    }
+
+    override func tearDown() {
+        URLProtocol.unregisterClass(SOSStubURLProtocol.self)
+        super.tearDown()
+    }
+
+    /// ตรวจก่อนว่า stub ดักคำขอของ APIClient ได้จริง — ถ้าไม่ เทสข้างล่างจะผ่าน/พังด้วยเหตุผล
+    /// ผิดๆ (เน็ตจริงต่อไม่ติด → .offline ซึ่งบังเอิญไม่ตรงกับที่แต่ละเทสเช็คอยู่แล้วก็จริง
+    /// แต่พิสูจน์ให้ชัดไว้ดีกว่าเดา) — ยิงผ่าน activeSOS จริง ไม่ใช่ decode ลอยๆ
+    func testStubActuallyInterceptsActiveSOS() async throws {
+        SOSStubURLProtocol.body = Data("""
+        {"id":9,"for_other":false,"lat":null,"lng":null,"accuracy_m":null,"loc_source":"none",
+         "checkpoint_id":null,"checkpoint_name":null,"message":null,"resolved":false,
+         "resolve_reason":null,"acked_at":null,"acked_by_name":null,
+         "created_at":"2026-08-06T10:00:00Z","emergency_phone":null}
+        """.utf8)
+        let result = try await APIClient.shared.activeSOS(token: "t", wait: 0)
+        XCTAssertEqual(result?.id, 9)
+    }
+
+    /// หัวใจของบั๊กที่รีวิวจับได้: json.NewEncoder(w).Encode(nil) ฝั่ง Go (middleware.WriteJSON)
+    /// ต่อ "\n" ท้ายเสมอ — ตอนไม่มีเคสเปิดอยู่ (กรณีส่วนใหญ่ของทุก poll) body จริงคือ "null\n"
+    /// 5 ไบต์ ไม่ใช่ "null" 4 ไบต์ · เทียบ string ตรงๆ แบบเดิมจึงพลาดกรณีนี้ทุกครั้ง ไม่ใช่บางครั้ง
+    /// แล้วร่วงไป decode ต่อจน throw DecodingError ดิบ (ไม่ใช่แม้แต่ AppError) ยิงผ่าน activeSOS
+    /// จริงเพื่อพิสูจน์ว่าช่องทางที่ใช้จริงรอดจาก byte ท้ายๆ ได้ ไม่ใช่แค่ตัว decode เฉยๆ
+    func testActiveSOSTreatsTrailingNewlineNullAsNoOpenCase() async throws {
+        SOSStubURLProtocol.body = Data("null\n".utf8)
+        let result = try await APIClient.shared.activeSOS(token: "t", wait: 0)
+        XCTAssertNil(result, "null\\n (รูปจริงที่ Go ส่ง) ต้องแปลว่าไม่มีเคสเปิดอยู่ ไม่ใช่ throw")
+    }
+
+    // MARK: - พบจากรีวิว: decode ที่พังบน 200/201 ต้องออกเป็น AppError.retryable ไม่ใช่ error ดิบ
+
+    /// JSON ที่ถูกต้องแต่ไม่ตรง shape ของ SOSCase (ขาด field บังคับอย่าง id) — เกิดได้จริงถ้า
+    /// proxy ตัดกลาง response หรือ backend เปลี่ยน schema โดยไม่รู้ตัว
+    private static let unparsableCaseBody = Data(#"{"unexpected":"shape"}"#.utf8)
+
+    func testActiveSOSTreatsAnUnparsableSuccessBodyAsRetryableNotARawError() async {
+        SOSStubURLProtocol.body = Self.unparsableCaseBody
+        do {
+            _ = try await APIClient.shared.activeSOS(token: "t", wait: 0)
+            XCTFail("body ที่ decode ไม่ได้ต้อง throw")
+        } catch AppError.retryable {
+            // ถูกต้อง
+        } catch {
+            XCTFail("ต้องเป็น AppError.retryable ไม่ใช่ \(error)")
+        }
+    }
+
+    func testRaiseSOSTreatsAnUnparsableSuccessBodyAsRetryableNotARawError() async {
+        SOSStubURLProtocol.status = 201
+        SOSStubURLProtocol.body = Self.unparsableCaseBody
+        let draft = SOSDraft(clientId: "c1", deviceTime: "2026-08-06T10:00:00Z", forOther: false)
+        do {
+            _ = try await APIClient.shared.raiseSOS(token: "t", draft: draft)
+            XCTFail("body ที่ decode ไม่ได้ต้อง throw")
+        } catch AppError.retryable {
+            // ถูกต้อง
+        } catch {
+            XCTFail("ต้องเป็น AppError.retryable ไม่ใช่ \(error)")
+        }
+    }
+
+    func testSOSCaseTreatsAnUnparsableSuccessBodyAsRetryableNotARawError() async {
+        SOSStubURLProtocol.body = Self.unparsableCaseBody
+        do {
+            _ = try await APIClient.shared.sosCase(token: "t", id: 7)
+            XCTFail("body ที่ decode ไม่ได้ต้อง throw")
+        } catch AppError.retryable {
+            // ถูกต้อง
+        } catch {
+            XCTFail("ต้องเป็น AppError.retryable ไม่ใช่ \(error)")
+        }
+    }
+
+    func testStaffSOSFeedTreatsAnUnparsableSuccessBodyAsRetryableNotARawError() async {
+        SOSStubURLProtocol.body = Data(#"[{"unexpected":"shape"}]"#.utf8)
+        do {
+            _ = try await APIClient.shared.staffSOSFeed(token: "t", since: nil, wait: 0)
+            XCTFail("body ที่ decode ไม่ได้ต้อง throw")
+        } catch AppError.retryable {
+            // ถูกต้อง
+        } catch {
+            XCTFail("ต้องเป็น AppError.retryable ไม่ใช่ \(error)")
+        }
+    }
 }
