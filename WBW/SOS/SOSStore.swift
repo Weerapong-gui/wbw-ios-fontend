@@ -216,6 +216,25 @@ final class SOSStore: ObservableObject {
         await send(token: token)
     }
 
+    /// เรียกตอนแอปเปิดใหม่แล้ว init() เจอ draft ค้างจาก outbox (relaunch) — init เองแค่กู้ค่า
+    /// draft/status ให้เห็นทันที **ไม่เริ่ม retry loop ให้อัตโนมัติ** เพราะ initializer ที่มีผลข้างเคียง
+    /// ยิงเน็ต/ตั้ง timer เงียบๆ เป็นสิ่งที่ตามรอยยาก (ตรวจแล้วในสถานะปัจจุบันของไฟล์นี้ — ไม่ใช่แค่
+    /// สมมติ) ผู้สร้าง store ต้องเรียกตัวนี้เองตอนพร้อมจริง (มี token ให้ใช้แล้ว) — ไม่มีอะไรเกิดขึ้น
+    /// ถ้าไม่มีเคสค้าง หรือเคสที่ค้างปิดไปแล้ว (isActive == false)
+    ///
+    /// ทำหางเดียวกับ raise() ทุกอย่างหลังจาก outbox ถูกเซฟไปแล้ว (fallback timer ก่อนส่ง แล้วค่อย
+    /// retry loop กับ location chase หลังส่ง) เพียงแต่ไม่สร้าง draft ใหม่ — อันเดิมกู้มาจาก init แล้ว
+    /// ยิง send() ครั้งแรกนี้เสมอแม้ serverId จะมีอยู่แล้วก็ตาม (idempotent ด้วย clientId เดิม เหมือน
+    /// ทุกจุดอื่นในไฟล์นี้) เพื่อให้จอสถานะได้ค่าจริงล่าสุดจากเซิร์ฟเวอร์ทันทีที่เปิดแอป แทนที่จะค้าง
+    /// คำว่า "queued" จาก init เฉยๆ รอ poll รอบแรก (ซึ่งยังไม่ได้เริ่มด้วยซ้ำก่อนเรียกตัวนี้)
+    func resumeIfNeeded(token: String) async {
+        guard draft != nil, let status, status.isActive else { return }
+        startFallbackTimer()
+        await send(token: token)
+        startRetryLoop(token: token)
+        startLocationChase(token: token)
+    }
+
     /// ล็อกเอาต์ตอนมีเคสค้าง — ต้องล้าง ไม่งั้นเคสของคนก่อนถูกส่งด้วย token ของคนถัดไป
     /// (จอที่เรียกตัวนี้ต้องถามยืนยันก่อน ไม่ใช่ล้างเงียบๆ)
     func clearForLogout() {

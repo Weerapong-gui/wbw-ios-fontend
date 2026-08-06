@@ -12,9 +12,18 @@ struct MainTabView: View {
     @StateObject private var noti = NotiStore()
     @StateObject private var chat = ChatSession()
     @StateObject private var feedback = FeedbackStore()
+    // ปุ่ม SOS อยู่นอก TabView (ดูคอมเมนต์ที่ .overlay ข้างล่าง) ต้องมี store เดียวคงอยู่ข้ามการสลับ
+    // แท็บทั้งหมด — สร้างที่นี่แทนที่จะสร้างในตัว SOSButton เอง ไม่งั้นสลับแท็บ (ซึ่ง MainTabView ไม่ได้
+    // สร้างใหม่ แต่ SOSButton ก็ไม่ได้อยู่ใต้แท็บใดแท็บหนึ่งอยู่แล้ว) จะไม่มีปัญหานี้จริงๆ ก็ตาม —
+    // แต่ยังต้องสร้างที่นี่เพื่อให้ .fullScreenCover ข้างล่างอ่าน store เดียวกันกับที่ SOSButton ยิง raise()
+    @StateObject private var sos = SOSStore()
     @State private var tab = 0
     @State private var chatOpen = false
     @State private var showNotifications = false
+    // จอสถานะ SOS เต็มจอ — Bool ตรงๆ ไม่ใช่ binding ที่คำนวณจาก sos.status เพราะเคสที่ปิดแล้ว
+    // (closed) ต้องปิดจอได้ด้วยปุ่ม "ปิดหน้านี้" (ดู SOSStatusView) โดยไม่ต้องล้าง sos.status ไปด้วย —
+    // ถ้าผูกตรงกับ status != nil การกดปิดจะไม่มีผลอะไรเพราะ status ยังไม่ nil อยู่ดี
+    @State private var showSOSStatus = false
     // ฐานที่กำลังเปิดหน้าให้ความเห็นอยู่ (nil = ไม่มีจอเปิด) — จุดบรรจบของทั้ง 4 ทางเข้า: แตะ push ตอน
     // แอปปิด (PendingPush → .openCheckinFeedback), push ตอนแอปเปิด, แตะการ์ดในหน้าแจ้งเตือน,
     // และ toast จาก poll 60 วิ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว ไม่มีทางลัดอื่นไป FeedbackView
@@ -58,6 +67,18 @@ struct MainTabView: View {
                 Tab(value: 4, role: .search) { MyQRCodeView() } label: { Image(systemName: "qrcode") }
             }
             .tint(Color.wbwGold)
+            // ปุ่ม SOS ลอยมุมล่างขวา เหนือแถบแท็บ · แนบด้วย .overlay บน TabView เอง (ไม่ใช่ลูกของ
+            // แท็บไหนสักแท็บ) จึงไม่หายไปและไม่รีสตาร์ตตอนสลับแท็บ ตรงกับที่ตั้งใจไว้ว่าอยู่นอก
+            // TabView — แท็บมี 5 อันเต็มแล้ว เพิ่มอันที่ 6 แปลว่าต้องสลับแท็บก่อนกด ช้าและหาไม่เจอ
+            // ตอนตกใจ (ดูคอมเมนต์เต็มที่ SOSButton) · zIndex เริ่มต้น (ไม่ตั้งเอง) วางไว้ใต้แบนเนอร์แชท
+            // (zIndex 1) โดยตั้งใจ — แชทเต็มจอทับได้ตามปกติเหมือนที่มันทับเนื้อหาแท็บอื่นอยู่แล้ว
+            // ส่วนตอนกดครบจริง SOSStatusView เปิดเป็น fullScreenCover ซึ่งอยู่เหนือทุกชั้นเสมอไม่ว่า
+            // zIndex จะเป็นเท่าไหร่ ปุ่มจึงถูกบังสนิทระหว่างมีเคสเปิดอยู่โดยไม่ต้องเขียนโค้ดกันเอง
+            .overlay(alignment: .bottomTrailing) {
+                SOSButton(store: sos, token: session.token ?? "", showStatus: $showSOSStatus)
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 90)
+            }
             .task {
                 // เรียกครั้งแรกตอน mount ด้วย ไม่ใช่แค่รอ onChange(tab)/onChange(chatOpen) ข้างล่าง —
                 // host.suppressed อยู่ที่ host ซึ่งอายุยาวกว่า MainTabView instance นี้ (เช่น รอบก่อนออก
@@ -66,6 +87,15 @@ struct MainTabView: View {
                 // เพราะไม่มี tab เก่าให้เทียบเลยด้วยซ้ำ — ไม่เรียกตรงนี้ suppressed จะค้างผิดจนกว่าจะมีคน
                 // สลับแท็บจริงครั้งแรก ซึ่งอาจไม่เกิดเลยถ้าผู้ใช้อยู่ Home เฉยๆ ตั้งแต่ต้น)
                 updateSceneGate()
+
+                // มีเคส SOS ค้างจากรอบก่อน (relaunch) — SOSStore.init() กู้ draft/status ให้เห็นทันที
+                // ในตัว แต่ไม่เริ่ม retry loop ให้เองโดยตั้งใจ (ดูคอมเมนต์ที่ resumeIfNeeded) เปิดจอ
+                // สถานะและสั่งให้ไปต่อที่นี่ ก่อนงานโหลดปกติข้างล่าง — เคส SOS สำคัญกว่า badge ที่ยังไม่
+                // อ่าน ไม่ await inline เพราะ resumeIfNeeded รอผลเน็ตได้นานเป็นสิบวิ (ทางเดียวกับที่
+                // raise() เองก็ยิงผ่าน Task { } แยกจาก SOSButton ไม่ใช่ await ตรงๆ) บล็อกอยู่ตรงนี้จะดึง
+                // การโหลด noti/profile/progress ทั้งหมดข้างล่างช้าตามไปด้วยทั้งที่ไม่เกี่ยวกันเลย
+                if sos.status != nil { showSOSStatus = true }
+                Task { await sos.resumeIfNeeded(token: session.token ?? "") }
 
                 // push ที่แตะไว้ตอนแอปยังไม่ทันเปิด (cold launch) — didReceive มักโพสต์ก่อนหน้านี้จะติดตั้ง
                 // .onReceive ทัน (มีสแปลชคั่นก่อนถึงจะ mount MainTabView) โพสต์ทิ้งไปเงียบๆ ไม่มีคนรับ ดึงมา
@@ -323,6 +353,15 @@ struct MainTabView: View {
                 .environmentObject(progress)
                 .environmentObject(feedback)
         }
+        // จอสถานะ SOS เต็มจอทันทีที่กดครบ ไม่ใช่ toast — คนกดต้องเห็นว่าเกิดอะไรขึ้น และปุ่มยกเลิก/โทร
+        // ต้องอยู่ตรงหน้า ไม่ใช่ค้นหาจากที่ไหน (ดูคอมเมนต์เต็มที่ SOSStatusView) · fullScreenCover ไม่รับ
+        // swipe ปิดเองแบบ .sheet โดยธรรมชาติของมันเอง — ทางเดียวที่จอนี้ปิดได้คือ showSOSStatus ถูกตั้ง
+        // false ตรงๆ ซึ่งเกิดได้จาก (1) ปุ่ม "ปิดหน้านี้"/dismiss() ข้างในตอนเคส closed หรือ (2)
+        // .onChange(of: store.status) ข้างในตอนยกเลิกแบบยังไม่ถึงเซิร์ฟเวอร์ (status กลายเป็น nil ทันที)
+        // — ไม่มีทางถูกปัดหลุดมือขณะเคสยังเปิดอยู่ (queued/received/onTheWay) เลย
+        .fullScreenCover(isPresented: $showSOSStatus) {
+            SOSStatusView(store: sos, token: session.token ?? "")
+        }
         // MainTabView หายทั้งจอ (ล็อกเอาต์เท่านั้น — RootView สลับ MainTabView/StaffScanView ตาม role บน
         // session.user ตัวเดียวกัน ไปไม่ถึง role ใหม่ได้โดยไม่ผ่าน logout()+login ก่อน) — logout() ไม่แตะ
         // profile.me เลย ("ยังไม่ authenticated" แค่ session.user เป็น nil) ดังนั้น
@@ -336,6 +375,14 @@ struct MainTabView: View {
             // ตัว store ในหน่วยความจำล้างที่นี่ ส่วน cache บนดิสก์ล้างที่ Session.logout() (คนละที่กันเพราะ
             // Session ไม่ได้ถือ store ไว้ ดูคอมเมนต์ที่นั่น)
             progress.clear()
+            // เคส SOS ที่ยังค้างอยู่ต้องล้างตอนล็อกเอาต์ ไม่งั้นบัญชีถัดไปบนเครื่องเดียวกันสืบทอดเคสของ
+            // บัญชีก่อนหน้าไปโดยไม่รู้ตัว แล้วเคสนั้นถูกยิงต่อด้วย token ของบัญชีใหม่ (ดูคอมเมนต์ยาวที่
+            // SOSStore.clearForLogout — ตัวมันเองบอกว่าจอที่เรียกต้องถามยืนยันก่อน ไม่ใช่ล้างเงียบๆ ซึ่ง
+            // SettingsView ทำอยู่แล้วผ่าน .alert("ออกจากระบบใช่หรือไม่") ก่อนเรียก session.logout() ทุก
+            // ทาง onDisappear นี้เป็นแค่ขั้นตอนกลไกที่ทำงานหลังผู้ใช้ยืนยันไปแล้ว ทรงเดียวกับ
+            // chat.purgeForLogout()/progress.clear() ด้านบนทุกอย่าง คนละหน้าที่กับ FeedbackOutbox ที่
+            // Session.logout() ล้างตรงๆ เพราะ Session ไม่ได้ถือ SOSStore ไว้เหมือนกัน)
+            sos.clearForLogout()
         }
     }
 

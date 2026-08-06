@@ -152,6 +152,37 @@ final class SOSStoreTests: XCTestCase {
         XCTAssertNil(store.draft, "draft ต้องยังเป็น nil หลัง raiseCall ที่มาสาย")
     }
 
+    /// Task 14: relaunch เจอ draft ค้างจาก outbox — init() กู้ draft/status ให้เห็นทันทีแล้ว (เทสนี้
+    /// จำลองด้วยการ save() ก่อนสร้าง store เอง) แต่ไม่เริ่ม retry loop ให้อัตโนมัติ (ดูคอมเมนต์ที่
+    /// resumeIfNeeded) ผู้สร้าง store ต้องเรียกตัวนี้เองตอนพร้อมจริง — เทสนี้ยืนยันว่ามันยิงต่อด้วย
+    /// token ที่ส่งเข้ามาใหม่ (ไม่ใช่ token ตอน raise() ครั้งแรกซึ่งไม่มีอยู่แล้วหลัง relaunch) และอัปเดต
+    /// สถานะจากคำตอบจริงของเซิร์ฟเวอร์ ไม่ใช่ค้างคำว่า "queued" รอ poll รอบแรก
+    func testResumeIfNeededContinuesAQueuedCaseFoundAtInit() async {
+        SOSOutbox().save(SOSDraft(clientId: "resume-1", deviceTime: "2026-08-06T10:00:00Z", forOther: false))
+
+        var sentTokens: [String] = []
+        let store = SOSStore(raiseCall: { token, _ in
+            sentTokens.append(token)
+            return Self.sampleCase(acked: false)
+        }, activeCall: { _, _ in Self.sampleCase(acked: false, resolved: true) })
+
+        XCTAssertEqual(store.status, .queued, "init ต้องกู้สถานะ queued มาก่อนแล้วโดยไม่ต้องรอ resume")
+        await store.resumeIfNeeded(token: "resumed-token")
+
+        XCTAssertEqual(sentTokens, ["resumed-token"], "resumeIfNeeded ต้องยิงต่อด้วย token ที่ส่งเข้ามา")
+        XCTAssertEqual(store.status, .received, "ต้องอัปเดตเป็นสถานะจริงจากเซิร์ฟเวอร์ ไม่ใช่ค้างที่ queued")
+    }
+
+    /// เปิดแอปแบบไม่มีเคสค้างเลย (คนส่วนใหญ่ทุกครั้งที่เปิดแอป) — resumeIfNeeded ต้องไม่ยิงเน็ตเปล่าๆ
+    func testResumeIfNeededDoesNothingWithoutAQueuedCase() async {
+        let store = SOSStore(raiseCall: { _, _ in
+            XCTFail("ไม่มีเคสค้างเลย ไม่ควรยิง raiseCall")
+            return Self.sampleCase(acked: false)
+        })
+        await store.resumeIfNeeded(token: "t")
+        XCTAssertNil(store.status)
+    }
+
     /// resolved มีดีฟอลต์เป็น false เพื่อให้ call site เดิมจากบรีฟ (sampleCase(acked:)) ไม่ต้องแก้ —
     /// เพิ่มพารามิเตอร์นี้เข้ามาเพื่อฉีดเป็นค่าตอบของ activeCall stub ด้านบนเท่านั้น (ดูคอมเมนต์ที่เทส)
     private static func sampleCase(acked: Bool, resolved: Bool = false) -> SOSCase {

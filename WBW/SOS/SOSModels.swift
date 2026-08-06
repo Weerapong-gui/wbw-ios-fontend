@@ -24,6 +24,18 @@ enum SOSStatus: Equatable {
     case received    // เซิร์ฟเวอร์รับแล้ว — ข้อพิสูจน์เดียวว่าเน็ตใช้ได้
     case onTheWay    // มีเจ้าหน้าที่กดรับเรื่อง — ข้อพิสูจน์เดียวว่ามีคนเห็น
     case closed(reason: String?)
+
+    /// เคสยังไม่จบ (ต้องกันปุ่มกดซ้ำ + จอสถานะต้องค้างอยู่) — closed ไม่นับ กดเคสใหม่ได้เสมอ
+    ///
+    /// SOSStore.raise() เองไม่มีการ์ดกันเรียกซ้ำโดยตั้งใจ (ดูคอมเมนต์ที่ raise()) — รีวิว Task 12
+    /// ทิ้งเรื่องนี้ไว้ให้ชั้น UI (Task 14) กันแทน ตัวนี้คือกฎที่ SOSButton ใช้ตัดสินใจว่าจะเริ่มนับ
+    /// ถอยหลังใหม่ หรือแค่พาไปจอสถานะเดิม
+    var isActive: Bool {
+        switch self {
+        case .queued, .received, .onTheWay: return true
+        case .closed: return false
+        }
+    }
 }
 
 struct SOSCase: Codable, Equatable {
