@@ -59,17 +59,54 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
-    /// ทั้งโปรเจกต์ไม่ import CoreLocation เลยสักไฟล์ แต่เคยมีคีย์นี้อยู่ — ผู้ใช้เห็นข้อความ
-    /// ขอตำแหน่งที่ไม่มีวันถูกใช้ และเป็นเหตุให้ App Review ตีกลับได้ตรงๆ
-    /// ถ้าวันหนึ่งเพิ่มฟีเจอร์แผนที่จริง ให้ลบเทสนี้พร้อมกับตอนเติมคีย์กลับ
+    /// เหลือแค่ครึ่งเดียว — ครึ่งตำแหน่งกลับทิศไปแล้วที่
+    /// testLocationPermissionStringExistsInBothPlistsBecauseSOSUsesIt เพราะตอนนี้ SOS
+    /// ใช้ CoreLocation จริง (ดูคอมเมนต์ที่นั่น) ที่ยังอยู่ตรงนี้คือคลังรูป ซึ่งใช้ PhotosPicker
+    /// แล้วไม่ต้องขอสิทธิ์เลย ถ้าเห็นคีย์นี้แปลว่ามีคนใส่เกินมา
     func testNoUsageDescriptionForFrameworksTheAppDoesNotUse() throws {
         for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
             let dict = try plist(path)
-            XCTAssertNil(dict["NSLocationWhenInUseUsageDescription"],
-                         "\(path) ขอสิทธิ์ตำแหน่งทั้งที่แอปไม่ได้ใช้ CoreLocation")
             XCTAssertNil(dict["NSPhotoLibraryUsageDescription"],
                          "\(path) ขอสิทธิ์คลังรูปทั้งที่ใช้ PhotosPicker ซึ่งไม่ต้องขอ")
         }
+    }
+
+    /// เคยไม่มีคีย์นี้เพราะไม่มีฟีเจอร์ไหนใช้ — ตอนนี้ SOS ใช้จริง คีย์จึงต้องมี **และ**
+    /// ต้องมีโค้ดที่ import CoreLocation จริง · เทสนี้ค้ำทั้งสองทาง: คีย์ที่ไม่มีฟีเจอร์
+    /// รองรับคือเหตุให้ App Review ตีกลับ ส่วนฟีเจอร์ที่ไม่มีคีย์คือ SOS ที่ไม่มีพิกัด
+    /// โดยไม่มี error ให้เห็น
+    func testLocationPermissionStringExistsInBothPlistsBecauseSOSUsesIt() throws {
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let dict = try plist(path)
+            let value = dict["NSLocationWhenInUseUsageDescription"] as? String
+            XCTAssertNotNil(value, "\(path) ขาดข้อความขอสิทธิ์ตำแหน่ง ทั้งที่ SOS ใช้")
+            XCTAssertFalse((value ?? "").isEmpty)
+            XCTAssertTrue((value ?? "").contains("ฉุกเฉิน"),
+                          "ข้อความต้องบอกว่าใช้ทำอะไร ไม่ใช่ข้อความกลางๆ")
+        }
+    }
+
+    func testPrivacyManifestDeclaresPreciseLocation() throws {
+        let manifest = try plist("WBW/PrivacyInfo.xcprivacy")
+        let types = manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? []
+        let location = types.first { ($0["NSPrivacyCollectedDataType"] as? String)
+            == "NSPrivacyCollectedDataTypePreciseLocation" }
+        XCTAssertNotNil(location, "เก็บพิกัดแล้วต้องประกาศใน privacy manifest")
+        XCTAssertEqual(location?["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
+        XCTAssertEqual(location?["NSPrivacyCollectedDataTypeLinked"] as? Bool, true)
+    }
+
+    /// คีย์กับการใช้งานจริงต้องมาคู่กันเสมอ — ค้ำอีกทางหนึ่งของเทสด้านบน
+    func testTheProjectActuallyImportsCoreLocation() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+        let sources = FileManager.default.enumerator(at: root.appendingPathComponent("WBW"),
+                                                     includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+        let importsCoreLocation = sources.contains {
+            (try? String(contentsOf: $0, encoding: .utf8))?.contains("import CoreLocation") == true
+        }
+        XCTAssertTrue(importsCoreLocation, "มีคีย์ขอตำแหน่งแต่ไม่มีไฟล์ไหน import CoreLocation")
     }
 
     func testEncryptionDeclarationPresentSoEveryUploadDoesNotAskAgain() throws {

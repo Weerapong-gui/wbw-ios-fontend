@@ -51,6 +51,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ใช้ตำแหน่งของคุณเฉพาะตอนกดขอความช่วยเหลือฉุกเฉิน เพื่อให้เจ้าหน้าที่ประจำฐานที่ใกล้ที่สุดไปถึงตัวคุณได้</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppTransportSecurity</key>

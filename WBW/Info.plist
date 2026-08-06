@@ -6,10 +6,10 @@
 	ห้ามใส่คีย์ที่มีไว้ให้ dev เท่านั้นในไฟล์นี้ ของพวกนั้นอยู่ที่ Info-Debug.plist
 	และ InfoPlistParityTests คุมไม่ให้สองไฟล์เพี้ยนจากกันเกินคีย์ที่อนุญาต
 
-	ห้ามใส่คีย์ขออนุญาตของฟีเจอร์ที่แอปไม่ได้ใช้จริงด้วย — เคยมี
-	NSLocationWhenInUseUsageDescription อยู่ทั้งที่ทั้งโปรเจกต์ไม่ import CoreLocation
-	เลยสักไฟล์ ผู้ใช้เห็นข้อความขอตำแหน่งที่ไม่มีวันถูกใช้ และเป็นเหตุให้ App Review
-	ตีกลับได้ตรงๆ
+	ห้ามใส่คีย์ขออนุญาตของฟีเจอร์ที่แอปไม่ได้ใช้จริง — NSLocationWhenInUseUsageDescription
+	ด้านล่างมีได้เพราะฟีเจอร์ SOS ใช้ CoreLocation จริง (ดู WBW/SOS/SOSLocator.swift) ถ้าฟีเจอร์
+	SOS ถูกถอดออกวันไหน ต้องถอดคีย์นี้ออกไปด้วย ไม่งั้นเป็นข้อความขอสิทธิ์ที่ไม่มีโค้ดไหนใช้จริง
+	ซึ่งเป็นเหตุให้ App Review ตีกลับได้ตรงๆ เหมือนที่เคยเกิดมาแล้ว
 -->
 <plist version="1.0">
 <dict>
@@ -48,6 +48,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ใช้ตำแหน่งของคุณเฉพาะตอนกดขอความช่วยเหลือฉุกเฉิน เพื่อให้เจ้าหน้าที่ประจำฐานที่ใกล้ที่สุดไปถึงตัวคุณได้</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

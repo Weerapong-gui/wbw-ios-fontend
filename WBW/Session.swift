@@ -53,6 +53,11 @@ final class Session: ObservableObject {
         UserDefaults.standard.set(try? JSONEncoder().encode(res.user), forKey: userKey)
         // ผูก device token กับผู้ใช้ที่เพิ่ง login (ถ้ามี FCM token แล้ว)
         PushManager.shared.registerCurrent()
+        // ขอสิทธิ์ตำแหน่งหลังล็อกอินสำเร็จเท่านั้น — ตอนเปิดแอปครั้งแรกผู้ใช้ยังไม่รู้ว่าแอปนี้คืออะไร
+        // และการขอสิทธิ์ตอนกด SOS คือทั้งช้าที่สุดและถูกปฏิเสธมากที่สุด (แนวเดียวกับที่วางแผนไว้กับ
+        // push notification — ดู push-notification-gaps) · SOSLocator เป็น @MainActor เหมือน Session
+        // ตรงนี้เองอยู่แล้ว เรียกตรงๆ ได้โดยไม่ต้อง await (ไม่ข้าม actor และ save() เองก็ไม่ใช่ async)
+        SOSLocator().requestPermission()
     }
 
     func logout() {
