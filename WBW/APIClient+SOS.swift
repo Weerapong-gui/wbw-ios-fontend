@@ -59,6 +59,11 @@ extension APIClient {
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // **ห้ามลบบรรทัดนี้** — body ที่ประกอบไว้ข้างบนต้องถูกแนบจริง ไม่งั้น request ออกไปแบบตัวเปล่า
+        // เซิร์ฟเวอร์ decode ได้ io.EOF ตอบ 400 ทุกครั้ง แล้วเคสไม่มีวันถูกสร้างเลยสักแถว: ไม่มีในฟีด
+        // เจ้าหน้าที่ ไม่มี push ไม่มีแจ้งเตือนกลุ่ม ส่วนแอปค้างที่ .queued แล้ว retry ยิง 400 รัวไป
+        // เรื่อยๆ (เคยหายไปจริงมาแล้วรอบหนึ่ง — ถูกเขียนทับด้วย timeoutInterval บรรทัดล่างนี้เอง)
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
         // ตั้งเพดานเวลาเอง ไม่ปล่อยให้ใช้ค่าเริ่มต้น 60 วิของ URLSession (แก้จากรีวิวรอบสุดท้าย) —
         // นี่คือ request ที่ทั้งเคสรออยู่ ในจุดอับสัญญาณมันค้างได้เต็มเพดานโดยไม่มีใครรู้ 60 วิยาว
         // กว่าหน้าต่างที่ปุ่ม "โทรหาทีมกลาง" จะโผล่ (20 วิ) เสียอีก · 20 วิผูกกับหน้าต่างนั้นโดยตั้งใจ:

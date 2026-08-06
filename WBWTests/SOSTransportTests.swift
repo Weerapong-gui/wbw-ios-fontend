@@ -84,11 +84,39 @@ final class SOSTransportTests: XCTestCase {
         nonisolated(unsafe) static var body = Data()
         nonisolated(unsafe) static var contentType = "application/json"
 
+        /// สิ่งที่ "ออกไปจริง" ในคำขอล่าสุด — ไม่ใช่แค่สิ่งที่ตอบกลับมา
+        ///
+        /// จำเป็นเพราะเทสทั้งไฟล์นี้ (และทั้ง SOSStoreTests ซึ่งฉีด raiseCall ปลอมทุกตัว) ตรวจแต่
+        /// ขาตอบกลับ ไม่มีใครดูขาส่งเลยสักตัว — บรรทัด req.httpBody หายไปได้ทั้งบรรทัดโดยที่เทส
+        /// 211 ตัวยังเขียวสนิท (เกิดขึ้นจริงมาแล้ว ดู testRaiseSOSActuallyPutsTheDraftInTheBody)
+        nonisolated(unsafe) static var lastMethod: String?
+        nonisolated(unsafe) static var lastBody = Data()
+
+        /// URLSession แปลง httpBody เป็น httpBodyStream ระหว่างทางเสมอ ตัว httpBody ที่ URLProtocol
+        /// เห็นจึงเป็น nil ทั้งที่ผู้เรียกตั้งไว้จริง — ต้องอ่านจาก stream แทน ไม่ใช่สรุปว่า "ไม่มี body"
+        /// (อ่านผิดจุดจะทำให้เทสแดงตลอดแม้โค้ดถูก ซึ่งแย่พอๆ กับเขียวตลอดแม้โค้ดผิด)
+        static func outgoingBody(of request: URLRequest) -> Data {
+            if let b = request.httpBody { return b }
+            guard let stream = request.httpBodyStream else { return Data() }
+            stream.open()
+            defer { stream.close() }
+            var out = Data()
+            var buf = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let n = stream.read(&buf, maxLength: buf.count)
+                if n <= 0 { break }
+                out.append(buf, count: n)
+            }
+            return out
+        }
+
         override class func canInit(with request: URLRequest) -> Bool {
             request.url?.path.contains("/sos") == true
         }
         override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
         override func startLoading() {
+            Self.lastMethod = request.httpMethod
+            Self.lastBody = Self.outgoingBody(of: request)
             let resp = HTTPURLResponse(url: request.url!, statusCode: Self.status,
                                        httpVersion: "HTTP/1.1",
                                        headerFields: ["Content-Type": Self.contentType])!
@@ -105,6 +133,8 @@ final class SOSTransportTests: XCTestCase {
         SOSStubURLProtocol.status = 200
         SOSStubURLProtocol.body = Data()
         SOSStubURLProtocol.contentType = "application/json"
+        SOSStubURLProtocol.lastMethod = nil
+        SOSStubURLProtocol.lastBody = Data()
     }
 
     override func tearDown() {
@@ -135,6 +165,78 @@ final class SOSTransportTests: XCTestCase {
         SOSStubURLProtocol.body = Data("null\n".utf8)
         let result = try await APIClient.shared.activeSOS(token: "t", wait: 0)
         XCTAssertNil(result, "null\\n (รูปจริงที่ Go ส่ง) ต้องแปลว่าไม่มีเคสเปิดอยู่ ไม่ใช่ throw")
+    }
+
+    // MARK: - ขาส่ง: คำขอต้องมีของอยู่ในนั้นจริง ไม่ใช่แค่ยิงออกไปได้
+
+    /// **บั๊กที่ทำให้ต้องมีเทสนี้: `req.httpBody = try JSONSerialization.data(...)` หายไปทั้งบรรทัด**
+    ///
+    /// ถูกเขียนทับด้วย `req.timeoutInterval = 20` ตอนแก้เรื่องเพดานเวลา · `body` ยังถูกประกอบไว้
+    /// ครบทุกฟิลด์ข้างบนเหมือนเดิม แค่ไม่มีใครแนบมันเข้ากับ request อีกต่อไป ผลคือ POST ออกไปตัวเปล่า
+    /// เซิร์ฟเวอร์ `json.NewDecoder(r.Body).Decode(&req)` ได้ io.EOF ตอบ 400 ทุกครั้งไม่มียกเว้น
+    /// `sosIsSuccess` รับแค่ 200/201 `send()` จึงเข้าสาขา catch เสมอ สถานะค้างที่ .queued ตลอดกาล
+    /// retry ยิง 400 รัวตามตาราง 2/5/10/20/30/60 และ **ไม่มีเคสไหนถูกสร้างขึ้นเลยสักแถว** — ไม่มีใน
+    /// ฟีดเจ้าหน้าที่ ไม่มี push ไม่มีแจ้งเตือนกลุ่ม · กฎ "ไม่ทิ้งเคส" ยังจริงและปุ่มโทรยังโผล่ที่ 20 วิ
+    /// คนกดจึงถูกบอกให้โทร แต่ไม่มีอะไรในระบบดิจิทัลไปถึงใครเลย
+    ///
+    /// ไม่มีเทสไหนจับได้เลยเพราะ SOSStoreTests ฉีด raiseCall ปลอมทุกตัว และ raiseSOS ตัวจริงไม่มี
+    /// เทสสักตัวที่ดูขาส่ง — ตัวนี้คือรูนั้น ต่อจากนี้การลบบรรทัด httpBody จะแดงทันที
+    func testRaiseSOSActuallyPutsTheDraftInTheBody() async throws {
+        SOSStubURLProtocol.status = 201
+        SOSStubURLProtocol.body = Data("""
+        {"id":11,"for_other":true,"lat":20.0439,"lng":99.899,"accuracy_m":12.0,
+         "loc_source":"gps","checkpoint_id":2,"checkpoint_name":"สวนกุหลาบ","message":"ขาหัก",
+         "resolved":false,"resolve_reason":null,"acked_at":null,"acked_by_name":null,
+         "created_at":"2026-08-06T10:00:00Z","emergency_phone":"053-916-000"}
+        """.utf8)
+
+        let draft = SOSDraft(clientId: "6f1e0c9a-0000-0000-0000-0000000000aa",
+                             deviceTime: "2026-08-06T10:00:00Z", forOther: true,
+                             lat: 20.0439, lng: 99.899, accuracyM: 12, message: "ขาหัก",
+                             ownerId: "u1")
+        let c = try await APIClient.shared.raiseSOS(token: "t", draft: draft)
+        XCTAssertEqual(c.id, 11)
+
+        XCTAssertEqual(SOSStubURLProtocol.lastMethod, "POST")
+        XCTAssertFalse(SOSStubURLProtocol.lastBody.isEmpty,
+                       "POST /me/sos ออกไปโดยไม่มี body — เซิร์ฟเวอร์จะได้ io.EOF แล้วตอบ 400 ทุกครั้ง "
+                       + "เคสจะไม่มีวันถูกสร้างขึ้นเลย")
+
+        let sent = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: SOSStubURLProtocol.lastBody) as? [String: Any],
+            "body ที่ส่งออกไปต้องเป็น JSON object")
+        XCTAssertEqual(sent["client_id"] as? String, draft.clientId,
+                       "client_id คือสิ่งเดียวที่ทำให้การ retry ไม่กลายเป็นเคสซ้ำ")
+        XCTAssertEqual(sent["device_time"] as? String, draft.deviceTime)
+        XCTAssertEqual(sent["for_other"] as? Bool, true)
+        XCTAssertEqual(sent["lat"] as? Double ?? 0, 20.0439, accuracy: 0.00001)
+        XCTAssertEqual(sent["lng"] as? Double ?? 0, 99.899, accuracy: 0.00001)
+        XCTAssertEqual(sent["accuracy_m"] as? Double ?? 0, 12, accuracy: 0.00001)
+        XCTAssertEqual(sent["message"] as? String, "ขาหัก")
+    }
+
+    /// พิกัด/ข้อความที่ยังไม่มี ต้องไม่ถูกส่งเป็น null — ฝั่ง Go ใช้ COALESCE ทับค่าเดิมเฉพาะเมื่อ
+    /// "ส่งมาจริง" การส่ง key ที่ไม่มีค่ามาด้วยจึงต่างจากการไม่ส่ง key นั้นเลย (ดู Raise ใน repository)
+    func testRaiseSOSOmitsFieldsTheDraftDoesNotHaveYet() async throws {
+        SOSStubURLProtocol.status = 201
+        SOSStubURLProtocol.body = Data("""
+        {"id":12,"for_other":false,"lat":null,"lng":null,"accuracy_m":null,"loc_source":"none",
+         "checkpoint_id":null,"checkpoint_name":null,"message":null,"resolved":false,
+         "resolve_reason":null,"acked_at":null,"acked_by_name":null,
+         "created_at":"2026-08-06T10:00:00Z","emergency_phone":null}
+        """.utf8)
+
+        let draft = SOSDraft(clientId: "6f1e0c9a-0000-0000-0000-0000000000bb",
+                             deviceTime: "2026-08-06T10:00:00Z", forOther: false, ownerId: "u1")
+        _ = try await APIClient.shared.raiseSOS(token: "t", draft: draft)
+
+        let sent = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: SOSStubURLProtocol.lastBody) as? [String: Any])
+        XCTAssertNotNil(sent["client_id"])
+        XCTAssertNil(sent["lat"])
+        XCTAssertNil(sent["lng"])
+        XCTAssertNil(sent["accuracy_m"])
+        XCTAssertNil(sent["message"])
     }
 
     // MARK: - พบจากรีวิว: decode ที่พังบน 200/201 ต้องออกเป็น AppError.retryable ไม่ใช่ error ดิบ
