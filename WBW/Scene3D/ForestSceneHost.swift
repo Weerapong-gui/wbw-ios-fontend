@@ -84,6 +84,14 @@ final class ForestSceneHost: ObservableObject {
     private static let isRunningUnderXCTest: Bool =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 
+    /// จอขอฉากแล้วต้องให้จริงไหม — false = claimScene() ปล่อย token คืนเฉยๆ ไม่แตะ wantsScene
+    ///
+    /// `nonisolated` ไม่ใช่ของประดับ: คลาสนี้เป็น @MainActor ทั้งก้อน static member จึงเป็น
+    /// main-actor isolated ตามไปด้วย เทสยูนิตจะเรียกไม่ได้ถ้าไม่ประกาศ (ฟังก์ชันนี้ไม่แตะ state ใดเลย)
+    nonisolated static func shouldClaim(forest3D: Bool, underTest: Bool) -> Bool {
+        forest3D && !underTest
+    }
+
     /// จอที่ใช้ฉากเรียกตอน onAppear (ผ่าน ForestBackground) — คืน token ไว้ยื่นคืนตอน onDisappear
     /// claim ใหม่เสมอทุกครั้งที่ onAppear แม้จะมี token เก่าค้างอยู่ก็ตาม (เช่น สลับแท็บออกจาก Home
     /// แล้วกลับมาแท็บเดิม) — token เก่าอาจถูกจอที่คั่นกลางแย่ง claim แล้วปล่อยคืนไปแล้วด้วยซ้ำ claim
@@ -91,9 +99,11 @@ final class ForestSceneHost: ObservableObject {
     fileprivate func claimScene() -> UUID {
         let token = UUID()
         currentClaim = token
-        // เทสยูนิต (XCTest host) ไม่ต้องการฉากเลย — ดูคอมเมนต์ที่ isRunningUnderXCTest ด้านบนว่าทำไม
-        // ปล่อยให้ wantsScene เป็น true ตอนนี้ถึงพังยังไง
-        guard !Self.isRunningUnderXCTest else { return token }
+        // สองเหตุผลที่จอขอฉากแล้วไม่ได้: Config.forest3D ปิดอยู่ (ฉากกินเครื่อง ดู spec
+        // 2026-08-07-forest-3d-off-design.md) หรือกำลังรันเทสยูนิต (ดูคอมเมนต์ที่
+        // isRunningUnderXCTest ด้านบนว่าปล่อยให้ wantsScene เป็น true ตอนนั้นถึงพังยังไง)
+        guard Self.shouldClaim(forest3D: Config.forest3D,
+                               underTest: Self.isRunningUnderXCTest) else { return token }
         wantsScene = true
         return token
     }
@@ -153,14 +163,28 @@ private struct ForestBackground: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background {
-                ZStack {
-                    // ดูคอมเมนต์ที่ struct ด้านล่าง — ไม่มีนี่ ฉากป่าที่ RootView โดนบังทึบขาวเสมอ
-                    TabRootOpaqueBackgroundRemover().frame(width: 1, height: 1).allowsHitTesting(false)
-                    // โหลดฉากไม่ได้ → รูปเดิม · ห้ามลบ asset bg_forest ทิ้ง
-                    if host.loadFailed {
-                        Image("bg_forest").resizable().scaledToFill().ignoresSafeArea()
-                    } else {
-                        Color.clear   // ฉากจริงวาดอยู่ที่ RootView ใต้ทุกอย่าง
+                if Config.forest3D {
+                    ZStack {
+                        // ดูคอมเมนต์ที่ struct ด้านล่าง — ไม่มีนี่ ฉากป่าที่ RootView โดนบังทึบขาวเสมอ
+                        TabRootOpaqueBackgroundRemover().frame(width: 1, height: 1).allowsHitTesting(false)
+                        // โหลดฉากไม่ได้ → รูปเดิม · ห้ามลบ asset bg_forest ทิ้ง
+                        if host.loadFailed {
+                            Image("bg_forest").resizable().scaledToFill().ignoresSafeArea()
+                        } else {
+                            Color.clear   // ฉากจริงวาดอยู่ที่ RootView ใต้ทุกอย่าง
+                        }
+                    }
+                } else {
+                    // ฉาก 3D ปิดอยู่ — พื้นทึบสีเดียว รอรูปพื้นหลังที่จะเอามาทับทีหลัง
+                    //
+                    // ยังต้องมี TabRootOpaqueBackgroundRemover เหมือนทางฉากเปิด แม้สีนี้จะถูกวาดในกรอบ
+                    // ของจอเอง: แท็บ QR (Tab role .search ของ iOS 26) วาง content ไว้ใน container ที่
+                    // แคบกว่าจอจริง พื้นทึบขาวของ per-tab UIHostingController จึงโผล่เป็นแถบสองข้าง
+                    // (เห็นจริงในสกรีนช็อตรอบแรก ดู docs/forest-3d-off-verification.md) พอเคลียร์แล้ว
+                    // สิ่งที่โผล่แทนคือพื้นทึบสีเดียวกันที่ RootView วาดไว้ใต้ทุกอย่าง — ไม่ใช่ขาวและไม่ใช่ดำ
+                    ZStack {
+                        TabRootOpaqueBackgroundRemover().frame(width: 1, height: 1).allowsHitTesting(false)
+                        Color.wbwForestVoid.ignoresSafeArea()
                     }
                 }
             }

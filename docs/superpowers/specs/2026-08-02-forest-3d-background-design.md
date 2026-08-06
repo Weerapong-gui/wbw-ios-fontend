@@ -1,7 +1,9 @@
 # Forest 3D Background + Check-in Progress Tree
 
 - **Date:** 2026-08-02
-- **Status:** Approved (design), pending implementation plan
+- **Status:** สร้างเสร็จและ merge แล้ว แต่ **ปิดใช้งานตั้งแต่ 2026-08-07** ด้วย
+  `Config.forest3D = false` เพราะเครื่องทำงานหนัก — โค้ดและ asset ยังอยู่ครบ
+  ดู `2026-08-07-forest-3d-off-design.md` เนื้อหาที่เหลือของไฟล์นี้ไม่แก้ เป็นบันทึกของตอนนั้น
 - **Scope:** app background across the 5 screens that use a static image today,
   plus the Home growing-tree gimmick. Nothing else on those screens changes.
 - **Repos:** `wbw-ios-fontend` (iOS) **and** `~/Student-Union-Server` (SUS, Go)
