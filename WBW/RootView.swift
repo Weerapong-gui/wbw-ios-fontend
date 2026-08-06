@@ -30,6 +30,13 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
+            // ฉาก 3D ปิดอยู่ — พื้นทึบใต้ทุกอย่าง วางที่ชั้นเดียวกับที่ฉากเคยอยู่ (ดู Config.forest3D)
+            // จำเป็นเพราะ TabRootOpaqueBackgroundRemover เจาะพื้นทึบของ per-tab container ทิ้ง สิ่งที่อยู่
+            // หลังรูที่เจาะคือชั้นนี้ ไม่มีชั้นนี้จะเห็นพื้นดำของหน้าต่างแทนตรงขอบจอแท็บ QR
+            if !Config.forest3D {
+                Color.wbwForestVoid.ignoresSafeArea()
+            }
+
             // ฉากป่า 3D ใต้ทุกอย่าง — mount ครั้งแรกที่มีหน้าขอใช้ฉาก (everEnabled) แล้วอยู่คงที่
             // ตลอดอายุแอป ไม่ถูก unmount/remount อีกเลยตอนสลับแท็บหรือเปลี่ยน phase (เดิม gate ด้วย
             // host.enabled ตรงๆ ทำให้ RealityView ถูกทำลาย+สร้างใหม่ทุกครั้งที่ enabled กลับเป็น

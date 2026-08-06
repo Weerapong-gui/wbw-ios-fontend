@@ -176,10 +176,16 @@ private struct ForestBackground: ViewModifier {
                     }
                 } else {
                     // ฉาก 3D ปิดอยู่ — พื้นทึบสีเดียว รอรูปพื้นหลังที่จะเอามาทับทีหลัง
-                    // ไม่ต้องมี TabRootOpaqueBackgroundRemover ตรงนี้: มันมีไว้เจาะพื้นทึบขาวของ per-tab
-                    // UIHostingController ให้ฉากที่ RootView (คนละต้นไม้) โผล่ขึ้นมาได้ ปิดฉากแล้วไม่มีอะไร
-                    // อยู่หลังต้องโผล่ เพราะสีนี้ถูกวาดในกรอบของจอนั้นเอง ซึ่งอยู่ต้นไม้เดียวกับจอ
-                    Color.wbwForestVoid.ignoresSafeArea()
+                    //
+                    // ยังต้องมี TabRootOpaqueBackgroundRemover เหมือนทางฉากเปิด แม้สีนี้จะถูกวาดในกรอบ
+                    // ของจอเอง: แท็บ QR (Tab role .search ของ iOS 26) วาง content ไว้ใน container ที่
+                    // แคบกว่าจอจริง พื้นทึบขาวของ per-tab UIHostingController จึงโผล่เป็นแถบสองข้าง
+                    // (เห็นจริงในสกรีนช็อตรอบแรก ดู docs/forest-3d-off-verification.md) พอเคลียร์แล้ว
+                    // สิ่งที่โผล่แทนคือพื้นทึบสีเดียวกันที่ RootView วาดไว้ใต้ทุกอย่าง — ไม่ใช่ขาวและไม่ใช่ดำ
+                    ZStack {
+                        TabRootOpaqueBackgroundRemover().frame(width: 1, height: 1).allowsHitTesting(false)
+                        Color.wbwForestVoid.ignoresSafeArea()
+                    }
                 }
             }
             .onAppear {
