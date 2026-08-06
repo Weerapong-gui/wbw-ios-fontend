@@ -1,0 +1,126 @@
+import CoreLocation
+import Foundation
+
+struct SOSFix: Equatable {
+    let lat: Double
+    let lng: Double
+    let accuracyM: Double
+}
+
+/// ชั้นบางๆ คั่น CLLocationManager ไว้ — ไม่ใช่เพื่อความสวยงาม แต่เพราะเทสของ
+/// "GPS ที่ไม่มีวันมา" เขียนด้วยฮาร์ดแวร์จริงไม่ได้ และนั่นคือกรณีที่ต้องถูกต้องที่สุด
+protocol SOSLocationProviding: AnyObject {
+    var authorizationStatus: CLAuthorizationStatus { get }
+    var lastKnownLocation: CLLocation? { get }
+    func requestWhenInUseAuthorization()
+    func requestLocation(_ completion: @escaping (CLLocation?) -> Void)
+}
+
+/// ตัวกัน continuation ถูก resume ซ้ำ · ฝั่ง provider (fix มาถึง) กับฝั่ง timeout
+/// (หมดเวลา) แข่งกันเรียกได้พร้อมกันจากคนละเธรด — ตัวไหนมาก่อนชนะ ตัวที่มาทีหลัง
+/// ต้องเงียบ ไม่ใช่ crash "resumed multiple times" จึงต้องมีล็อกจริง ไม่ใช่แค่ธง Bool เฉยๆ
+private final class OneShotResume: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<SOSFix?, Never>?
+
+    init(_ continuation: CheckedContinuation<SOSFix?, Never>) {
+        self.continuation = continuation
+    }
+
+    func callAsFunction(_ fix: SOSFix?) {
+        lock.lock()
+        let cont = continuation
+        continuation = nil
+        lock.unlock()
+        cont?.resume(returning: fix)
+    }
+}
+
+@MainActor
+final class SOSLocator {
+    private let provider: SOSLocationProviding
+
+    init(provider: SOSLocationProviding = SystemLocationProvider()) {
+        self.provider = provider
+    }
+
+    var authorization: CLAuthorizationStatus { provider.authorizationStatus }
+
+    /// ขอสิทธิ์ · เรียกหลังล็อกอินสำเร็จ ไม่ใช่ตอนกด SOS
+    /// dialog กลางเหตุฉุกเฉินคือทั้งช้าที่สุดและถูกกด "ไม่อนุญาต" มากที่สุด
+    func requestPermission() { provider.requestWhenInUseAuthorization() }
+
+    /// ค่าล่าสุดที่ระบบมีอยู่แล้ว ถ้ายังไม่เก่าเกิน maxAge วินาที
+    func cachedFix(maxAge: TimeInterval) -> SOSFix? {
+        guard authorization == .authorizedWhenInUse || authorization == .authorizedAlways,
+              let loc = provider.lastKnownLocation,
+              loc.horizontalAccuracy >= 0,
+              Date().timeIntervalSince(loc.timestamp) <= maxAge
+        else { return nil }
+        return SOSFix(lat: loc.coordinate.latitude, lng: loc.coordinate.longitude,
+                      accuracyM: loc.horizontalAccuracy)
+    }
+
+    /// ขอ fix ใหม่หนึ่งครั้ง · คืน nil เมื่อหมดเวลาหรือไม่มีสิทธิ์
+    ///
+    /// **ผู้เรียกต้องไม่ await ตัวนี้ก่อนยิง SOS** — มันวิ่งคู่ขนานกับการส่ง
+    /// fix แรกใต้ร่มไม้ใช้เวลาได้ถึง 30 วิ ซึ่งเป็นเวลาที่แพงที่สุดในเหตุการณ์ทั้งหมด
+    ///
+    /// จงใจไม่ใช้ withTaskGroup: group จะรอ child task ทุกตัวจบก่อนคืนค่าเสมอ ต่อให้
+    /// cancelAll() ไปแล้วก็ตาม แต่ checked continuation ที่รอ callback ของ provider อยู่
+    /// ไม่ตอบสนอง cancel เอง — ถ้า timeout ชนะ การรอ fix ที่ไม่มีวันมาจะค้าง oneShot
+    /// ทั้งฟังก์ชันไว้ตลอดกาล (ยืนยันจากการรันจริง: SWIFT TASK CONTINUATION MISUSE
+    /// leaked ตอน timeout ชนะ ไม่ใช่แค่ทฤษฎี) แทนที่จะรอ ให้ทั้งสองฝั่งแข่งกัน resume
+    /// continuation เดียวกันเอง ใครถึงก่อนชนะ ฝั่งที่แพ้กลายเป็น no-op เงียบๆ ไม่ค้างใคร
+    func oneShot(timeout: Duration) async -> SOSFix? {
+        guard authorization == .authorizedWhenInUse || authorization == .authorizedAlways
+        else { return nil }
+
+        return await withCheckedContinuation { cont in
+            let resume = OneShotResume(cont)
+
+            provider.requestLocation { loc in
+                guard let loc, loc.horizontalAccuracy >= 0 else { resume(nil); return }
+                resume(SOSFix(lat: loc.coordinate.latitude, lng: loc.coordinate.longitude,
+                              accuracyM: loc.horizontalAccuracy))
+            }
+
+            Task {
+                try? await Task.sleep(for: timeout)
+                resume(nil)
+            }
+        }
+    }
+}
+
+/// ตัวจริงที่คุยกับ CoreLocation
+///
+/// desiredAccuracy เป็น NearestTenMeters ไม่ใช่ Best โดยตั้งใจ — ใต้ร่มไม้ Best ใช้เวลา
+/// นานกว่ามากเพื่อความแม่นที่ไม่เปลี่ยนว่าฐานไหนใกล้ที่สุด และไม่ทำให้ทีมหาคนเจอเร็วขึ้น
+final class SystemLocationProvider: NSObject, SOSLocationProviding, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var pending: ((CLLocation?) -> Void)?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+    }
+
+    var authorizationStatus: CLAuthorizationStatus { manager.authorizationStatus }
+    var lastKnownLocation: CLLocation? { manager.location }
+    func requestWhenInUseAuthorization() { manager.requestWhenInUseAuthorization() }
+
+    func requestLocation(_ completion: @escaping (CLLocation?) -> Void) {
+        pending = completion
+        manager.requestLocation()
+    }
+
+    func locationManager(_ m: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        pending?(locations.last); pending = nil
+    }
+
+    func locationManager(_ m: CLLocationManager, didFailWithError error: Error) {
+        pending?(nil); pending = nil
+    }
+}

@@ -1,0 +1,71 @@
+import XCTest
+import CoreLocation
+@testable import WBW
+
+private final class FakeLocationProvider: SOSLocationProviding {
+    var status: CLAuthorizationStatus = .authorizedWhenInUse
+    var cached: CLLocation?
+    var deliver: CLLocation?
+    var deliverAfter: Duration = .milliseconds(10)
+    private(set) var requestedPermission = false
+    private(set) var startedUpdating = false
+
+    var authorizationStatus: CLAuthorizationStatus { status }
+    var lastKnownLocation: CLLocation? { cached }
+    func requestWhenInUseAuthorization() { requestedPermission = true }
+    func requestLocation(_ completion: @escaping (CLLocation?) -> Void) {
+        startedUpdating = true
+        guard let deliver else { return }        // ไม่ส่งอะไรเลย = จำลอง fix ที่ไม่มีวันมา
+        Task { try? await Task.sleep(for: deliverAfter); completion(deliver) }
+    }
+}
+
+@MainActor
+final class SOSLocatorTests: XCTestCase {
+
+    func testAFreshCachedFixIsUsedWithoutWaitingForGPS() async {
+        let p = FakeLocationProvider()
+        p.cached = CLLocation(coordinate: .init(latitude: 20.0439, longitude: 99.899),
+                              altitude: 0, horizontalAccuracy: 15, verticalAccuracy: 0,
+                              timestamp: Date())
+        let fix = SOSLocator(provider: p).cachedFix(maxAge: 60)
+        XCTAssertEqual(fix?.lat ?? 0, 20.0439, accuracy: 0.0001)
+        XCTAssertFalse(p.startedUpdating, "ค่าที่ยังสดต้องใช้ได้เลย ไม่ต้องขอ fix ใหม่")
+    }
+
+    func testAStaleCachedFixIsRejected() {
+        let p = FakeLocationProvider()
+        p.cached = CLLocation(coordinate: .init(latitude: 20.0439, longitude: 99.899),
+                              altitude: 0, horizontalAccuracy: 15, verticalAccuracy: 0,
+                              timestamp: Date(timeIntervalSinceNow: -300))
+        XCTAssertNil(SOSLocator(provider: p).cachedFix(maxAge: 60))
+    }
+
+    /// สำคัญที่สุดในไฟล์นี้: GPS ที่ไม่มีวันมาต้องไม่ค้างการส่ง SOS ไว้ตลอดกาล
+    func testOneShotGivesUpAtTheTimeoutInsteadOfHangingForever() async {
+        let p = FakeLocationProvider()
+        p.deliver = nil
+        let started = Date()
+        let fix = await SOSLocator(provider: p).oneShot(timeout: .milliseconds(200))
+        XCTAssertNil(fix)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2.0, "ต้องยอมแพ้ตามเวลาที่ตั้ง")
+    }
+
+    func testOneShotReturnsTheFixWhenItArrivesInTime() async {
+        let p = FakeLocationProvider()
+        p.deliver = CLLocation(coordinate: .init(latitude: 20.05, longitude: 99.90),
+                               altitude: 0, horizontalAccuracy: 30, verticalAccuracy: 0,
+                               timestamp: Date())
+        let fix = await SOSLocator(provider: p).oneShot(timeout: .seconds(2))
+        XCTAssertEqual(fix?.accuracyM ?? 0, 30, accuracy: 0.1)
+    }
+
+    func testDeniedPermissionYieldsNoFixAndNoCrash() async {
+        let p = FakeLocationProvider()
+        p.status = .denied
+        let locator = SOSLocator(provider: p)
+        XCTAssertNil(locator.cachedFix(maxAge: 60))
+        let fix = await locator.oneShot(timeout: .milliseconds(200))
+        XCTAssertNil(fix)
+    }
+}
