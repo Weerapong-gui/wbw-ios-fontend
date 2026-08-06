@@ -42,11 +42,24 @@ final class SOSLocatorTests: XCTestCase {
     }
 
     /// สำคัญที่สุดในไฟล์นี้: GPS ที่ไม่มีวันมาต้องไม่ค้างการส่ง SOS ไว้ตลอดกาล
+    ///
+    /// **ห้าม `await oneShot(...)` ตรงๆ ในเทสนี้** — ถ้าโค้ดถอยกลับไปเป็นทรงที่ค้าง (ซึ่งเกิดขึ้นมาแล้ว
+    /// จริงบนกิ่งนี้: `withTaskGroup` รอ child ทุกตัวจบต่อให้ cancelAll ไปแล้ว ดูคอมเมนต์ที่ oneShot)
+    /// เทสจะไม่แดง มันจะ "ค้าง" — xcodebuild จอดอยู่ที่ 0% CPU ไปเรื่อยๆ จนกว่าจะมีคนไปฆ่าเอง ซึ่งใน CI
+    /// แปลว่างานค้างทั้งคิวโดยไม่มีข้อความบอกสาเหตุสักบรรทัด · ให้ผลลัพธ์วิ่งผ่าน expectation ที่มี
+    /// deadline ของ XCTest แทน — ทรงที่ค้างจะกลายเป็นความล้มเหลวที่อ่านออกภายใน 5 วิ
     func testOneShotGivesUpAtTheTimeoutInsteadOfHangingForever() async {
         let p = FakeLocationProvider()
         p.deliver = nil
+        let locator = SOSLocator(provider: p)
         let started = Date()
-        let fix = await SOSLocator(provider: p).oneShot(timeout: .milliseconds(200))
+        let returned = expectation(description: "oneShot ต้องคืนค่าเอง ไม่ค้างรอ fix ที่ไม่มีวันมา")
+        var fix: SOSFix?
+        Task {
+            fix = await locator.oneShot(timeout: .milliseconds(200))
+            returned.fulfill()
+        }
+        await fulfillment(of: [returned], timeout: 5)
         XCTAssertNil(fix)
         XCTAssertLessThan(Date().timeIntervalSince(started), 2.0, "ต้องยอมแพ้ตามเวลาที่ตั้ง")
     }
