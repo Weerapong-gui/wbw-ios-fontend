@@ -15,9 +15,19 @@ struct SOSOutbox {
         "wbw.sos.outbox.\(backend.cacheNamespace)"
     }
 
+    /// nil มีสองความหมายที่ต้องแยกกันจริง — "ไม่มีอะไรเก็บไว้เลย" (ไม่ต้องทำอะไรต่อ) กับ "มีของเก็บไว้
+    /// แต่อ่านไม่ออก" (ต้องล้างทิ้ง ไม่ปล่อยขยะค้างจนกว่า save() ครั้งหน้าจะทับ) — แยกด้วยการเช็คว่ามี
+    /// data ที่คีย์นี้ก่อนเลยไหม แทนที่จะดูแค่ผลของการ decode (พบจากรีวิว Task 14 รอบสี่)
+    ///
+    /// decode ไม่ผ่านหลัง SOSDraft.init(from:) ยอมรับ ownerId ที่หายไปแล้ว (decodeIfPresent) เหลือแค่
+    /// ไบต์ที่เสียหายจริงๆ เท่านั้น (ไม่ใช่ JSON เลย, หรือคีย์อื่นที่ไม่ใช่ ownerId หายไป) — กรณีนั้นล้าง
+    /// ทิ้งตรงนี้เลย ไม่ปล่อยให้ผู้เรียก (SOSStore.init) ต้องแยกแยะเอง เพราะ nil ที่คืนไปดูเหมือนกันทุก
+    /// ประการกับ "ไม่มีเคสเลย" อยู่ดี
     func current() -> SOSDraft? {
         guard let data = UserDefaults.standard.data(forKey: Self.key(for: backend)) else { return nil }
-        return try? JSONDecoder().decode(SOSDraft.self, from: data)
+        if let draft = try? JSONDecoder().decode(SOSDraft.self, from: data) { return draft }
+        clear()
+        return nil
     }
 
     /// เขียนทับเสมอ — เคสมีได้ทีละหนึ่ง ไม่มีคิวให้ต่อท้าย

@@ -16,7 +16,8 @@ struct SOSDraft: Codable, Equatable {
     var accuracyM: Double?
     var message: String?
     var serverId: Int64?
-    /// user id ของคนที่กดค้างครบตอนสร้าง draft นี้ — ไม่มีดีฟอลต์ตั้งใจ (พบจากรีวิว Task 14 รอบสาม)
+    /// user id ของคนที่กดค้างครบตอนสร้าง draft นี้ — ไม่มีดีฟอลต์ในตัวสร้างปกติตั้งใจ (พบจากรีวิว
+    /// Task 14 รอบสาม)
     ///
     /// SOSOutbox ผูกกับ backend เท่านั้น ไม่ผูกกับบัญชี ถ้าไม่มีฟิลด์นี้ SOSStore.init ไม่มีทางแยกออก
     /// ว่า draft ที่เหลือค้างในเครื่องเป็นของบัญชีที่กำลัง login อยู่จริงหรือเป็นของบัญชีก่อนหน้าที่
@@ -28,6 +29,57 @@ struct SOSDraft: Codable, Equatable {
     /// เกิดขึ้นเองแค่เพราะ login (ดูรายงาน Task 14 รอบสามสำหรับที่มาเต็ม) ทุกจุดที่สร้าง SOSDraft ใหม่
     /// (มีที่เดียวคือ raise()) ต้องส่งค่านี้มาจริงเสมอ ไม่มีดีฟอลต์ให้เผลอลืม
     let ownerId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case clientId, deviceTime, forOther, lat, lng, accuracyM, message, serverId, ownerId
+    }
+
+    /// ตัวสร้างปกติ (ไม่ใช่ decode) — เขียนเองแทนตัวที่ Swift จะ synthesize ให้ เพราะการเพิ่ม
+    /// init(from:) ด้านล่างทำให้ Swift เลิก synthesize ตัวสร้างแบบ memberwise ให้อัตโนมัติ ทุก call
+    /// site เดิม (raise() ในไฟล์นี้ กับเทสอีกหลายไฟล์) เรียกแบบนี้อยู่แล้วโดยไม่รู้ตัว
+    init(clientId: String, deviceTime: String, forOther: Bool,
+         lat: Double? = nil, lng: Double? = nil, accuracyM: Double? = nil,
+         message: String? = nil, serverId: Int64? = nil, ownerId: String) {
+        self.clientId = clientId
+        self.deviceTime = deviceTime
+        self.forOther = forOther
+        self.lat = lat
+        self.lng = lng
+        self.accuracyM = accuracyM
+        self.message = message
+        self.serverId = serverId
+        self.ownerId = ownerId
+    }
+
+    /// decode เอง (ไม่ใช้ตัวที่ Swift จะ synthesize ให้) เพื่อรับมือ draft ที่เขียนไว้บนดิสก์โดย
+    /// build ก่อนหน้า commit ที่เพิ่ม ownerId เข้ามา — ไบต์เก่าพวกนั้นไม่มีคีย์ "ownerId" อยู่เลย
+    /// (พบจากรีวิว Task 14 รอบสี่)
+    ///
+    /// ownerId เป็น String (ไม่ optional) โดยตั้งใจ ตัว decoder ที่ Swift จะ synthesize ให้เฉยๆ จึงถือ
+    /// เป็นคีย์บังคับ — เจอ JSON เก่าที่ไม่มีคีย์นี้แล้ว throw DecodingError.keyNotFound ทันที ทำให้
+    /// การ decode ทั้งก้อนพัง ไม่ใช่แค่ ownerId เท่านั้น: SOSOutbox.current() (เดิม) ห่อ try? รอบนอกไว้
+    /// อีกที ผลคือคืน nil เหมือนกับ "ไม่มีอะไรเก็บไว้เลย" ทุกประการ — เคสฉุกเฉินจริงที่ยังค้างอยู่จาก
+    /// ก่อนอัปเดตแอปจะหายไปเงียบๆ ตอนอัปเดต โดยไม่มี crash ไม่มีแบนเนอร์ ไม่มีอะไรฟ้องเลยแม้แต่นิดเดียว
+    /// — ขัดกับคอมเมนต์บนสุดของคลาสนี้ตรงๆ ("เคส SOS ที่หายไปคือคนที่รออยู่บนดอยโดยเชื่อว่าส่งไปแล้ว")
+    ///
+    /// แก้ด้วย decodeIfPresent + fallback เป็น "" แทนที่จะปล่อยให้ throw — ownerId ว่างไม่มีทาง match
+    /// currentUserId ของบัญชีจริงคนไหนได้เลย (ดูคอมเมนต์ที่ SOSStore.init) จึงตกไปสาขา "เจ้าของไม่ตรง"
+    /// ที่มีอยู่แล้วโดยอัตโนมัติ ล้างช่องทิ้งจริง ไม่ใช่รับมาเป็นของบัญชีที่ล็อกอินอยู่ตอนนั้น — **ห้ามใส่
+    /// currentUserId เป็นค่า fallback ตรงนี้เด็ดขาด** จะเป็นการรับ draft เก่าที่ไม่รู้เจ้าของมาเป็นของ
+    /// บัญชีไหนก็ได้ที่บังเอิญล็อกอินอยู่ตอนนั้น เปิดช่องโหว่ข้ามบัญชีแบบเดียวกับที่เพิ่งปิดไปในรอบสาม
+    /// กลับมาใหม่
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        clientId = try c.decode(String.self, forKey: .clientId)
+        deviceTime = try c.decode(String.self, forKey: .deviceTime)
+        forOther = try c.decode(Bool.self, forKey: .forOther)
+        lat = try c.decodeIfPresent(Double.self, forKey: .lat)
+        lng = try c.decodeIfPresent(Double.self, forKey: .lng)
+        accuracyM = try c.decodeIfPresent(Double.self, forKey: .accuracyM)
+        message = try c.decodeIfPresent(String.self, forKey: .message)
+        serverId = try c.decodeIfPresent(Int64.self, forKey: .serverId)
+        ownerId = try c.decodeIfPresent(String.self, forKey: .ownerId) ?? ""
+    }
 }
 
 /// สถานะที่คนกดเห็น · สามชั้นแรกล้มเหลวคนละสาเหตุกัน จึงห้ามยุบรวมเป็นตัวหมุนเดียว

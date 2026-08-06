@@ -197,6 +197,51 @@ final class SOSStoreTests: XCTestCase {
         XCTAssertNil(SOSOutbox().current(), "draft ของเจ้าของเก่าต้องถูกล้างทิ้ง ไม่ปล่อยค้างรอใครมาสืบทอด")
     }
 
+    /// รีวิว Task 14 รอบสี่: draft ที่เขียนไว้บนดิสก์โดย build ก่อนหน้า commit ที่เพิ่ม ownerId เข้ามา
+    /// ไม่มีคีย์นี้ในไบต์เลย — ownerId ต้อง decode เป็นค่าว่าง (ดู SOSDraft.init(from:)) ซึ่งไม่มีทาง
+    /// match currentUserId ของบัญชีจริงคนไหนได้เลย จึงตกไปสาขา "เจ้าของไม่ตรง" ที่มีอยู่แล้วโดย
+    /// อัตโนมัติ — เคสยังไม่ถูกรับมา (ถูกต้อง ไม่มีทางรู้ว่าเป็นของใคร) แต่ต้องล้างช่องทิ้งจริง ไม่ปล่อย
+    /// ไบต์เก่าค้างจนกว่า save() ครั้งหน้าจะทับ — **ต้องไม่ใช่แค่ decode พังแล้วเงียบเหมือนไม่มีอะไรเกิด
+    /// ขึ้น** ซึ่งเป็นบั๊กเดิมที่ทำให้เคสฉุกเฉินจริงที่ค้างอยู่ก่อนอัปเดตแอปหายไปเงียบๆ
+    func testALegacyDraftMissingOwnerIdIsNotAdoptedAndTheSlotIsCleared() {
+        let legacyJSON = """
+        {"clientId":"legacy-1","deviceTime":"2026-08-01T09:00:00Z","forOther":false}
+        """.data(using: .utf8)!
+        UserDefaults.standard.set(legacyJSON, forKey: SOSOutbox.key(for: Config.backend))
+
+        let store = SOSStore(currentUserId: "user-A", raiseCall: { _, _ in
+            XCTFail("draft เก่าที่ไม่มีเจ้าของต้องไม่ถูกยิงต่อเด็ดขาด")
+            return Self.sampleCase(acked: false)
+        })
+
+        XCTAssertNil(store.draft, "draft เก่าที่ decode ได้แต่ไม่มีเจ้าของต้องไม่ถูกรับมาเป็นของบัญชีนี้")
+        XCTAssertNil(store.status)
+        // เช็คคีย์ดิบใน UserDefaults ตรงๆ แทน SOSOutbox().current() เฉยๆ — .current() คืน nil ทั้งตอน
+        // "ล้างแล้วจริง" และตอน "ไบต์เดิมยัง decode ไม่ผ่านค้างอยู่" เหมือนกันทุกประการ เช็คแค่ผลลัพธ์
+        // จาก .current() จึงพิสูจน์ไม่ได้ว่าล้างจริงหรือแค่ยัง decode พังซ้ำทุกครั้งที่เรียก (พบตอนรัน
+        // RED จริง: เทสนี้ผ่านแม้กับโค้ดก่อนแก้ ถ้าเช็คแค่ .current() — ต้องเช็คคีย์ดิบถึงจะเห็นบั๊ก)
+        XCTAssertNil(UserDefaults.standard.data(forKey: SOSOutbox.key(for: Config.backend)),
+                     "ต้องล้างคีย์ทิ้งจริงจาก UserDefaults ไม่ปล่อยไบต์เก่าที่ decode ไม่ผ่านค้างตลอดกาล")
+    }
+
+    /// เหมือนเทสด้านบนแต่ไบต์เสียหายจริง (ไม่ใช่ JSON ด้วยซ้ำ ไม่ใช่แค่คีย์หาย) — ทางออกต้องเหมือนกัน
+    /// ทุกอย่าง: ไม่รับเคสมา และล้างช่องทิ้งจริง (พบจากรีวิว Task 14 รอบสี่)
+    func testCorruptedBytesAreNotAdoptedAndTheSlotIsCleared() {
+        UserDefaults.standard.set(Data([0xFF, 0x00, 0xDE, 0xAD, 0xBE, 0xEF]),
+                                  forKey: SOSOutbox.key(for: Config.backend))
+
+        let store = SOSStore(currentUserId: "user-A", raiseCall: { _, _ in
+            XCTFail("ไบต์ที่เสียหายต้องไม่ถูกตีความเป็นเคสอะไรทั้งนั้น")
+            return Self.sampleCase(acked: false)
+        })
+
+        XCTAssertNil(store.draft)
+        XCTAssertNil(store.status)
+        // ดูคอมเมนต์ที่เทสก่อนหน้าว่าทำไมต้องเช็คคีย์ดิบ ไม่ใช่แค่ผลของ .current()
+        XCTAssertNil(UserDefaults.standard.data(forKey: SOSOutbox.key(for: Config.backend)),
+                     "ต้องล้างคีย์ทิ้งจริงจาก UserDefaults ไม่ปล่อยไบต์เสียค้างตลอดกาล")
+    }
+
     /// เปิดแอปแบบไม่มีเคสค้างเลย (คนส่วนใหญ่ทุกครั้งที่เปิดแอป) — resumeIfNeeded ต้องไม่ยิงเน็ตเปล่าๆ
     func testResumeIfNeededDoesNothingWithoutAQueuedCase() async {
         let store = SOSStore(raiseCall: { _, _ in
