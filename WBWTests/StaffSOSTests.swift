@@ -111,8 +111,47 @@ final class StaffSOSTests: XCTestCase {
         XCTAssertNil(store.newCase)
     }
 
+    /// พบจากรีวิว: ฟีดฉุกเฉินว่างเปล่าเป็นปกติเกือบทั้งวันของงาน — apply([]) ไม่เติมอะไรใน seenIDs สักตัว
+    /// ถ้าตัดสิน baseline จาก seenIDs.isEmpty เคสจริงเคสแรกที่มาถึงหลังช่วงเงียบ (ไม่ว่าจะเงียบมากี่ตา)
+    /// จะยังถูกนับเป็น baseline อยู่ดี จอทับเต็มจอไม่มีวันเปิดเลยสำหรับเหตุฉุกเฉินจริงตัวแรกของวัน — พัง
+    /// ตรงจุดที่สเปกทั้งอันมีไว้ป้องกันพอดี (เจ้าหน้าที่กำลังก้มมองคิว QR อยู่)
+    func testEmptyPollsBeforeTheFirstRealCaseStillLetItTriggerTheAlert() {
+        let store = StaffSOSStore(feedCall: { _, _ in [] })
+        store.apply([]) // long-poll ตอบกลับมาแบบไม่มีเคส — เป็นปกติเกือบทั้งวัน
+        store.apply([]) // อีกตา ยังไม่มีอะไร
+        store.apply([Self.make(id: 1, updated: "2026-08-06T10:00:00Z")]) // เคสฉุกเฉินจริงตัวแรกของวัน
+        XCTAssertEqual(store.newCase?.id, 1, "เคสจริงตัวแรกหลังช่วงเงียบต้องเด้งจอทับ ไม่ใช่ถูกนับเป็น baseline")
+    }
+
+    // MARK: - เคสของตัวเจ้าหน้าที่เอง (จากปุ่ม SOS ของตัวเอง) ต้องไม่มาแย่ง fullScreenCover กับ
+    // SOSStatusView ของตัวเอง (ดู StaffHomeView.staffOwnSOS + StaffSOSStore.currentUserId)
+
+    func testACaseRaisedByTheLoggedInStaffMemberThemselvesDoesNotTriggerTheAlert() {
+        let store = StaffSOSStore(feedCall: { _, _ in [] }, currentUserId: "staff-self")
+        store.apply([Self.make(id: 1, updated: "2026-08-06T10:00:00Z")]) // baseline
+        store.apply([Self.make(id: 2, updated: "2026-08-06T10:05:00Z", participantId: "staff-self")])
+        XCTAssertNil(store.newCase, "เคสของตัวเองมี SOSStatusView ของตัวเองเปิดทับอยู่แล้ว ไม่ต้องมีจอ \"มีเหตุฉุกเฉินใหม่\" ซ้อนอีกชั้น")
+    }
+
+    /// ต้องไม่กันเคสของ "คนอื่น" ไปด้วยจากการเช็ค currentUserId — แค่เคสของตัวเองเท่านั้นที่ถูกยกเว้น
+    func testACaseRaisedBySomeoneElseStillTriggersTheAlertWhenCurrentUserIdIsSet() {
+        let store = StaffSOSStore(feedCall: { _, _ in [] }, currentUserId: "staff-self")
+        store.apply([Self.make(id: 1, updated: "2026-08-06T10:00:00Z")]) // baseline
+        store.apply([Self.make(id: 2, updated: "2026-08-06T10:05:00Z", participantId: "someone-else")])
+        XCTAssertEqual(store.newCase?.id, 2)
+    }
+
+    /// เคสของตัวเองยังต้องอยู่ในลิสต์ตามปกติ — ที่ถูกกันออกคือแค่การเด้งจอทับเท่านั้น ไม่ใช่หายจากแท็บ SOS ไปด้วย
+    func testACaseRaisedByTheLoggedInStaffMemberStillAppearsInTheList() {
+        let store = StaffSOSStore(feedCall: { _, _ in [] }, currentUserId: "staff-self")
+        store.apply([Self.make(id: 1, updated: "2026-08-06T10:00:00Z", participantId: "staff-self")])
+        XCTAssertEqual(store.cases.count, 1)
+        XCTAssertEqual(store.cases.first?.id, 1)
+    }
+
     private static func make(id: Int64, updated: String, resolved: Bool = false,
-                             accuracy: Double? = 12, lat: Double? = 20.04, lng: Double? = 99.89) -> SOSStaffCase {
+                             accuracy: Double? = 12, lat: Double? = 20.04, lng: Double? = 99.89,
+                             participantId: String = "11111111-1111-1111-1111-111111111111") -> SOSStaffCase {
         SOSStaffCase(id: id, forOther: false, lat: lat, lng: lng, accuracyM: accuracy,
                      locSource: lat == nil ? "none" : "gps",
                      checkpointId: lat == nil ? nil : 2,
@@ -122,7 +161,7 @@ final class StaffSOSTests: XCTestCase {
                      ackedAt: nil, ackedByName: nil,
                      createdAt: "2026-08-06T10:00:00Z", emergencyPhone: nil,
                      updatedAt: updated,
-                     participantId: "11111111-1111-1111-1111-111111111111",
+                     participantId: participantId,
                      firstName: "สมชาย", lastName: "ใจดี", bib: 42, groupNumber: 3,
                      contactPhone: "0891234567",
                      emergencyContactName: "แม่", emergencyContactPhone: "0899876543",

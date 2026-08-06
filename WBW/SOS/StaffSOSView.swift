@@ -31,6 +31,15 @@ final class StaffSOSStore: ObservableObject {
     /// การเขียนทับ dictionary แบบเดียวกันหมด แยกไม่ออกจากกันเองถ้าไม่จำ id ที่เคยเห็นไว้ต่างหาก
     private var seenIDs: Set<Int64> = []
 
+    /// apply() เคยถูกเรียกมาก่อนหน้านี้แล้วหรือยัง (ไม่ว่าครั้งนั้นจะมีเคสมาด้วยหรือไม่ก็ตาม) — ตัวตัดสิน
+    /// "baseline" ที่ถูกต้อง ต่างจาก seenIDs.isEmpty ที่เคยใช้ผิดมาก่อน (พบจากรีวิว): ฟีดฉุกเฉินว่างเปล่า
+    /// เป็นปกติเกือบทั้งวันของงาน long-poll ที่ตอบกลับมาแบบไม่มีเคสเลย (apply([])) ไม่เติมอะไรใน seenIDs
+    /// สักตัว ถ้าใช้ seenIDs.isEmpty เป็นตัวเช็ค baseline เคสจริงเคสแรกที่มาถึงหลังจากช่วงเงียบนั้น (ไม่ว่า
+    /// จะเงียบมากี่ตา) จะยังถูกนับเป็น "baseline" อยู่ดี เพราะ seenIDs ยังว่างอยู่จริง — จอทับเต็มจอที่
+    /// ฟีเจอร์นี้มีไว้ทั้งอันจะไม่มีวันเปิดเลยแม้แต่ครั้งเดียวสำหรับเหตุฉุกเฉินจริงตัวแรกของวัน ซึ่งเป็น
+    /// สถานการณ์ที่เกิดขึ้นจริงมากที่สุด (ฟีดว่างมาตลอดจนกว่าจะมีคนกด SOS จริง)
+    private var hasPolledBefore = false
+
     /// cursor เป็นคู่ "<updated_at>|<id>" ไม่ใช่ updated_at เดี่ยวๆ — updated_at ไม่ unique สองเคสที่มี
     /// เวลาเท่ากันเป๊ะจะทำให้ตัวหนึ่งหายจากทุกรอบถัดไปถาวรถ้าตัด id ทิ้ง (ดูคอมเมนต์ที่ apply())
     /// private(set) แทนที่จะ private ล้วน เพื่อให้เทสยืนยันรูปแบบคู่นี้ได้ตรงๆ ไม่ใช่แค่เดาจากผลข้างเคียง
@@ -41,23 +50,46 @@ final class StaffSOSStore: ObservableObject {
     /// ช่วงพักระหว่างรอบ poll — ฉีดได้เพื่อให้เทส round-trip ของ cursor ไม่ต้องรอ 1 วินาทีจริงต่อรอบ
     /// (ทรงเดียวกับ pollInterval ของ SOSStore) ค่าเริ่มต้น 1 วิเท่าของเดิมทุกประการสำหรับผู้เรียกจริง
     private let pollInterval: Duration
+    /// user id ของเจ้าหน้าที่ที่ล็อกอินอยู่ตอนนี้ — ใช้กันไม่ให้เคสของตัวเองมาเด้งจอทับซ้อนกับ
+    /// SOSStatusView ของตัวเอง (ดูคอมเมนต์ที่ apply() ตรง participantId == currentUserId) ค่าเริ่มต้น
+    /// "" ใช้ได้กับเทสที่ไม่สนเรื่องเจ้าของเท่านั้น (ไม่มีเคสจริงไหน participantId เป็น "" อยู่แล้ว
+    /// จึงไม่กรองอะไรทิ้งเลยเมื่อไม่ได้ส่งมา — ทรงเดียวกับ SOSStore.currentUserId)
+    private let currentUserId: String
 
     init(feedCall: @escaping (String, String?) async throws -> [SOSStaffCase]
          = { token, since in try await APIClient.shared.staffSOSFeed(token: token, since: since, wait: 25) },
-         pollInterval: Duration = .seconds(1)) {
+         pollInterval: Duration = .seconds(1),
+         currentUserId: String = "") {
         self.feedCall = feedCall
         self.pollInterval = pollInterval
+        self.currentUserId = currentUserId
     }
 
     /// รวมของใหม่เข้ากับของเดิมด้วย id · ใหม่สุดอยู่บน
     /// เคสที่ปิดแล้วยังอยู่ในลิสต์ (เซิร์ฟเวอร์ส่งย้อนหลัง 30 นาที) — หายไปเฉยๆ
     /// แยกไม่ออกจาก "โหลดไม่ขึ้น" ซึ่งเป็นคนละเรื่องกันโดยสิ้นเชิง
     func apply(_ incoming: [SOSStaffCase]) {
-        // จับไว้ก่อนแก้ seenIDs — apply() ครั้งแรกที่ store เห็นข้อมูลเลยคือ "baseline" ของเจ้าหน้าที่
-        // คนนี้ ไม่ใช่ "เคสเพิ่งเข้ามา" ในสายตาเขา (ดูคอมเมนต์ที่ newCase ว่าทำไมต้องแยกสองเรื่องนี้)
-        let isBaseline = seenIDs.isEmpty
-        let freshlyArrived = incoming.filter { !seenIDs.contains($0.id) && !$0.resolved }
+        // จับไว้ก่อนแก้ hasPolledBefore — apply() ครั้งแรกที่ store เคยถูกเรียกเลยคือ "baseline" ของ
+        // เจ้าหน้าที่คนนี้ ไม่ใช่ "เคสเพิ่งเข้ามา" ในสายตาเขา (ดูคอมเมนต์ที่ newCase ว่าทำไมต้องแยกสองเรื่องนี้)
+        //
+        // **ใช้ hasPolledBefore ไม่ใช่ seenIDs.isEmpty** (แก้จากรีวิว) — ฟีดฉุกเฉินว่างเปล่าเป็นปกติ
+        // เกือบทั้งวัน long-poll ที่ตอบกลับมาแบบไม่มีเคสเลย (apply([])) ไม่เติมอะไรใน seenIDs สักตัว
+        // ถ้าเช็คจาก seenIDs.isEmpty เคสฉุกเฉินจริงเคสแรกของวันที่มาถึงหลังช่วงเงียบนั้น (ไม่ว่าจะเงียบมา
+        // กี่ตา) จะยังถูกนับเป็น baseline อยู่ดี เพราะ seenIDs ยังว่างจริง — จอทับเต็มจอไม่มีวันเปิดเลย
+        // สำหรับเหตุฉุกเฉินจริงตัวแรก ซึ่งเป็นสถานการณ์ทั่วไปที่สุด (พบจากรีวิว: apply([]), apply([]),
+        // apply([case]) ทิ้ง newCase เป็น nil ด้วยโค้ดเดิม)
+        let isBaseline = !hasPolledBefore
+        // ไม่กันเคสของตัวเองออกจาก seenIDs/cases — ยังต้องเห็นในลิสต์ตามปกติ (ถูกต้องที่จะอยู่ตรงนั้น)
+        // กันออกเฉพาะจากการเด้งจอทับ (freshlyArrived) เท่านั้น (ดูคอมเมนต์ที่ currentUserId ด้านบน):
+        // เคสของตัวเจ้าหน้าที่เองมาจากปุ่ม SOS ของตัวเอง (StaffHomeView.staffOwnSOS) ซึ่งมี
+        // SOSStatusView ของตัวเองเปิดทับจออยู่แล้วพร้อมปุ่มยกเลิก — StaffSOSAlertView ("มีเหตุฉุกเฉินใหม่"
+        // แบบเพื่อนร่วมงาน ไม่มีปุ่มยกเลิก) มาแย่ง fullScreenCover กันเป็นเรื่องของคนละเหตุการณ์ที่ไม่ควร
+        // เกิดกับเคสเดียวกัน (พบจากรีวิว)
+        let freshlyArrived = incoming.filter {
+            !seenIDs.contains($0.id) && !$0.resolved && $0.participantId != currentUserId
+        }
         for c in incoming { seenIDs.insert(c.id) }
+        hasPolledBefore = true
 
         var byID = Dictionary(uniqueKeysWithValues: cases.map { ($0.id, $0) })
         for c in incoming { byID[c.id] = c }

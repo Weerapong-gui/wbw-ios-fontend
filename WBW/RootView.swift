@@ -145,8 +145,10 @@ private struct StaffHomeView: View {
     // feed เคส SOS "ของคนอื่น" ที่เจ้าหน้าที่ต้องดู/รับ/ปิด — start()/stop() ผูกกับ .task/.onDisappear
     // ของจอนี้ทั้งก้อน (ด้านล่าง) ไม่ใช่ผูกกับว่าแท็บ SOS เปิดอยู่หรือเปล่า — เคสใหม่ต้องทับจอได้แม้
     // เจ้าหน้าที่กำลังก้มสแกน QR อยู่แท็บอื่น ซึ่งเป็นสถานการณ์หลักที่ฟีเจอร์นี้มีไว้รับมือ (ดูคอมเมนต์ยาวที่
-    // StaffSOSStore)
-    @StateObject private var sosStaff = StaffSOSStore()
+    // StaffSOSStore) — สร้างใน init() ด้านล่าง ไม่ใช้ default-value ตรงนี้ เพราะต้องส่ง currentUserId
+    // เข้าไปด้วย (กันเคสของตัวเจ้าหน้าที่เองไม่ให้มาเด้งจอทับซ้อนกับ SOSStatusView ของตัวเอง — ดูคอมเมนต์
+    // ที่ StaffSOSStore.currentUserId และรีวิว Task 15)
+    @StateObject private var sosStaff: StaffSOSStore
     // ปุ่ม SOS ของ "ตัวเจ้าหน้าที่เอง" — คนละเรื่องกับ sosStaff ข้างบนโดยสิ้นเชิง (นั่นคือ feed เคสของ
     // คนอื่น นี่คือ SOSStore ตัวเดิมจาก Task 12-14 ที่ใช้ตอนกดปุ่มของตัวเอง) เพิ่มเข้ามาตามข้อกำหนดที่ย้าย
     // มาจาก Task 14 รอบสอง: "เจ้าหน้าที่ก็ล้มบนดอยได้เหมือนผู้เข้าร่วมคนหนึ่ง" ต้องมีปุ่มลอยเดียวกันนี้ด้วย
@@ -166,7 +168,14 @@ private struct StaffHomeView: View {
         // แทนที่จะพึ่ง @EnvironmentObject session — เหตุผลเดียวกันเป๊ะ (@StateObject default-value
         // ถูกประเมินก่อน environment จะพร้อมใช้งานตามลำดับของ SwiftUI) สดใหม่ทุกครั้งเพราะ struct นี้
         // ทั้งก้อนถูกสร้างใหม่ทุกครั้งที่เจ้าหน้าที่คนใหม่ login (ดูคอมเมนต์ที่จุด mount ใน RootView)
-        _staffOwnSOS = StateObject(wrappedValue: SOSStore(currentUserId: Session.currentUserIdFromDisk()))
+        //
+        // อ่านครั้งเดียวแล้วส่งให้ทั้งสอง store — sosStaff ใช้ตัดเคสของตัวเองออกจากการเด้งจอทับ (ดู
+        // StaffSOSStore.currentUserId) staffOwnSOS ใช้ตราความเป็นเจ้าของ draft (ดู SOSDraft.ownerId)
+        // คนละหน้าที่กันแต่ต้องเป็นค่าเดียวกัน — คนละ read สองครั้งจะเสี่ยงไม่ตรงกันถ้า UserDefaults
+        // เปลี่ยนกลางอากาศระหว่างสอง read (ในทางปฏิบัติไม่เกิด แต่ไม่มีเหตุผลต้องเสี่ยงเลย)
+        let uid = Session.currentUserIdFromDisk()
+        _staffOwnSOS = StateObject(wrappedValue: SOSStore(currentUserId: uid))
+        _sosStaff = StateObject(wrappedValue: StaffSOSStore(currentUserId: uid))
     }
 
     var body: some View {
