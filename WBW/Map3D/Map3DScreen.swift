@@ -9,6 +9,10 @@ struct Map3DScreen: View {
     /// โหลดโมเดลไม่สำเร็จ — โชว์ข้อความแทนจอเปล่า (ทรงเดียวกับ ForestSceneHost.loadFailed)
     @State private var loadFailed = false
 
+    @EnvironmentObject private var progress: CheckinProgressStore
+    /// ฐานที่แตะค้างไว้อยู่ — nil = ไม่มีการ์ด
+    @State private var tappedSequence: Int?
+
     /// มุมหมุนรอบแกน Y ที่ใส่ให้ `map` เพื่อเลี่ยงมุมกล้องเริ่มต้นของ `.orbit` ที่ก้มต่ำและหันตรงตามแกน
     /// X/Z ของโมเดล (พื้นที่งานเป็นทรงเกือบสี่เหลี่ยม พอกล้องมองตรงแนวขอบ 0°/90° เลยเห็นภูมิประเทศเป็น
     /// เส้นบางแบบมองข้าง หมุนแนวทแยงให้พ้นทั้งสองแนวขอบ — ยืนยันด้วยสกรีนช็อต: 0°/90° บาง, 45° เห็นมุมสูง
@@ -35,10 +39,13 @@ struct Map3DScreen: View {
     }
 
     var body: some View {
+        // ประเมินครั้งเดียวแล้วใช้ซ้ำ — เดิมเรียก Self.shouldRender(...) ซ้ำสองที่ในฟังก์ชันนี้
+        let shouldRender = Self.shouldRender(map3D: Config.map3D, underTest: Self.isRunningUnderXCTest)
+
         ZStack {
             Color.wbwForestVoid.ignoresSafeArea()
 
-            if !Self.shouldRender(map3D: Config.map3D, underTest: Self.isRunningUnderXCTest) {
+            if !shouldRender {
                 // ปิดสวิตช์อยู่ — ต้องเหลือของที่อ่านรู้เรื่อง ไม่ใช่จอว่าง
                 VStack(spacing: 12) {
                     Image(systemName: "map")
@@ -61,7 +68,7 @@ struct Map3DScreen: View {
                 mapView
             }
 
-            if Self.shouldRender(map3D: Config.map3D, underTest: Self.isRunningUnderXCTest) {
+            if shouldRender {
                 VStack {
                     Spacer()
                     HStack {
@@ -75,6 +82,30 @@ struct Map3DScreen: View {
                     .padding(.bottom, ForestSceneHost.tabBarClearance)
                 }
                 .allowsHitTesting(false)
+            }
+
+            if let tappedSequence {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Text(Map3DPins.label(sequence: tappedSequence,
+                                             checkedIn: progress.progress?.checkedIn ?? []))
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Button {
+                            self.tappedSequence = nil
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.8))
+                        }
+                    }
+                    .padding(16)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, ForestSceneHost.tabBarClearance)
+                }
             }
         }
     }
@@ -113,6 +144,19 @@ struct Map3DScreen: View {
 
             root.addChild(map)
 
+            // ให้แท่งแดงแตะได้ — ต้องมีทั้งสองคอมโพเนนต์ ขาดตัวใดตัวหนึ่ง tap ไม่เข้า
+            for name in Map3DPins.entityNames {
+                guard let pin = map.findEntity(named: name) else {
+                    NSLog("[Map3DScreen] ไม่พบหมุดชื่อ %@ ในโมเดล", name)
+                    continue
+                }
+                let bounds = pin.visualBounds(relativeTo: pin)
+                pin.components.set(CollisionComponent(shapes: [
+                    .generateBox(size: bounds.extents).offsetBy(translation: bounds.center)
+                ]))
+                pin.components.set(InputTargetComponent())
+            }
+
             #if DEBUG
             NSLog("[Map3DScreen] map.visualBounds = %@", String(describing: bounds))
             NSLog("[Map3DScreen] map.children.count = %d", map.children.count)
@@ -130,6 +174,29 @@ struct Map3DScreen: View {
             root.addChild(fill)
         }
         .realityViewCameraControls(.orbit)
+        .gesture(
+            SpatialTapGesture()
+                .targetedToAnyEntity()
+                .onEnded { value in
+                    // ไต่ขึ้นหา entity ที่อยู่ในตาราง — collision อาจโดนลูกของแท่ง ไม่ใช่ตัวแท่งเอง
+                    var node: Entity? = value.entity
+                    while let current = node {
+                        if let sequence = Map3DPins.sequence(forEntityNamed: current.name) {
+                            tappedSequence = sequence
+                            return
+                        }
+                        node = current.parent
+                    }
+                }
+        )
+        .onAppear {
+            #if DEBUG
+            // เปิดการ์ดฐานตรงๆ โดยไม่ต้องแตะจริง — ทรงเดียวกับ uitestChat/uitestFeedback ที่
+            // MainTabView.swift เป็นทางเดียวที่ถ่ายรูปการ์ดได้ในสภาพแวดล้อมที่ไม่มี tap tooling
+            let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
+            if forced > 0 { tappedSequence = forced }
+            #endif
+        }
         .ignoresSafeArea()
     }
 }
