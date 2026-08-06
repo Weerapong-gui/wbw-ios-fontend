@@ -9,6 +9,7 @@ struct SOSFriendView: View {
     let token: String
     @State private var sosCase: SOSCase?
     @State private var loadError: String?
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
@@ -37,7 +38,21 @@ struct SOSFriendView: View {
                     }
 
                     Button("เปิดแชทกลุ่ม") {
+                        // จอนี้เป็น .sheet ที่คลุมทับ ZStack ทั้งก้อนของ MainTabView อยู่ (รวม
+                        // GroupChatView overlay ด้วย) โพสต์อย่างเดียวไม่ปิดชีตเอง แชทที่เพิ่งสั่งเปิด
+                        // จะขึ้นอยู่ใต้ชีตนี้เงียบๆ ผู้ใช้แตะแล้วไม่เห็นอะไรเกิดขึ้นเลย ต้องปัดชีตทิ้งเอง
+                        // อีกทีโดยไม่มีอะไรบอกให้ทำแบบนั้น (พบจากรีวิว Task 16 — ปุ่มนี้มาจากบรีฟตรงๆ
+                        // แต่ไม่มีของแทนให้เห็นว่าเกิดอะไรขึ้น เหมือนปัญหา "ดูกดได้แต่กดไม่ได้" ที่เคยพบใน
+                        // หน้า login แต่กลับทิศ: ตัวนี้กดได้จริงแต่ดูเหมือนไม่มีอะไรเกิดขึ้น)
+                        //
+                        // โพสต์ก่อนเรียก dismiss() เสมอ ไม่ใช่กลับกัน — NotificationCenter ไม่มี
+                        // scheduler คั่นระหว่างทาง MainTabView.onReceive(.openGroupChat) จึงทำงานแบบ
+                        // sync ในตา post() นี้เอง (ทรงเดียวกับที่ทั้งไฟล์นี้พึ่งอยู่แล้วตอน cold-launch
+                        // replay ผ่าน PendingPush) ตั้ง chatOpen = true เสร็จสมบูรณ์ก่อน dismiss() จะเริ่ม
+                        // ด้วยซ้ำ แชทจึงพร้อมอยู่ข้างใต้ตั้งแต่ก่อนชีตนี้จะเริ่มเลื่อนหาย ไม่ใช่ตั้งค่าไล่หลัง
+                        // ชีตที่ปิดไปแล้ว — ไม่มีจังหวะที่ชีตปิดจบแล้วเห็นพื้นหลังว่างเปล่าเป็นเสี้ยววินาที
                         NotificationCenter.default.post(name: .openGroupChat, object: nil)
+                        dismiss()
                     }
 
                     if c.resolved {
