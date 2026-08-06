@@ -454,6 +454,39 @@ final class SOSStoreTests: XCTestCase {
         XCTAssertEqual(sent.count, 2)
     }
 
+    /// การแจ้งที่ส่งไม่ถึงต้องไม่ทิ้งธงไว้ในเครื่องเหมือนสำเร็จ (แก้จากรีวิว)
+    ///
+    /// เดิม draft.forOther ถูกเขียน (และ persist) ก่อนยิงเสมอ ถ้าส่งไม่ถึงจะเกิดสามอย่างพร้อมกัน:
+    /// จอบอกว่า "แจ้งไว้แล้ว" · guard `!d.forOther` ปิดทางกดซ้ำ · และไม่มีอะไรมายิงต่อให้ในรอบนั้น
+    /// (retry loop จบไปแล้วเพราะ serverId ถูกตั้ง ส่วน flush(token:) ไม่มีผู้เรียกที่ไหนในแอปเลย)
+    /// ผลคือเจ้าหน้าที่ไม่เห็นแบนเนอร์ "คนอื่นเจ็บ" และถูกโชว์ประวัติสุขภาพของ "คนกด" แทน ทั้งที่
+    /// คนกดเชื่อว่าบอกไปแล้ว · ตอนนี้ต้องถอนธงกลับ และกดใหม่ได้จริงในรอบเดียวกัน
+    func testAFailedForOtherLeavesNoFlagBehindAndCanBePressedAgain() async {
+        var sent: [Bool] = []
+        var shouldFail = true
+        let store = SOSStore(raiseCall: { _, d in
+                                 sent.append(d.forOther)
+                                 if shouldFail && d.forOther { throw AppError.offline }
+                                 return Self.sampleCase(acked: false, forOther: d.forOther)
+                             },
+                             activeCall: { _, _ in nil },
+                             pollInterval: .seconds(60))
+
+        await store.raise(forOther: false, token: "t")
+        let failed = await store.markForOther(token: "t")
+        XCTAssertFalse(failed, "ส่งไม่ถึงต้องรายงานว่าไม่สำเร็จ")
+        XCTAssertEqual(SOSOutbox().current()?.forOther, false,
+                       "ธงที่ยังไม่ถึงเซิร์ฟเวอร์ต้องไม่ค้างในเครื่องเหมือนสำเร็จแล้ว")
+        XCTAssertEqual(store.serverCase?.forOther, false, "เซิร์ฟเวอร์ยังไม่รู้เรื่องนี้")
+
+        // กดใหม่ได้จริงในรอบเดียวกัน ไม่ต้องรอเปิดแอปใหม่ — guard ต้องไม่ถูกปิดไปแล้ว
+        shouldFail = false
+        let retried = await store.markForOther(token: "t")
+        XCTAssertTrue(retried, "กดใหม่แล้วสำเร็จต้องรายงานว่าสำเร็จ")
+        XCTAssertEqual(SOSOutbox().current()?.forOther, true)
+        XCTAssertEqual(sent, [false, true, true])
+    }
+
     /// โน้ตต้องส่งได้จริง และต้องบอกความจริงว่าถึงหรือยัง
     ///
     /// เดิมช่องพิมพ์มีแต่ `.onSubmit` ซึ่งไม่มีวันยิงกับ TextField(axis: .vertical) — ไม่มีทางส่งเลย

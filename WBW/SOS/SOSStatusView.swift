@@ -13,14 +13,18 @@ struct SOSStatusView: View {
     @State private var noteDelivered: Bool?
     @State private var sendingNote = false
     @State private var markingForOther = false
+    /// การกด "คนอื่นเจ็บ" ครั้งล่าสุดส่งไม่ถึง — ปุ่มยังอยู่ให้กดใหม่ได้ พร้อมบอกว่ายังไม่ถึง
+    @State private var forOtherFailed = false
 
     private var canCancel: Bool { secondsSinceRaise < 15 && store.serverCase?.ackedAt == nil }
 
-    /// เคสนี้ถูกทำเครื่องหมายว่า "คนอื่นเจ็บ" ไปแล้วหรือยัง — อ่านจาก draft ด้วยไม่ใช่แค่ serverCase
-    /// เพราะการกดต้องเห็นผลทันทีแม้เน็ตยังไปไม่ถึง (draft ถูกเขียนก่อนยิงเสมอ)
-    private var isForOther: Bool {
-        store.draft?.forOther == true || store.serverCase?.forOther == true
-    }
+    /// เคสนี้ถูกทำเครื่องหมายว่า "คนอื่นเจ็บ" **และเซิร์ฟเวอร์ยืนยันแล้ว** หรือยัง
+    ///
+    /// อ่านจาก serverCase อย่างเดียวโดยตั้งใจ (แก้จากรีวิว) — เดิมมี `store.draft?.forOther == true`
+    /// อยู่ด้วย ซึ่ง markForOther เขียนลงไปก่อนยิงเสมอ ป้ายจึงเปลี่ยนเป็น "แจ้งไว้แล้ว" แม้การส่งจะ
+    /// ล้มเหลว และปุ่มก็หายไปพร้อมกัน ไม่เหลือทางกดใหม่ · ป้ายบนจอนี้ต้องแปลว่า "เจ้าหน้าที่รู้แล้ว"
+    /// เท่านั้น ไม่ใช่ "เราตั้งใจจะบอก" — สองอย่างนี้ต่างกันตรงที่คนที่ไปช่วยเห็นอะไร
+    private var isForOther: Bool { store.serverCase?.forOther == true }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -167,18 +171,30 @@ struct SOSStatusView: View {
             Label("แจ้งไว้แล้วว่าคนที่เจ็บเป็นคนอื่น", systemImage: "person.2.fill")
                 .font(.callout).foregroundStyle(.orange)
         } else if store.status?.isActive == true {
-            Button {
-                markingForOther = true
-                Task {
-                    await store.markForOther(token: token)
-                    markingForOther = false
+            VStack(spacing: 6) {
+                Button {
+                    markingForOther = true
+                    forOtherFailed = false
+                    Task {
+                        // ใช้ค่าที่คืนมาจริง ไม่ใช่ทิ้งแล้วเดาว่าสำเร็จ — ทรงเดียวกับปุ่มส่งข้อความ
+                        // ข้างบน · ล้มเหลวแล้วปุ่มยังอยู่ตรงนี้ให้กดใหม่ได้ทันที ไม่ต้องรอเปิดแอปใหม่
+                        let ok = await store.markForOther(token: token)
+                        forOtherFailed = !ok
+                        markingForOther = false
+                    }
+                } label: {
+                    Label(markingForOther ? "กำลังแจ้ง…" : "คนที่เจ็บเป็นคนอื่น ไม่ใช่ฉัน",
+                          systemImage: "person.2.fill")
                 }
-            } label: {
-                Label(markingForOther ? "กำลังแจ้ง…" : "คนที่เจ็บเป็นคนอื่น ไม่ใช่ฉัน",
-                      systemImage: "person.2.fill")
+                .buttonStyle(.bordered)
+                .disabled(markingForOther)
+
+                if forOtherFailed {
+                    Label("ยังแจ้งไม่ถึงเจ้าหน้าที่ กดอีกครั้งได้", systemImage: "exclamationmark.circle")
+                        .font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            .buttonStyle(.bordered)
-            .disabled(markingForOther)
         }
     }
 
