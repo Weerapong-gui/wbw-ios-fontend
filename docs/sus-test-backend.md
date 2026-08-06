@@ -66,6 +66,12 @@ there first). Both can run side by side.
 
 ## Test accounts
 
+**All four accounts below exist only on the local SUS stack, not on production.** Confirmed
+2026-08-07: logging in with any of them against `https://api.studentunion.social/wbw/auth/login`
+returns `{"error":"username หรือ password ไม่ถูกต้อง"}`. Production has its own separate
+participant, `6931900013`, registered 2026-08-07 for the forest-3D-off screenshots — its password
+is deliberately not recorded in this repo (see `docs/forest-3d-off-verification.md` §1).
+
 | username | password | note |
 |---|---|---|
 | `6931900001` | *unknown* | pre-existing, in group 1 with ~40 messages of history |
