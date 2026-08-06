@@ -51,6 +51,17 @@ struct MainTabView: View {
     // ฐานที่การ์ดในหน้าแจ้งเตือนสั่งให้เปิดฟอร์มต่อ — พักไว้จนกว่าชีตแจ้งเตือนจะปิดจบจริง
     // (ดูคอมเมนต์ที่ .sheet(isPresented:onDismiss:))
     @State private var pendingFeedbackFromNoti: Int?
+    // เคส SOS ของเพื่อนที่กำลังเปิดจอให้ดูอยู่ (nil = ไม่มีจอเปิด) — จุดบรรจบของทั้ง 3 ทางเข้า: แตะ push
+    // ตอนแอปปิด (PendingPush → .openSOSCase), push ตอนแอปเปิด (willPresent → .sosArrived → รีเฟรช
+    // รายการ → ผู้ใช้แตะการ์ดเอง), และแตะการ์ดในหน้าแจ้งเตือนตรงๆ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว
+    // ไม่มีทางลัดอื่นไป SOSFriendView — ทรงเดียวกับ feedbackCheckpoint ด้านบนทุกประการ
+    @State private var sosFriendTarget: SOSFriendTarget?
+    // เคส SOS ที่การ์ดในหน้าแจ้งเตือนสั่งให้เปิดจอต่อ — พักไว้จนกว่าชีตแจ้งเตือนจะปิดจบจริง (ทรงเดียวกับ
+    // pendingFeedbackFromNoti ด้านบน เหตุผลเดียวกัน — ดูคอมเมนต์ที่ .sheet(isPresented:onDismiss:))
+    @State private var pendingSOSFromNoti: Int64?
+    // เคส SOS ที่ต้องไปมาร์คแจ้งเตือนว่าอ่านแล้ว แต่ตอนได้เรื่องมายังหาแถวนั้นใน noti.items ไม่เจอ —
+    // ทรงเดียวกับ pendingReadCheckpoint ด้านบนทุกประการ เหตุผลเดียวกัน
+    @State private var pendingReadSOSId: Int64?
 
     init() {
         // ดูคอมเมนต์ยาวที่ประกาศ @StateObject private var sos ด้านบนว่าทำไมต้องอ่านจากดิสก์ตรงนี้
@@ -197,6 +208,16 @@ struct MainTabView: View {
                 if !markFeedbackNotiRead(checkpointId: id) { pendingReadCheckpoint = id }
                 PendingPush.clear()   // รับสดแล้ว — เคลียร์กัน mount ถัดไปดึงไปเล่นซ้ำ (ดู PendingPush.clear())
             }
+            // แตะ push เคส SOS ของเพื่อน (ทั้งแบบแอปปิดอยู่แล้วเล่นซ้ำจาก PendingPush และแบบรับสด) —
+            // ทรงเดียวกับ .openCheckinFeedback ด้านบนทุกประการ
+            .onReceive(NotificationCenter.default.publisher(for: .openSOSCase)) { note in
+                guard let raw = note.userInfo?["sos_id"] as? String, let id = Int64(raw)
+                else { return }   // payload ไม่มีเลขเคส = เปิดจอเปล่าไม่ได้ ทิ้งเงียบๆ ดีกว่าเปิดผิดเคส
+                sosFriendTarget = SOSFriendTarget(id: id)
+                // ยังไม่เจอแถวที่จะมาร์ค = จำไว้ลองใหม่ (ดูคอมเมนต์ที่ pendingReadSOSId)
+                if !markSOSNotiRead(sosId: id) { pendingReadSOSId = id }
+                PendingPush.clear()   // รับสดแล้ว — เคลียร์กัน mount ถัดไปดึงไปเล่นซ้ำ (ดู PendingPush.clear())
+            }
             // push ขอความเห็นมาถึงตอนแอปเปิดอยู่ — willPresent กดของระบบทิ้งไปแล้ว ต้องมีของแทนจริงๆ
             // ให้เห็น ไม่ใช่เงียบไปจนกว่า poll รอบถัดไป (นานสุด 60 วิ) · progress ใหม่พา toast เช็คอินมา
             // ผ่าน newlyPending ส่วนรายการแจ้งเตือนใหม่พา badge กระดิ่งมา (ดู AppDelegate.willPresent)
@@ -206,12 +227,24 @@ struct MainTabView: View {
                     await noti.load(token: session.token ?? "")
                 }
             }
+            // push เคส SOS ของเพื่อนมาถึงตอนแอปเปิดอยู่ — willPresent กดของระบบทิ้งไปแล้วเหมือนกัน (ดู
+            // AppDelegate.willPresent) ไม่มี toast เฉพาะของ SOS แบบที่ checkin มี (toastBases/newlyPending)
+            // รีเฟรชรายการแจ้งเตือนพอ ผู้ใช้เห็นการ์ดใหม่สีแดง + badge กระดิ่งขึ้นทันที แล้วแตะเข้าเอง
+            // ได้ (เข้าทางการ์ดในรายการ ไม่ใช่ทางนี้เปิดจอให้ตรงๆ — เหตุผลเดียวกับ checkinFeedbackArrived
+            // ด้านบน: push ที่มาถึงเฉยๆ ไม่ใช่การขออนุญาตแทรกจอที่ผู้ใช้กำลังใช้อยู่)
+            .onReceive(NotificationCenter.default.publisher(for: .sosArrived)) { _ in
+                Task { await noti.load(token: session.token ?? "") }
+            }
             // รายการแจ้งเตือนเปลี่ยน (โหลดครั้งแรกจบ หรือโหลดใหม่แล้วได้ของเพิ่ม) — ถ้ามี push ค้างรอ
             // มาร์คอยู่ ลองใหม่ · ค้างไว้จนกว่าจะมาร์คได้จริง ไม่ล้างทิ้งตอนลองแล้วพลาด เพราะเคสที่ต้อง
             // การคือ "แถวยังมาไม่ถึง" ซึ่งแก้ด้วยการรอรอบถัดไปเท่านั้น (ดูคอมเมนต์ที่ pendingReadCheckpoint)
             .onChange(of: noti.items) { _, _ in
-                guard let cp = pendingReadCheckpoint, markFeedbackNotiRead(checkpointId: cp) else { return }
-                pendingReadCheckpoint = nil
+                if let cp = pendingReadCheckpoint, markFeedbackNotiRead(checkpointId: cp) {
+                    pendingReadCheckpoint = nil
+                }
+                if let sid = pendingReadSOSId, markSOSNotiRead(sosId: sid) {
+                    pendingReadSOSId = nil
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .openNotificationsTab)) { _ in
                 showNotifications = true   // noti ไม่มี tab แล้ว → เปิดเป็น sheet
@@ -332,12 +365,19 @@ struct MainTabView: View {
         // ฟอร์มเกิดตอน UIKit บอกเองว่าปิดจบแล้วจริง — ไม่ต้องเดาความยาว transition ซึ่งถ้าเดาพลาด
         // (iOS เปลี่ยน, ลด motion, เครื่องช้า) จะพังแบบเงียบสนิท คือแตะการ์ดแล้วไม่มีอะไรเกิดขึ้น
         .sheet(isPresented: $showNotifications, onDismiss: {
-            guard let id = pendingFeedbackFromNoti else { return }
-            pendingFeedbackFromNoti = nil
-            feedbackCheckpoint = FeedbackTarget(id: id)
+            if let id = pendingFeedbackFromNoti {
+                pendingFeedbackFromNoti = nil
+                feedbackCheckpoint = FeedbackTarget(id: id)
+            } else if let id = pendingSOSFromNoti {
+                pendingSOSFromNoti = nil
+                sosFriendTarget = SOSFriendTarget(id: id)
+            }
         }) {
             NotificationsView(store: noti, token: session.token ?? "", onOpenFeedback: { id in
                 pendingFeedbackFromNoti = id
+                showNotifications = false
+            }, onOpenSOS: { id in
+                pendingSOSFromNoti = id
                 showNotifications = false
             })
         }
@@ -362,6 +402,18 @@ struct MainTabView: View {
                 .environmentObject(session)
                 .environmentObject(progress)
                 .environmentObject(feedback)
+        }
+        // จอที่เพื่อนในกลุ่มเห็นเมื่อมีคนกด SOS — .sheet ไม่ใช่ .fullScreenCover เหมือน SOSStatusView
+        // ด้านล่าง โดยตั้งใจ: นี่คือจอของ "เพื่อน" ไม่ใช่จอของตัวเองที่กำลังรอความช่วยเหลืออยู่ — อ่านแล้ว
+        // ปัดปิดได้ปกติ ไม่มีปุ่มยกเลิก/โทรฉุกเฉินที่ต้องบังคับให้เต็มจอเหมือนตอนเป็นคนกดเอง (ทรงเดียวกับ
+        // FeedbackView ด้านบน ซึ่งก็เป็น .sheet เหมือนกัน)
+        //
+        // .id(target.id) ด้วยเหตุผลเดียวกับ FeedbackView ด้านบน: กลุ่มเดียวกันมีมากกว่าหนึ่งเคสเปิดพร้อม
+        // กันได้จริง (สเปกไม่ได้จำกัดไว้) เคสที่สองมาระหว่างจอของเคสแรกเปิดค้างต้องได้ @State ชุดใหม่
+        // ทั้งชุด (sosCase/loadError) ไม่ใช่ของเคสแรกค้างอยู่ในจอที่ควรเป็นของเคสที่สอง
+        .sheet(item: $sosFriendTarget) { target in
+            SOSFriendView(sosId: target.id, token: session.token ?? "")
+                .id(target.id)
         }
         // จอสถานะ SOS เต็มจอทันทีที่กดครบ ไม่ใช่ toast — คนกดต้องเห็นว่าเกิดอะไรขึ้น และปุ่มยกเลิก/โทร
         // ต้องอยู่ตรงหน้า ไม่ใช่ค้นหาจากที่ไหน (ดูคอมเมนต์เต็มที่ SOSStatusView) · fullScreenCover ไม่รับ
@@ -450,11 +502,31 @@ struct MainTabView: View {
         Task { try? await APIClient.shared.markRead(token: session.token ?? "", id: id) }
         return true
     }
+
+    /// มาร์คแจ้งเตือน SOS เคสนี้ว่าอ่านแล้ว — ทรงเดียวกับ markFeedbackNotiRead ด้านบนทุกประการ เหตุผล
+    /// เดียวกัน: เส้นทาง push พาเข้าจอเพื่อนตรงๆ ไม่ผ่าน NotificationsView ซึ่งเป็นที่เดียวที่ markAllRead
+    /// ทำงาน ไม่ทำตรงนี้ badge กระดิ่งจะค้างเลขของเคสที่ผู้ใช้เปิดดูไปแล้ว
+    ///
+    /// คืน false เมื่อยังหาแถวที่ยังไม่อ่านของเคสนี้ไม่เจอ — ผู้เรียกเก็บไว้ลองใหม่เอง (ดู pendingReadSOSId)
+    @discardableResult
+    private func markSOSNotiRead(sosId: Int64) -> Bool {
+        guard let i = noti.items.firstIndex(where: {
+            $0.sosId == sosId && $0.isUnread
+        }) else { return false }
+        let id = noti.items[i].id
+        noti.items[i].readAt = ISO8601DateFormatter().string(from: Date())
+        Task { try? await APIClient.shared.markRead(token: session.token ?? "", id: id) }
+        return true
+    }
 }
 
 /// ห่อ checkpoint id ให้ `.sheet(item:)` ใช้ได้ — Int ไม่ conform Identifiable เอง
 /// (ดูคอมเมนต์ที่ .sheet(item:) ว่าทำไมไม่เติม conformance ให้ Int ตรงๆ)
 private struct FeedbackTarget: Identifiable { let id: Int }
+
+/// ห่อเคส SOS id ให้ `.sheet(item:)` ใช้ได้ — ทรงเดียวกับ FeedbackTarget ด้านบนทุกประการ เหตุผลเดียวกัน
+/// Int64 ไม่ conform Identifiable เอง (ชนิดเดียวกับ SOSCase.id — ดู APIClient+SOS.swift)
+private struct SOSFriendTarget: Identifiable { let id: Int64 }
 
 /// พื้นป่าเปล่า (Event/Voucher ยังไม่ออกแบบเนื้อหาใน DOI-APP)
 struct ForestBlank: View {

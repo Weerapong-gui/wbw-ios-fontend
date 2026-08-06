@@ -13,6 +13,13 @@ extension Notification.Name {
     /// โพสต์เมื่อ push ขอความเห็น "มาถึง" ตอนแอปเปิดอยู่ (ยังไม่มีใครแตะ) — สัญญาณว่ามีของใหม่ฝั่ง
     /// server เท่านั้น ไม่พา userInfo อะไรมาและไม่สั่งเปิดจอไหนทั้งสิ้น (ดู willPresent)
     static let checkinFeedbackArrived = Notification.Name("checkinFeedbackArrived")
+    /// โพสต์เมื่อผู้ใช้แตะ push เคส SOS ของเพื่อนในกลุ่ม — userInfo["sos_id"] เป็น String
+    static let openSOSCase = Notification.Name("openSOSCase")
+    /// โพสต์เมื่อ push เคส SOS ของเพื่อนมาถึงตอนแอปเปิดอยู่ (ยังไม่มีใครแตะ) — ทรงเดียวกับ
+    /// checkinFeedbackArrived ทุกประการและด้วยเหตุผลเดียวกัน: push ที่มาถึงเฉยๆ ไม่ใช่การขออนุญาต
+    /// แทรกจอที่ผู้ใช้กำลังใช้อยู่ ไม่พา userInfo มาและไม่เปิด SOSFriendView ให้เอง — แตะการ์ดใน
+    /// รายการแจ้งเตือน หรือแตะตัว push ต่างหากถึงเข้าจอ (ดู didReceive)
+    static let sosArrived = Notification.Name("sosArrived")
 }
 
 /// เก็บ notification name ที่แตะไว้ชั่วคราว เผื่อ NotificationCenter.post ยิงไปตอนยังไม่มีใคร subscribe
@@ -36,6 +43,17 @@ enum PendingPush {
     /// hold() พักไว้ตอน didReceive ตกค้างข้าม mount ถัดไป (เช่น logout แล้ว login บัญชีอื่น) ทำให้ consume()
     /// ตอน mount ใหม่ดึงของเก่าที่ไม่เกี่ยวกับบัญชีนั้นมาเล่นซ้ำ
     static func clear() { pending = nil }
+
+    /// เลขเคส SOS ใน payload ของ push · nil = push ชนิดอื่น
+    ///
+    /// เช็ค type ก่อนเสมอ — payload ของ push ชนิดอื่น (เช่น chat มี group_id) ต้องไม่ถูกอ่าน
+    /// sos_id ผิดๆ ไปเป็นเลขเคสที่ไม่มีอยู่จริง ใช้ทั้งจาก didReceive (แตะ push) และ willPresent
+    /// (push มาถึงตอนแอปเปิดอยู่) เป็นจุดตัดสินจุดเดียวว่า payload นี้ "เป็น SOS ที่มีเลขเคสจริง" ไหม
+    static func sosId(from payload: [AnyHashable: Any]) -> Int64? {
+        guard payload["type"] as? String == "sos" else { return nil }
+        guard let raw = payload["sos_id"] as? String else { return nil }
+        return Int64(raw)
+    }
 }
 
 /// จัดการ push ผ่าน Firebase (FCM ครอบ APNs)
@@ -130,6 +148,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
             completionHandler([])
             return
         }
+        if PendingPush.sosId(from: info) != nil {
+            // เคส SOS ของเพื่อนมาถึงตอนแอปเปิดอยู่ — ทรงเดียวกับ checkin_feedback ด้านบนทุกประการ:
+            // ปิด banner ของระบบแล้วรีเฟรชรายการแจ้งเตือนแทน (ดู MainTabView.onReceive(.sosArrived))
+            // ให้ badge กระดิ่ง/การ์ดอัปเดตทันที ไม่เปิด SOSFriendView ทับจอที่ผู้ใช้กำลังใช้อยู่เอง
+            // — เช็คผ่าน PendingPush.sosId(from:) แทน type == "sos" ตรงๆ: payload ที่พังกลางทาง
+            // (ไม่มี sos_id หรือ sos_id ไม่ใช่ตัวเลข) จะไม่ถูกนับว่าเป็น SOS ที่รู้เรื่อง ปล่อยให้ระบบ
+            // ขึ้น banner เริ่มต้นแทนดีกว่าเงียบหายไปเฉยๆ โดยไม่มีอะไรแทนที่เลย
+            NotificationCenter.default.post(name: .sosArrived, object: nil)
+            completionHandler([])
+            return
+        }
         completionHandler([.banner, .sound, .badge])
     }
 
@@ -149,6 +178,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
         case "checkin_feedback":
             name = .openCheckinFeedback
             carried = ["checkpoint_id": info["checkpoint_id"] as? String ?? ""]
+        case "sos":
+            name = .openSOSCase
+            carried = ["sos_id": info["sos_id"] as? String ?? ""]
         default:
             name = .openNotificationsTab
         }

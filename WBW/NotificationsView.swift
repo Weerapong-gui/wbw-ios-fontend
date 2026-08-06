@@ -45,6 +45,9 @@ struct NotificationsView: View {
     /// แตะการ์ดขอความเห็น (checkpoint id ที่มันพูดถึง) — Task 11 ผูกว่าเปิดอะไรต่อ การ์ดประกาศทั่วไป
     /// ไม่เรียกตัวนี้เลย (feedbackCheckpointId เป็น nil)
     let onOpenFeedback: (Int) -> Void
+    /// แตะการ์ด SOS ของเพื่อนในกลุ่ม (case id ที่มันพูดถึง) — ทรงเดียวกับ onOpenFeedback ทุกประการ
+    /// การ์ดประกาศทั่วไป/การ์ดขอความเห็นไม่เรียกตัวนี้เลย (sosId เป็น nil)
+    let onOpenSOS: (Int64) -> Void
 
     private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255) // ครีมอ่อน #FAF7F0
 
@@ -58,9 +61,12 @@ struct NotificationsView: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(store.items) { item in
-                                // เฉพาะการ์ดขอความเห็นกดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
+                                // เฉพาะการ์ดขอความเห็น/การ์ด SOS กดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
                                 if let checkpointId = item.feedbackCheckpointId {
                                     Button { onOpenFeedback(checkpointId) } label: { NotiCard(item: item) }
+                                        .buttonStyle(.plain)
+                                } else if let sosId = item.sosId {
+                                    Button { onOpenSOS(sosId) } label: { NotiCard(item: item) }
                                         .buttonStyle(.plain)
                                 } else {
                                     NotiCard(item: item)
@@ -95,24 +101,32 @@ struct NotificationsView: View {
 }
 
 /// การ์ดประกาศ 1 รายการ — แถบสีซ้ายตามระดับความสำคัญ
-/// การ์ดขอความเห็น (feedbackCheckpointId != nil) มีสี/ไอคอน/เชฟรอนของตัวเอง เช็คก่อน switch ตาม
-/// item.level เดิมเสมอ ไม่งั้นการ์ดประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย — เช็คจาก feedbackCheckpointId
-/// (ไม่ใช่ item.type ตรงๆ) ตัวเดียวกับที่ NotificationsView ใช้ตัดสินใจห่อ Button ด้านบน กันไม่ให้การ์ด
-/// ดูกดได้ (สีเขียว+เชฟรอน) ทั้งที่แตะแล้วไม่มีอะไรเกิดขึ้นจริง
+/// การ์ดขอความเห็น (feedbackCheckpointId != nil) และการ์ด SOS (sosId != nil) มีสี/ไอคอน/เชฟรอนของ
+/// ตัวเอง เช็คก่อน switch ตาม item.level เดิมเสมอ ไม่งั้นการ์ดประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย —
+/// เช็คจาก feedbackCheckpointId/sosId (ไม่ใช่ item.type ตรงๆ) ตัวเดียวกับที่ NotificationsView ใช้
+/// ตัดสินใจห่อ Button ด้านบน กันไม่ให้การ์ดดูกดได้ (สี+เชฟรอน) ทั้งที่แตะแล้วไม่มีอะไรเกิดขึ้นจริง
 private struct NotiCard: View {
     let item: NotificationItem
 
     private var isFeedback: Bool { item.feedbackCheckpointId != nil }
+    private var isSOS: Bool { item.sosId != nil }
+    /// การ์ดที่ห่อด้วย Button จริงใน NotificationsView — ใช้ตัดสินใจโชว์เชฟรอน ไม่งั้นการ์ดกดได้
+    /// (SOS) แต่ไม่มีเชฟรอนบอกจะดูเหมือนกดไม่ได้ ซึ่งเป็นบั๊กคนละทิศกับ "ดูกดได้แต่กดไม่ได้" ที่เคย
+    /// พบในหน้า login (ดูคอมเมนต์ที่ LoginView) — แต่ผลลัพธ์เสียหายแบบเดียวกันคือผู้ใช้พลาดทางเข้า
+    private var isTappable: Bool { isFeedback || isSOS }
 
     private var accent: Color {
         if isFeedback { return Color.wbwGreen }
+        // SOS ใช้สีแดงเดียวกับ "emergency" — เคสฉุกเฉินจริงของเพื่อน ต้องเด่นกว่าประกาศทั่วไปเสมอ
+        // ไม่ว่า server จะส่ง level มาเป็นอะไร (ปัจจุบันคือ "urgent" ซึ่งไม่มีอยู่ใน switch ด้านล่าง)
+        if isSOS || item.level == "emergency" { return Color(red: 0.84, green: 0.27, blue: 0.27) } // แดง
         switch item.level {
-        case "emergency": return Color(red: 0.84, green: 0.27, blue: 0.27) // แดง
         case "warning":   return Color.wbwGold
         default:          return Color.wbwInk
         }
     }
     private var icon: String {
+        if isSOS { return "sos" } // ไอคอนเดียวกับที่ StaffSOSAlertView ใช้อยู่แล้ว
         if isFeedback { return "checkmark.seal.fill" }
         switch item.level {
         case "emergency": return "exclamationmark.triangle.fill"
@@ -151,9 +165,9 @@ private struct NotiCard: View {
             }
             .padding(14)
             Spacer(minLength: 0)
-            // เชฟรอนบอกว่ากดได้ — เฉพาะการ์ดขอความเห็น การ์ดประกาศทั่วไปไม่ได้ห่อ Button ไว้ (ดู
+            // เชฟรอนบอกว่ากดได้ — เฉพาะการ์ดขอความเห็น/การ์ด SOS การ์ดประกาศทั่วไปไม่ได้ห่อ Button ไว้ (ดู
             // NotificationsView) เชฟรอนเลยต้องไม่โผล่ให้เข้าใจผิดว่ากดได้
-            if isFeedback {
+            if isTappable {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.tertiary)

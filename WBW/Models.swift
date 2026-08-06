@@ -142,6 +142,12 @@ struct NotificationItem: Codable, Identifiable, Equatable {
         return Int(refId)
     }
 
+    /// เลขเคส SOS ที่แจ้งเตือนนี้พูดถึง · nil = ไม่ใช่แจ้งเตือนชนิดนี้
+    var sosId: Int64? {
+        guard type == "sos", let refId else { return nil }
+        return Int64(refId)
+    }
+
     /// เวลาแบบไทยสั้นๆ (16 ก.ค. 09:02)
     var timeText: String {
         guard let createdAt else { return "" }
