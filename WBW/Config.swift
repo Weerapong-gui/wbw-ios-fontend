@@ -51,6 +51,13 @@ enum Config {
     /// ForestSceneView/ForestOverlay ไม่ถูก mount เลยสักครั้ง (ดู ForestSceneHost.shouldClaim)
     /// โค้ดและ asset ของฉากยังอยู่ครบ ไม่ได้ถูกลบ
     static let forest3D = false
+
+    /// โมเดลแผนที่ 3D ที่แท็บ Map — ปิดได้ด้วยค่าเดียวนี้ถ้าเครื่องรับไม่ไหว
+    ///
+    /// ปิด = แท็บ Map โชว์การ์ดข้อความแทน ไม่โหลด map.usdz เลยสักครั้ง (ดู Map3DScreen.shouldRender)
+    /// ตั้ง true ไว้ต่างจาก forest3D โดยตั้งใจ — ฉากป่าถูกปิดเพราะอาการที่ยังไม่พิสูจน์
+    /// (docs/forest-3d-off-verification.md §7) แผนที่ยังไม่ถูกวัด จึงเปิดไว้ก่อนแล้ววัด (Task 5)
+    static let map3D = true
 }
 
 /// สีธีม (DOI-APP)
