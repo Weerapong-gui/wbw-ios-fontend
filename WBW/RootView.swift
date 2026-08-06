@@ -231,6 +231,9 @@ private struct StaffHomeView: View {
             // เคส SOS ของตัวเจ้าหน้าที่เองที่ค้างจากรอบก่อน (relaunch) — ทรงเดียวกับ MainTabView.task
             // ทุกประการ (ดูคอมเมนต์ที่นั่น)
             if staffOwnSOS.status != nil { showStaffSOSStatus = true }
+            // เจ้าหน้าที่ก็กด SOS ของตัวเองได้ (ปุ่มอยู่บนจอนี้) จึงต้องถูกถามสิทธิ์ตำแหน่งเหมือนกัน
+            // เมื่อยังไม่เคยถูกถาม — เหตุผลเต็มอยู่ที่ MainTabView.task ซึ่งทำแบบเดียวกันเป๊ะ
+            SOSLocator.shared.requestPermissionIfNeeded()
             await staffOwnSOS.resumeIfNeeded(token: session.token ?? "")
         }
         // จอนี้หายทั้งจอ (ล็อกเอาต์เท่านั้น — RootView สลับ StaffHomeView/MainTabView ตาม role บน

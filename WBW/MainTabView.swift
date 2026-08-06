@@ -118,6 +118,14 @@ struct MainTabView: View {
                 if sos.status != nil { showSOSStatus = true }
                 Task { await sos.resumeIfNeeded(token: session.token ?? "") }
 
+                // ขอสิทธิ์ตำแหน่งให้คนที่ "ล็อกอินค้างอยู่แล้ว" ด้วย — Session.save(_:) เป็นทางเดียวที่
+                // เคยเรียก requestPermission() ซึ่งยิงตอนล็อกอินสำเร็จเท่านั้น คนที่ล็อกอินค้างอยู่ก่อน
+                // อัปเดตมาเป็น build นี้ (คือเกือบทุกคนในวันงาน) จึงไม่มีทางถูกถามเลยสักครั้ง แล้ว
+                // oneShot/cachedFix ทั้งคู่คืน nil เงียบๆ ตอน .notDetermined โดยไม่ขอสิทธิ์ให้ — กด SOS
+                // ไปโดยไม่มีพิกัดติดไปด้วยและไม่มีอะไรบอก · เรียกทุกครั้งที่ mount ได้ปลอดภัย ขอเฉพาะ
+                // ตอน .notDetermined เท่านั้น (ดู SOSLocator.requestPermissionIfNeeded)
+                SOSLocator.shared.requestPermissionIfNeeded()
+
                 // push ที่แตะไว้ตอนแอปยังไม่ทันเปิด (cold launch) — didReceive มักโพสต์ก่อนหน้านี้จะติดตั้ง
                 // .onReceive ทัน (มีสแปลชคั่นก่อนถึงจะ mount MainTabView) โพสต์ทิ้งไปเงียบๆ ไม่มีคนรับ ดึงมา
                 // โพสต์ซ้ำตรงนี้ — .onReceive ติดมากับ body ก่อน .task เริ่มเสมอ รับได้แน่นอน

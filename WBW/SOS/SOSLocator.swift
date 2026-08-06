@@ -59,6 +59,25 @@ final class SOSLocator {
     /// dialog กลางเหตุฉุกเฉินคือทั้งช้าที่สุดและถูกกด "ไม่อนุญาต" มากที่สุด
     func requestPermission() { provider.requestWhenInUseAuthorization() }
 
+    /// ยังไม่เคยถูกถามเลย — ไม่ใช่ "ถูกปฏิเสธ" · สองอย่างนี้ต้องแยกกันเพราะทางแก้คนละทาง
+    /// (.notDetermined แก้ได้ด้วยกล่องขอสิทธิ์ในแอป · .denied ต้องไปที่ตั้งค่าของเครื่อง)
+    var needsPermission: Bool { authorization == .notDetermined }
+
+    /// ขอสิทธิ์ก็ต่อเมื่อยังไม่เคยถูกถาม — เรียกซ้ำได้ปลอดภัย ไม่มีกล่องเด้งซ้ำให้คนรำคาญ
+    /// (iOS ไม่แสดงกล่องอีกเลยหลังตอบครั้งแรก แต่การเรียกโดยไม่เช็คก็ยังสับสนสำหรับคนอ่านโค้ด)
+    ///
+    /// **มีอยู่เพราะ Session.save(_:) ไม่พอ** — มันเป็นทางเดียวที่เคยเรียก requestPermission()
+    /// ซึ่งแปลว่ามีแต่คน "ที่เพิ่งล็อกอิน" เท่านั้นที่ถูกถาม คนที่ล็อกอินค้างอยู่ก่อนอัปเดตมาเป็น
+    /// build นี้ (คือเกือบทุกคนในวันงาน) ไม่มีทางถูกถามเลยสักครั้ง แล้ว oneShot/cachedFix ทั้งคู่
+    /// return nil เงียบๆ เมื่อสถานะเป็น .notDetermined โดยไม่ขอสิทธิ์ให้ ผลคือกด SOS ไปโดยไม่มี
+    /// พิกัดติดไปด้วยเลย และไม่มีอะไรบอกว่าเสียอะไรไป
+    @discardableResult
+    func requestPermissionIfNeeded() -> Bool {
+        guard needsPermission else { return false }
+        provider.requestWhenInUseAuthorization()
+        return true
+    }
+
     /// ค่าล่าสุดที่ระบบมีอยู่แล้ว ถ้ายังไม่เก่าเกิน maxAge วินาที
     func cachedFix(maxAge: TimeInterval) -> SOSFix? {
         guard authorization == .authorizedWhenInUse || authorization == .authorizedAlways,
