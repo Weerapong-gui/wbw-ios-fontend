@@ -44,6 +44,13 @@ enum Config {
     static let backend: Backend = .susProd   // ค่าที่ส่งขึ้น store
     static var apiBase: String { backend.apiBase }
     static var mePath: String { backend.mePath }
+
+    /// ฉากป่า 3D — ปิดชั่วคราว (เครื่องทำงานหนัก) เปิดกลับได้ที่ค่านี้ค่าเดียว
+    ///
+    /// ปิด = ทุกจอที่เรียก .forestBackground() ได้พื้นทึบ Color.wbwForestVoid แทน และ
+    /// ForestSceneView/ForestOverlay ไม่ถูก mount เลยสักครั้ง (ดู ForestSceneHost.shouldClaim)
+    /// โค้ดและ asset ของฉากยังอยู่ครบ ไม่ได้ถูกลบ
+    static let forest3D = false
 }
 
 /// สีธีม (DOI-APP)
@@ -53,4 +60,7 @@ extension Color {
     static let wbwInk = Color(red: 43 / 255, green: 43 / 255, blue: 43 / 255)
     static let wbwGold = Color(red: 201 / 255, green: 154 / 255, blue: 31 / 255) // #C99A1F ทอง
     static let wbwGreen = Color(red: 64 / 255, green: 145 / 255, blue: 108 / 255) // #40916C เขียวป่า (toggle on)
+
+    /// พื้นหลังทึบแทนฉากป่าตอน Config.forest3D ปิด — สีเดียวกับ scrim เดิมของ ForestOverlay
+    static let wbwForestVoid = Color(red: 10 / 255, green: 22 / 255, blue: 16 / 255) // #0A1610
 }
