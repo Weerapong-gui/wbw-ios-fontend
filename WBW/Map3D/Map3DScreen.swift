@@ -20,17 +20,27 @@ struct Map3DScreen: View {
     /// ตอนสร้าง entity ต้องหารด้วย map.scale กลับเป็นเมตรจริงของ local space เสมอ
     private static let dotRadiusOnScreen: Float = 0.02
 
-    /// มุมหมุนรอบแกน Y ที่ใส่ให้ `map` เพื่อเลี่ยงมุมกล้องเริ่มต้นของ `.orbit` ที่ก้มต่ำและหันตรงตามแกน
-    /// X/Z ของโมเดล (พื้นที่งานเป็นทรงเกือบสี่เหลี่ยม พอกล้องมองตรงแนวขอบ 0°/90° เลยเห็นภูมิประเทศเป็น
-    /// เส้นบางแบบมองข้าง หมุนแนวทแยงให้พ้นทั้งสองแนวขอบ — ยืนยันด้วยสกรีนช็อต: 0°/90° บาง, 45° เห็นมุมสูง
-    /// ชัดเจนที่สุด) ค่านี้ "ไม่ใช่" ทิศเหนือจริง อย่าตีความเป็นมุม compass/bearing ใด ๆ
+    /// มุมหมุนรอบแกน Y ที่ใส่ให้ `map` เพื่อจัดทิศของพื้นที่งานให้ตรงกับที่กล้องเริ่มต้นมอง
+    /// ค่านี้ "ไม่ใช่" ทิศเหนือจริง อย่าตีความเป็นมุม compass/bearing ใด ๆ
     ///
-    /// กติกาสำหรับใครมาต่อ: entity ที่วางตำแหน่งจากพิกัดจริง (lat/lng) เช่นจุด GPS ผู้ใช้ใน Task 4
+    /// กติกาสำหรับใครมาต่อ: entity ที่วางตำแหน่งจากพิกัดจริง (lat/lng) เช่นจุด GPS ผู้ใช้
     /// ต้องเป็นลูกของ `map` ไม่ใช่ลูกของ `root` — ให้ transform hierarchy พาการหมุนนี้ไปเองอัตโนมัติ
     /// ถ้าจำเป็นต้องแยกไปเป็นลูกของ entity อื่น ต้องคูณการหมุนนี้เข้าไปเองด้วยมือ ไม่งั้นตำแหน่งจะเพี้ยน
-    /// แบบเงียบ ๆ ไม่มี error ไม่มีเทสจับได้ (หมุดจาก Task 3 หาโหนดผ่าน findEntity(named:) บนโมเดลเอง
-    /// อยู่แล้ว จึงรับการหมุนนี้ไปฟรี ๆ โดยอัตโนมัติ ไม่ต้องแก้อะไร)
+    /// แบบเงียบ ๆ ไม่มี error ไม่มีเทสจับได้ (หมุดหาโหนดผ่าน findEntity(named:) บนโมเดลเองอยู่แล้ว
+    /// จึงรับการหมุนนี้ไปฟรี ๆ โดยอัตโนมัติ ไม่ต้องแก้อะไร)
     private static let cameraFramingYaw: Float = .pi / 4
+
+    /// มุมกวาด/เงย/ระยะของกล้องตอนนี้ — ผู้ใช้ลากและหุบนิ้วเพื่อเปลี่ยน ทุกค่าถูก clamp
+    /// ด้วย Map3DCamera เสมอ โดยเฉพาะมุมเงยที่ห้ามต่ำกว่าเส้นขอบฟ้า (มองใต้โมเดลไม่ได้)
+    @State private var yaw = Map3DCamera.defaultYaw
+    @State private var pitch = Map3DCamera.defaultPitch
+    @State private var distance = Map3DCamera.defaultDistance
+    /// ค่าตั้งต้นของท่าทางที่กำลังลากอยู่ — ต้องจำไว้เพราะ DragGesture ให้ระยะสะสมจากจุดเริ่ม
+    @State private var gestureStartYaw: Float?
+    @State private var gestureStartPitch: Float?
+    @State private var gestureStartDistance: Float?
+    /// ทับค่า cameraFramingYaw ชั่วคราวตอนถ่ายเทียบมุม (ตั้งผ่าน -uitestMapHeading, DEBUG เท่านั้น)
+    @State private var headingOverride: Float?
 
     /// เทสยูนิตรันในโปรเซสเดียวกับแอป (app target เป็น test host) — ทรงเดียวกับ
     /// ForestSceneHost.isRunningUnderXCTest ที่มีเหตุผลยาวเขียนไว้แล้ว
@@ -206,10 +216,44 @@ struct Map3DScreen: View {
             fill.light.intensity = 1200
             fill.look(at: .zero, from: SIMD3<Float>(-3, 2, -3), relativeTo: nil)
             root.addChild(fill)
+
+            // กล้องของเราเอง ไม่ใช่ .realityViewCameraControls(.orbit) — ตัวนั้นปล่อยให้ผู้ใช้
+            // มุดลงไปมองใต้โมเดล (เห็นก้นภูมิประเทศเป็นแผ่นตัดเปล่า) และไม่มี API จำกัดมุมหรือ
+            // ตั้งทิศเริ่มต้น ขอบเขตทั้งหมดอยู่ที่ Map3DCamera
+            let camera = PerspectiveCamera()
+            camera.name = "Camera"
+            camera.camera.fieldOfViewInDegrees = 50
+            camera.camera.near = 0.01
+            camera.camera.far = 100
+            root.addChild(camera)
         } update: { content in
             guard let root = content.entities.first,
-                  let map = root.findEntity(named: "Map"),
-                  let dot = map.findEntity(named: "UserDot") else { return }
+                  let map = root.findEntity(named: "Map") else { return }
+
+            if let heading = headingOverride {
+                map.orientation = simd_quatf(angle: heading * .pi / 180,
+                                             axis: SIMD3<Float>(0, 1, 0))
+            }
+
+            // หมุน "ฉาก" แทนการย้ายกล้อง — ผลทางสายตาเหมือนกันทุกประการ และเป็นวิธีเดียวที่ใช้ได้จริง
+            //
+            // ลองวาง PerspectiveCamera เองแล้วสั่ง content.camera = .virtual ก่อนแล้ว ไม่ได้ผล:
+            // log ยืนยันว่ากล้องถูกวางถูกตำแหน่ง (eye=(0, 0.53, 2.13) ที่ pitch 14°) แต่ภาพที่ออกมา
+            // ยังเป็นมุมก้มจากบนหัวเหมือนเดิมทุกพิกเซล — RealityView บน iOS เรนเดอร์ด้วยกล้องปริยาย
+            // ที่จัดเฟรมให้เองโดยไม่สนใจกล้องในฉาก การหมุน root จึงเป็นทางที่เหลืออยู่
+            //
+            // กล้องปริยายมองลงมาจากด้านบน (ยืนยันจากภาพ: โมเดลราบเต็มเฟรม) ดังนั้น
+            // pitch 90° = ไม่ต้องเอียงเลย · pitch ต่ำ = เอียงฉากเข้าหากล้องมากขึ้น
+            // ⚠️ ห้ามตั้ง `content.camera = .virtual` ในฟังก์ชัน make — ลองมาแล้วและมันทำให้
+            // RealityView เมินกล้องตัวนี้ทั้งดุ้น กลับไปเรนเดอร์ด้วยกล้องปริยายที่จัดเฟรมเองจากบนหัว
+            // (log ยืนยันว่ากล้องถูกวางถูกตำแหน่งทุกครั้ง แต่ภาพไม่ขยับสักพิกเซล) ไม่ตั้งเลยคือถูกแล้ว
+            if let camera = root.findEntity(named: "Camera") {
+                let eye = Map3DCamera.position(yaw: yaw, pitch: pitch,
+                                               distance: distance, target: .zero)
+                camera.look(at: .zero, from: eye, relativeTo: nil)
+            }
+
+            guard let dot = map.findEntity(named: "UserDot") else { return }
             guard let coordinate = location.coordinate,
                   let point = Map3DGeo.modelPoint(latitude: coordinate.latitude,
                                                   longitude: coordinate.longitude,
@@ -251,7 +295,35 @@ struct Map3DScreen: View {
                 localBounds.center.z + half.z + dotRadius
             )
         }
-        .realityViewCameraControls(.orbit)
+        // ลากนิ้ว = กวาด/เงย · หุบนิ้ว = ระยะ · ทุกค่าผ่าน clamp ของ Map3DCamera ก่อนเสมอ
+        // simultaneousGesture เพื่อให้ไม่ไปแย่ง SpatialTapGesture ของหมุดด้านล่าง
+        .simultaneousGesture(
+            DragGesture()
+                .onChanged { value in
+                    let startYaw = gestureStartYaw ?? yaw
+                    let startPitch = gestureStartPitch ?? pitch
+                    if gestureStartYaw == nil { gestureStartYaw = startYaw }
+                    if gestureStartPitch == nil { gestureStartPitch = startPitch }
+                    // 0.004 เรเดียนต่อพอยต์ — กวาดสุดช่วง (110°) ใช้ระยะลากราวครึ่งจอครึ่ง
+                    yaw = Map3DCamera.clampYaw(startYaw - Float(value.translation.width) * 0.004)
+                    // ลากขึ้น = เงยขึ้นมองจากสูงลงมา (ทิศเดียวกับที่แอปแผนที่ทั่วไปทำ)
+                    pitch = Map3DCamera.clampPitch(startPitch + Float(value.translation.height) * 0.004)
+                }
+                .onEnded { _ in
+                    gestureStartYaw = nil
+                    gestureStartPitch = nil
+                }
+        )
+        .simultaneousGesture(
+            MagnifyGesture()
+                .onChanged { value in
+                    let start = gestureStartDistance ?? distance
+                    if gestureStartDistance == nil { gestureStartDistance = start }
+                    // หุบนิ้วออก (magnification > 1) = เข้าใกล้ ระยะจึงหารไม่ใช่คูณ
+                    distance = Map3DCamera.clampDistance(start / Float(value.magnification))
+                }
+                .onEnded { _ in gestureStartDistance = nil }
+        )
         .gesture(
             SpatialTapGesture()
                 .targetedToAnyEntity()
@@ -273,6 +345,16 @@ struct Map3DScreen: View {
             // MainTabView.swift เป็นทางเดียวที่ถ่ายรูปการ์ดได้ในสภาพแวดล้อมที่ไม่มี tap tooling
             let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
             if forced > 0 { tappedSequence = forced }
+            // ลองมุมกล้องหลายค่าแล้วถ่ายเทียบกับภาพอ้างอิงโดยไม่ต้อง build ใหม่ทุกครั้ง
+            // (หน่วยเป็นองศา · หมุนโมเดล ไม่ใช่หมุนกล้อง เพราะทิศของพื้นที่งานอบอยู่ในโมเดล)
+            if UserDefaults.standard.object(forKey: "uitestMapHeading") != nil {
+                headingOverride = Float(UserDefaults.standard.integer(forKey: "uitestMapHeading"))
+            }
+            // ลองมุมเงยหลายค่าแล้วถ่ายเทียบภาพอ้างอิง โดยไม่ต้อง build ใหม่ทุกครั้ง (หน่วยองศา)
+            if UserDefaults.standard.object(forKey: "uitestMapPitch") != nil {
+                pitch = Map3DCamera.clampPitch(
+                    Float(UserDefaults.standard.integer(forKey: "uitestMapPitch")) * .pi / 180)
+            }
             #endif
             location.start()
         }
