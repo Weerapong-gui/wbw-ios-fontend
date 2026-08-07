@@ -20,7 +20,13 @@ struct Map3DScreen: View {
     /// ตอนสร้าง entity ต้องหารด้วย map.scale กลับเป็นเมตรจริงของ local space เสมอ
     private static let dotRadiusOnScreen: Float = 0.02
 
-    /// มุมหมุนรอบแกน Y ที่ใส่ให้ `map` เพื่อจัดทิศของพื้นที่งานให้ตรงกับที่กล้องเริ่มต้นมอง
+    /// ทิศของพื้นที่งานเทียบกับกล้อง — หมุนรอบแกนตั้ง **ของตัวโมเดลเอง (Z)** ไม่ใช่แกน Y ของโลก
+    ///
+    /// ⚠️ เคยหมุนรอบ Y แล้วพัง: ที่ 45° ยังดูเหมือนหมุนทิศปกติ แต่พอเพิ่มเป็น 135° โมเดลตะแคงจน
+    /// กล้องมองเห็น "ก้น" ของภูมิประเทศ (แผ่นน้ำตาลเปล่า ๆ มีแท่งแดงทะลุออกมา) ซึ่งเป็นสิ่งเดียวกับ
+    /// ที่ Map3DCamera กันไว้ไม่ให้ผู้ใช้ทำ — แกน Y ของโลกไม่ใช่แกนตั้งของโมเดล การหมุนรอบมัน
+    /// จึงเป็นการ "พลิก" ไม่ใช่การ "หันทิศ"
+    ///
     /// ค่านี้ "ไม่ใช่" ทิศเหนือจริง อย่าตีความเป็นมุม compass/bearing ใด ๆ
     ///
     /// กติกาสำหรับใครมาต่อ: entity ที่วางตำแหน่งจากพิกัดจริง (lat/lng) เช่นจุด GPS ผู้ใช้
@@ -28,7 +34,7 @@ struct Map3DScreen: View {
     /// ถ้าจำเป็นต้องแยกไปเป็นลูกของ entity อื่น ต้องคูณการหมุนนี้เข้าไปเองด้วยมือ ไม่งั้นตำแหน่งจะเพี้ยน
     /// แบบเงียบ ๆ ไม่มี error ไม่มีเทสจับได้ (หมุดหาโหนดผ่าน findEntity(named:) บนโมเดลเองอยู่แล้ว
     /// จึงรับการหมุนนี้ไปฟรี ๆ โดยอัตโนมัติ ไม่ต้องแก้อะไร)
-    private static let cameraFramingYaw: Float = .pi / 4
+    private static let cameraFramingYaw: Float = 90 * .pi / 180
 
     /// มุมกวาด/เงย/ระยะของกล้องตอนนี้ — ผู้ใช้ลากและหุบนิ้วเพื่อเปลี่ยน ทุกค่าถูก clamp
     /// ด้วย Map3DCamera เสมอ โดยเฉพาะมุมเงยที่ห้ามต่ำกว่าเส้นขอบฟ้า (มองใต้โมเดลไม่ได้)
@@ -156,8 +162,6 @@ struct Map3DScreen: View {
             // RealityKit แปลงให้เป็น Y-up ให้เองตั้งแต่โหลด — วัดจาก visualBounds ก่อนตัวโค้ด
             // นี้แตะต้องอะไรเลย: แกน Y (สูง 664 ม.) เตี้ยกว่า X/Z (กว้าง 4470×5162 ม.) มาก
             // ตรงกับความสูงภูมิประเทศจริง ไม่ใช่ด้านกว้างของพื้นที่ จึงไม่ต้องหมุนแก้ Z-up/Y-up
-            // ที่ต้องหมุนจริงคือ cameraFramingYaw — เหตุผลเต็มอยู่ที่คอมเมนต์ของตัวแปรด้านบน
-            map.orientation = simd_quatf(angle: Self.cameraFramingYaw, axis: SIMD3<Float>(0, 1, 0))
 
             root.addChild(map)
 
@@ -193,6 +197,10 @@ struct Map3DScreen: View {
             // transform ของมันเป็น identity เทียบกับ map พอดี (position/scale/orientation
             // ยืนยันด้วย NSLog แล้ว) พิกัด local ที่คำนวณเทียบกับ map จึงใช้ได้ตรงๆ ไม่ต้องแปลงซ้ำ
             let dotParent = map.children.first ?? map
+            // หันทิศพื้นที่งาน — หมุนโหนดเนื้อโมเดลรอบแกนตั้งของตัวเอง (Z) ดูคอมเมนต์ที่
+            // cameraFramingYaw ว่าทำไมหมุนที่นี่ ไม่ใช่หมุน `map` รอบแกน Y ของโลก
+            dotParent.orientation = simd_quatf(angle: Self.cameraFramingYaw,
+                                               axis: SIMD3<Float>(0, 0, 1))
             let dot = ModelEntity(
                 mesh: .generateSphere(radius: Self.dotRadiusOnScreen / map.scale.x),
                 materials: [UnlitMaterial(color: .systemBlue)]
@@ -230,9 +238,9 @@ struct Map3DScreen: View {
             guard let root = content.entities.first,
                   let map = root.findEntity(named: "Map") else { return }
 
-            if let heading = headingOverride {
-                map.orientation = simd_quatf(angle: heading * .pi / 180,
-                                             axis: SIMD3<Float>(0, 1, 0))
+            if let heading = headingOverride, let content = map.children.first {
+                content.orientation = simd_quatf(angle: heading * .pi / 180,
+                                                 axis: SIMD3<Float>(0, 0, 1))
             }
 
             // หมุน "ฉาก" แทนการย้ายกล้อง — ผลทางสายตาเหมือนกันทุกประการ และเป็นวิธีเดียวที่ใช้ได้จริง
