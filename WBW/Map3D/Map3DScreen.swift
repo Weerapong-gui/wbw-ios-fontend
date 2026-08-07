@@ -13,6 +13,13 @@ struct Map3DScreen: View {
     /// ฐานที่แตะค้างไว้อยู่ — nil = ไม่มีการ์ด
     @State private var tappedSequence: Int?
 
+    /// ตำแหน่งผู้ใช้จริงจาก CoreLocation — nil = ไม่ให้สิทธิ์/ยังไม่รู้ตำแหน่ง (ไม่วาดจุด)
+    @StateObject private var location = Map3DLocation()
+
+    /// รัศมีจุดตำแหน่งผู้ใช้ วัดหลังโมเดลถูกย่อให้พอดีกรอบ 2 หน่วยแล้ว (โมเดลกว้าง 2 หน่วยเต็มจอ)
+    /// ตอนสร้าง entity ต้องหารด้วย map.scale กลับเป็นเมตรจริงของ local space เสมอ
+    private static let dotRadiusOnScreen: Float = 0.02
+
     /// มุมหมุนรอบแกน Y ที่ใส่ให้ `map` เพื่อเลี่ยงมุมกล้องเริ่มต้นของ `.orbit` ที่ก้มต่ำและหันตรงตามแกน
     /// X/Z ของโมเดล (พื้นที่งานเป็นทรงเกือบสี่เหลี่ยม พอกล้องมองตรงแนวขอบ 0°/90° เลยเห็นภูมิประเทศเป็น
     /// เส้นบางแบบมองข้าง หมุนแนวทแยงให้พ้นทั้งสองแนวขอบ — ยืนยันด้วยสกรีนช็อต: 0°/90° บาง, 45° เห็นมุมสูง
@@ -157,6 +164,33 @@ struct Map3DScreen: View {
                 pin.components.set(InputTargetComponent())
             }
 
+            // จุดตำแหน่งผู้ใช้ — สร้างไว้ก่อนแล้วซ่อน ค่อยย้ายตอนมีพิกัดจริง
+            // (สร้างทีหลังใน update closure ไม่ได้ เพราะ closure นั้นถูกเรียกทุกเฟรม)
+            //
+            // ต้องอยู่ในสาย transform hierarchy เดียวกับโมเดล ไม่ใช่ของ `root` — ตามกติกาที่
+            // คอมเมนต์ของ cameraFramingYaw เขียนไว้ ไม่งั้นจุดจะไม่หมุนตามโมเดลตอนที่ map ถูกหมุน
+            // cameraFramingYaw (45°)
+            //
+            // ⚠️ พิสูจน์แล้วด้วยการทดลองจริง (ไม่ใช่แค่คาดเดา) ว่า `map.addChild(dot)` ตรงๆ ใช้
+            // ไม่ได้ — entity ที่เป็นลูกโดยตรงของ `map` (ตัว wrapper ที่ Entity(named:) คืนมา)
+            // ไม่ถูกวาดเลย ทั้งที่ isEnabled = true, ตำแหน่ง/ขนาดสมเหตุสมผล และ transform
+            // hierarchy ถูกต้องทุกอย่าง (ทดสอบแล้ว: ก้อนทรงกลมลอยอยู่กลางฟ้าเหนือโมเดล ไม่โผล่มา
+            // เลย) แต่พอแตะเป็นลูกของ `map.children.first` (entity ชื่อ "root" ที่ Entity(named:)
+            // แนบไว้เป็นลูกเดียวของ map ตรงกับ defaultPrim = "root" ที่ usdcat ยืนยันไว้ตอน Task 1
+            // — เป็นที่ที่เนื้อโมเดลจริง (ภูมิประเทศ + แท่งแดงทั้ง 8) อาศัยอยู่) กลับเรนเดอร์ปกติทันที
+            // สาเหตุที่แท้จริงไม่ทราบ (อาจเป็น RealityKit ไม่รวม direct child ใหม่ของ entity ที่
+            // โหลดจากไฟล์เข้า render/cull pass เดียวกับเนื้อหาเดิม) แนบใต้ "root" นี้ปลอดภัยเพราะ
+            // transform ของมันเป็น identity เทียบกับ map พอดี (position/scale/orientation
+            // ยืนยันด้วย NSLog แล้ว) พิกัด local ที่คำนวณเทียบกับ map จึงใช้ได้ตรงๆ ไม่ต้องแปลงซ้ำ
+            let dotParent = map.children.first ?? map
+            let dot = ModelEntity(
+                mesh: .generateSphere(radius: Self.dotRadiusOnScreen / map.scale.x),
+                materials: [UnlitMaterial(color: .systemBlue)]
+            )
+            dot.name = "UserDot"
+            dot.isEnabled = false
+            dotParent.addChild(dot)
+
             #if DEBUG
             NSLog("[Map3DScreen] map.visualBounds = %@", String(describing: bounds))
             NSLog("[Map3DScreen] map.children.count = %d", map.children.count)
@@ -172,6 +206,50 @@ struct Map3DScreen: View {
             fill.light.intensity = 1200
             fill.look(at: .zero, from: SIMD3<Float>(-3, 2, -3), relativeTo: nil)
             root.addChild(fill)
+        } update: { content in
+            guard let root = content.entities.first,
+                  let map = root.findEntity(named: "Map"),
+                  let dot = map.findEntity(named: "UserDot") else { return }
+            guard let coordinate = location.coordinate,
+                  let point = Map3DGeo.modelPoint(latitude: coordinate.latitude,
+                                                  longitude: coordinate.longitude,
+                                                  in: Map3DGeo.eventArea) else {
+                dot.isEnabled = false
+                return
+            }
+            dot.isEnabled = true
+            // จุดต้องอยู่ใน local space ของ map เอง (เมตรจริงก่อนย่อ/หมุน) ไม่ใช่ช่วง -1…1 ที่
+            // Map3DGeo คืนมาตรงๆ — หา extents/center จริงของโมเดลด้วย visualBounds(relativeTo:
+            // map) แล้วคูณสัดส่วน -1…1 เข้ากับครึ่งหนึ่งของ extents แต่ละแกนเอง (ไม่ใช่แกนเดียวกัน
+            // หมดแบบ "widest" ตอนย่อสเกล เพราะกรอบ eventArea ไม่ได้เป็นสี่เหลี่ยมจัตุรัส)
+            //
+            // ⚠️ ยืนยันด้วย NSLog แล้วว่า visualBounds(relativeTo: map) ตอบแกน Y/Z "สลับกัน" กับที่
+            // โมเดลเรนเดอร์จริงบนจอ (ตัว X ไม่กระทบ): self-relative ตอบ Y ~2581 (แกนแนวนอน) และ
+            // Z ~332 (แกนสูง) สวนทางกับ visualBounds(relativeTo: nil) ที่ยิงตอนโหลด (ดูตัวแปร
+            // `bounds` ด้านบนในฟังก์ชัน make) ซึ่ง Y ~332 (สูง) Z ~2581 (แนวนอน) — ตรงกับภาพที่เห็น
+            // จริงบนจอ (โมเดลราบ ไม่ตะแคง) สาเหตุที่แท้จริงไม่ทราบ แก้โดยอ่านสลับแกน: ใช้ z ของ
+            // ผลลัพธ์เป็นความสูง และ y เป็นแกนเหนือ-ใต้ ตัว x ใช้ตรงๆ ปกติ (ไม่กระทบ)
+            let localBounds = map.visualBounds(relativeTo: map)
+            let half = localBounds.extents / 2
+            let dotRadius = Map3DScreen.dotRadiusOnScreen / map.scale.x
+            // Map3DGeo คืน point.y เป็นแกนเหนือ-ใต้ จึงต้องกลับเครื่องหมาย (แกนแนวนอนที่สองของ
+            // RealityKit ชี้เข้าหากล้อง = ทิศใต้) ไม่ต้องคูณ cameraFramingYaw เองตรงนี้ เพราะจุด
+            // อยู่ในสาย transform เดียวกับโมเดลแล้ว — hierarchy พาการหมุนไปเองอัตโนมัติ (เหมือน
+            // หมุดจาก Task 3)
+            //
+            // ลำดับแกนตรงนี้คือ local space ของโมเดล ซึ่งเป็น Z-up ตามที่ usdz เขียนมา (usdcat:
+            // upAxis = "Z") — ตัวแปลง Z-up→Y-up ของ RealityKit ถูกอบไว้ใน transform ของ entity
+            // ตัวนอกที่ Entity(named:) คืนมา ไม่ได้แก้พิกัดของเนื้อโมเดลข้างใน ดังนั้นในนี้
+            // x = ตะวันออก-ตะวันตก · y = เหนือ-ใต้ · z = ความสูง (ตรงกับ extents ที่วัดได้:
+            // y ~2581 แนวนอน, z ~332 ความสูง)
+            //
+            // ความสูง: วางไว้เหนือยอดสูงสุดของโมเดลเล็กน้อย ไม่ใช่กึ่งกลางความสูง — กึ่งกลางจมอยู่
+            // ใต้ภูมิประเทศในหลายจุด จุดจะหายไปโดยไม่มีอะไรฟ้อง
+            dot.position = SIMD3<Float>(
+                localBounds.center.x + point.x * half.x,
+                localBounds.center.y - point.y * half.y,
+                localBounds.center.z + half.z + dotRadius
+            )
         }
         .realityViewCameraControls(.orbit)
         .gesture(
@@ -196,7 +274,9 @@ struct Map3DScreen: View {
             let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
             if forced > 0 { tappedSequence = forced }
             #endif
+            location.start()
         }
+        .onDisappear { location.stop() }
         .ignoresSafeArea()
     }
 }

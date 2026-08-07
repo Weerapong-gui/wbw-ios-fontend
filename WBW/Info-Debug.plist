@@ -51,6 +51,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน ระหว่างเปิดแอปเท่านั้น</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppTransportSecurity</key>

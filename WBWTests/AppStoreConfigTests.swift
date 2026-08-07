@@ -59,14 +59,16 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
-    /// ทั้งโปรเจกต์ไม่ import CoreLocation เลยสักไฟล์ แต่เคยมีคีย์นี้อยู่ — ผู้ใช้เห็นข้อความ
-    /// ขอตำแหน่งที่ไม่มีวันถูกใช้ และเป็นเหตุให้ App Review ตีกลับได้ตรงๆ
-    /// ถ้าวันหนึ่งเพิ่มฟีเจอร์แผนที่จริง ให้ลบเทสนี้พร้อมกับตอนเติมคีย์กลับ
-    func testNoUsageDescriptionForFrameworksTheAppDoesNotUse() throws {
+    /// เคยมีคีย์ตำแหน่งค้างอยู่ทั้งที่ไม่มีไฟล์ไหน import CoreLocation — ผู้ใช้เห็นข้อความขอสิทธิ์
+    /// ที่ไม่มีวันถูกใช้ และเป็นเหตุให้ App Review ตีกลับได้ตรงๆ ตั้งแต่ 2026-08-07 แท็บ Map ใช้
+    /// CoreLocation จริงแล้ว (Map3DLocation) เทสนี้จึงกลับด้าน: บังคับให้ **ต้องมี** คีย์
+    /// ส่วนคลังรูปยังต้องห้ามมีเหมือนเดิม (PhotosPicker ไม่ต้องขอสิทธิ์)
+    func testUsageDescriptionsMatchTheFrameworksTheAppActuallyUses() throws {
         for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
             let dict = try plist(path)
-            XCTAssertNil(dict["NSLocationWhenInUseUsageDescription"],
-                         "\(path) ขอสิทธิ์ตำแหน่งทั้งที่แอปไม่ได้ใช้ CoreLocation")
+            let location = dict["NSLocationWhenInUseUsageDescription"] as? String
+            XCTAssertFalse((location ?? "").isEmpty,
+                           "\(path) ขาดคำอธิบายสิทธิ์ตำแหน่ง ทั้งที่ Map3DLocation ใช้ CoreLocation")
             XCTAssertNil(dict["NSPhotoLibraryUsageDescription"],
                          "\(path) ขอสิทธิ์คลังรูปทั้งที่ใช้ PhotosPicker ซึ่งไม่ต้องขอ")
         }
