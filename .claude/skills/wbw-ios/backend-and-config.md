@@ -16,7 +16,9 @@
 
 `susLan` คือ IP ของ Mac ในวง LAN — ใช้ตอนรันแอปบนเครื่องจริงเท่านั้น (localhost บนมือถือคือตัวมือถือเอง)
 เลข IP ข้างบนเปลี่ยนทุกครั้งที่ย้ายเน็ต หาเลขปัจจุบันด้วย `ipconfig getifaddr en0` แล้วแก้ที่ `apiBase` ของ
-`case susLan` ใน `WBW/Config.swift` — สิ่งที่แก้คือเลข IP เท่านั้น ห้ามลบ/แก้ตัว case (ดูข้อถัดไป)
+`case susLan` ใน `WBW/Config.swift` — สิ่งที่แก้คือเลข IP เท่านั้น ห้ามลบ/แก้ตัว case (ดูข้อถัดไป) นอกจากเลข
+IP แล้ว container ของ SUS publish พอร์ตแค่ที่ `127.0.0.1` เท่านั้น ต้อง forward ออกวง LAN ก่อนถึงจะยิงจาก
+มือถือเข้าได้ — วิธี forward ดู `docs/sus-test-backend.md`
 
 ## กับดักที่เคยเสียเวลาจริง
 
@@ -52,7 +54,6 @@
 
 ## จะแก้ฝั่ง backend
 
-SUS (Student-Union-Server) อยู่ที่ `/Users/park/Student-Union-Server` — Park ร่วมเป็นเจ้าของ repo นี้
-**แก้ได้ ไม่ใช่ของต้องห้าม** เวลาแอปต้องการพฤติกรรม/endpoint ที่ SUS ยังไม่มี มีสองทางเลือก: แก้ SUS
-ตรง ๆ เอง หรือเขียนความต้องการลง `docs/backend-contract.md` ให้ Yion ทำ — **ถามก่อนว่าจะเลือกทางไหน
-อย่าเดาเอง**
+SUS (Student-Union-Server) อยู่ที่ `/Users/park/Student-Union-Server` — **แก้ได้ ไม่ใช่ของต้องห้าม** เวลา
+แอปต้องการพฤติกรรม/endpoint ที่ SUS ยังไม่มี มีสองทางเลือก: แก้ SUS ตรง ๆ หรือเขียนความต้องการลง
+`docs/backend-contract.md` — **ถามก่อนว่าจะเอาทางไหน อย่าเดาเอง**
