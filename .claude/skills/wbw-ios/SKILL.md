@@ -32,8 +32,9 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
 
 1. **`xcodegen generate` หลังเพิ่ม/ลบ/ย้ายไฟล์ใน `WBW/`** — ไม่งั้น Xcode มองไม่เห็นไฟล์ใหม่ หรือยังอ้าง
    ไฟล์ที่ลบไปแล้ว build ไม่ผ่าน
-2. **ห้ามลบ `case susLan` จาก `enum Backend`** — `Backend.cacheNamespace` กับเทสอีกสองไฟล์ `switch`
-   ครบทุก case อยู่ ลบออกแล้ว repo build ไม่ผ่านเลยตอน clone ใหม่บนเครื่องอื่น
+2. **ห้ามลบ `case susLan` จาก `enum Backend`** — `Backend.cacheNamespace` `switch` ครบทุก case อยู่ อีก
+   สองไฟล์เทสก็อ้าง `.susLan` ตรง ๆ (ไม่ใช่ `switch`) ลบ case ออกแล้ว repo build ไม่ผ่านเลยตอน clone ใหม่
+   บนเครื่องอื่น (รายชื่อไฟล์/รายละเอียดดู `backend-and-config.md`)
 3. **`Config.backend` ห้าม commit ตอนสลับไปทดสอบ** — ค่าที่ค้างอยู่ตอน push คือค่าที่ขึ้น store จริง
    `git add` ทีละไฟล์เสมอ อย่าดึงบรรทัดที่สลับค้างไปด้วย
 4. **สลับ backend แล้วต้องล้างข้อมูลแอปทุกครั้ง** — cache แชทกับ cursor ไม่ผูกกับ backend ที่มา สลับแล้ว
