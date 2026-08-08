@@ -15,3 +15,6 @@ WBW/GoogleService-Info.plist
 
 # mockup ระหว่าง brainstorm (ของชั่วคราว — SDD ledger ใน .superpowers ที่เหลือยัง commit ได้)
 .superpowers/brainstorm/
+
+# repo อื่นที่วางคร่อมอยู่ในโฟลเดอร์นี้ ไม่ใช่ของ repo นี้ — กันไม่ให้ `git add` เผลอดูดเข้ามา
+claude-code-server-side-swift-skills/

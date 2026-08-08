@@ -26,7 +26,8 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
   `Resources/` (asset 3D `.usdz`/`.glb`)
 - `WBWTests/` — XCTest ล้วน 20 ไฟล์ วางแบนที่ราก
 - `docs/` — เอกสารเสริม (spec/plan อยู่ `docs/superpowers/`)
-- `scripts/` — สคริปต์ Blender ทำ asset (`.usdz`) ไม่ใช่ขั้นตอน build ของแอป
+- `scripts/` — สคริปต์ Blender ทำ asset (`.usdz`) ไม่ใช่ขั้นตอน build ของแอป · กับ
+  `check-skill-refs.sh` ที่ตรวจว่าไฟล์ skill 5 ใบนี้ยังตรงกับ repo ไหม (ดู `workflow.md`)
 
 ## กติกาห้ามพลาด
 
