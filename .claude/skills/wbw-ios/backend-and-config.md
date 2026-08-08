@@ -37,6 +37,17 @@ IP** ใน `apiBase` เท่านั้น ไม่ใช่ตัว case
 ผูกกับ backend ที่มันมาจาก แต่ละ backend เดิน id ของข้อความแยกกันคนละชุด สลับแล้วไม่ล้างจะได้ 200 พร้อม
 ลิสต์ว่างตลอด ไม่มี error ไม่มี log ให้เห็นเลย · รายละเอียดเพิ่มดู `docs/sus-test-backend.md`
 
+**cache/ที่เก็บถาวรตัวใหม่ต้องแยกตาม backend เสมอ** — กติกาเดียวกับ `cacheNamespace` ด้านบนครอบ cache
+ทุกตัวในแอป ไม่ใช่แค่ตัวนั้น ของจริงที่ทำตามแพทเทิร์นนี้อยู่แล้ว: `FeedbackOutbox.key(for:)`
+(`WBW/Feedback/FeedbackOutbox.swift:27-29`) และ `CheckinProgressStore.cacheKey(for:)`
+(`WBW/CheckinProgressStore.swift:66-68`) ต่อ string จบด้วย `backend.cacheNamespace` ทั้งคู่ — repo นี้กัน
+ด้วยเทสจริง ไม่ใช่แค่ทำตามธรรมเนียม: `FeedbackOutboxTests.testKeyDiffersPerBackend`
+(`WBWTests/FeedbackOutboxTests.swift:27-31`) และ `CheckinProgressStoreTests.testCacheKeyDiffersPerBackend`
+(`WBWTests/CheckinProgressStoreTests.swift:9-18`) assert ว่าทั้ง 5 backend ได้ key ไม่ซ้ำกัน เพิ่ม cache
+หรือ persisted key ใหม่ (UserDefaults, SwiftData ฯลฯ) แล้วไม่ต่อ `cacheNamespace` เข้าไปด้วย จะได้อาการ
+เดียวกับกับดัก "สลับ backend แล้วต้องล้างข้อมูลแอป" ด้านบนซ้ำอีกรอบ: ข้อมูลจาก backend หนึ่งปนกับอีก
+backend หนึ่งแบบเงียบ ๆ ไม่มี error ไม่มี log ให้เห็นเลย
+
 **login ใช้คีย์ `username`** ไม่ใช่ `student_id` — `WBW/APIClient.swift` ส่ง
 `["username": studentId, "password": password]` ต่อให้ค่าที่ผู้ใช้กรอกเป็นรหัสนักศึกษาก็ตาม ชื่อ field
 ในโค้ดคือ `studentId` แต่คีย์ JSON ที่ยิงออกไปคือ `username`

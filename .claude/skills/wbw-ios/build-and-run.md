@@ -68,25 +68,35 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 ไม่ต้องกดมือ ทุกคีย์ตรวจด้วย `grep -rn "uitest" WBW --include='*.swift'` แล้วอ่านจุดที่โค้ดใช้จริง เป็น
 `#if DEBUG` ทั้งหมด (build Release อ่านคีย์พวกนี้ไม่ได้)
 
-| คีย์ | ค่า | ผล |
-|---|---|---|
-| `-uitestToken <jwt>` | JWT string | ล็อกอินทันทีด้วย token นี้ (`Session.swift`) — ข้าม splash ด้วย |
-| `-uitestUser <username>` | string, default `tester` | คู่กับ `-uitestToken` เป็นชื่อผู้ใช้ |
-| `-uitestRole participant` | string, default `participant` | คู่กับ `-uitestToken` เป็น role |
-| `-uitestLogin` | flag | ข้ามสแปลชตรงไปหน้า Login โดยไม่ต้องมี token |
-| `-uitestTab 0-4` | int | แท็บเริ่มต้นตอน launch เท่านั้น (ดูตาราง index ด้านล่าง) |
-| `-uitestTabSequence "<วิ>:<แท็บ>,..."` | string | สลับแท็บสดระหว่างแอปรันอยู่ เช่น `"6:4,12:0"` |
-| `-uitestChat` | flag | เปิดหน้าแชทกลุ่มตรงๆ |
-| `-uitestChatCloseAfter <วินาที>` | double | ปิดแชทเองหลัง N วิ (แอปยัง foreground) |
-| `-uitestNotifications` | flag | เปิดหน้าแจ้งเตือนตรงๆ |
-| `-uitestFeedback <checkpointId>` | int > 0 | เปิดฟอร์มให้ความเห็นของฐานนั้นตรงๆ (id จริงเริ่มที่ 1) |
-| `-uitestProgress <n>` | int | บังคับขั้นต้นไม้หน้า Home เป็น n/8 |
-| `-uitestProfile` | flag | เปิดหน้าโปรไฟล์ตรงๆ (จาก Home) |
-| `-uitestMedical` | flag | เปิดหน้าข้อมูลการแพทย์ตรงๆ (จาก Ticket) |
-| `-uitestSettings` | flag | เปิดหน้าตั้งค่าตรงๆ (จาก Ticket) |
-| `-uitestMapHeading <องศา>` | int | ทับมุมกล้อง yaw ของแผนที่ 3D ชั่วคราว |
-| `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว |
-| `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ |
+| คีย์ | ค่า | ผล | ต้องมาคู่กับ |
+|---|---|---|---|
+| `-uitestToken <jwt>` | JWT string | ล็อกอินทันทีด้วย token นี้ (`Session.swift`) — ข้าม splash ด้วย | — |
+| `-uitestUser <username>` | string, default `tester` | คู่กับ `-uitestToken` เป็นชื่อผู้ใช้ | — |
+| `-uitestRole participant` | string, default `participant` | คู่กับ `-uitestToken` เป็น role | — |
+| `-uitestLogin` | flag | ข้ามสแปลชตรงไปหน้า Login โดยไม่ต้องมี token | — |
+| `-uitestTab 0-4` | int | แท็บเริ่มต้นตอน launch เท่านั้น (ดูตาราง index ด้านล่าง) | — |
+| `-uitestTabSequence "<วิ>:<แท็บ>,..."` | string | สลับแท็บสดระหว่างแอปรันอยู่ เช่น `"6:4,12:0"` | — |
+| `-uitestChat` | flag | เปิดหน้าแชทกลุ่มตรงๆ | — |
+| `-uitestChatCloseAfter <วินาที>` | double | ปิดแชทเองหลัง N วิ (แอปยัง foreground) | — |
+| `-uitestNotifications` | flag | เปิดหน้าแจ้งเตือนตรงๆ | — |
+| `-uitestFeedback <checkpointId>` | int > 0 | เปิดฟอร์มให้ความเห็นของฐานนั้นตรงๆ (id จริงเริ่มที่ 1) | — |
+| `-uitestProgress <n>` | int | บังคับขั้นต้นไม้หน้า Home เป็น n/8 | — |
+| `-uitestProfile` | flag | เปิดหน้าโปรไฟล์ตรงๆ (จาก Home) | แท็บ Home ต้องขึ้นก่อน (index 0 — ค่าเริ่มต้นของ `-uitestTab` อยู่แล้วถ้าไม่ส่งอย่างอื่นมาทับ) |
+| `-uitestMedical` | flag | เปิดหน้าข้อมูลการแพทย์ตรงๆ (จาก Ticket) | `-uitestProfile` |
+| `-uitestSettings` | flag | เปิดหน้าตั้งค่าตรงๆ (จาก Ticket) | `-uitestProfile` |
+| `-uitestMapHeading <องศา>` | int | ทับมุมกล้อง yaw ของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
+| `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
+| `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ | `-uitestTab 1` |
+
+**ทำไมบางคีย์ต้องมาคู่กัน:** `-uitestMedical`/`-uitestSettings` ถูกอ่านใน `.task` ของ `TicketView`
+(`WBW/TicketView.swift:38-41`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน
+`.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:101-103`) ซึ่งเปิดจาก
+`-uitestProfile` เท่านั้น (`WBW/HomeView.swift:98`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
+เลย ส่วน `-uitestMapPin`/`-uitestMapHeading`/`-uitestMapPitch` ถูกอ่านใน `.onAppear` ของ `Map3DScreen`
+(`WBW/Map3D/Map3DScreen.swift:350-366`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen() }` ที่
+`WBW/MainTabView.swift:49`) — `TabView` โหลดเนื้อในแท็บแบบ lazy แท็บที่ยังไม่เคยถูกเลือกจะไม่ mount View
+เลยสักครั้ง แท็บเริ่มต้นคือ Home (index 0) เสมอถ้าไม่ส่ง `-uitestTab` มา จึงต้องสั่ง `-uitestTab 1` กำกับไป
+ด้วยทุกครั้ง
 
 index แท็บ (สำหรับ `-uitestTab`/`-uitestTabSequence`):
 
