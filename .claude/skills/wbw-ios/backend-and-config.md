@@ -22,9 +22,11 @@ IP แล้ว container ของ SUS publish พอร์ตแค่ที�
 
 ## กับดักที่เคยเสียเวลาจริง
 
-**ห้ามลบ `case susLan`** — `Backend.cacheNamespace` (`WBW/BackendCacheKey.swift`) กับเทสอีกสองไฟล์
-`switch` ครบทุก case ของ `Backend` อยู่ ถ้าลบ `case susLan` ออก repo จะ build ไม่ผ่านเลยตอน clone ใหม่
-บนเครื่องอื่น สิ่งที่ต้องแก้เฉพาะเครื่องคือ **เลข IP** ใน `apiBase` เท่านั้น ไม่ใช่ตัว case
+**ห้ามลบ `case susLan`** — `Backend.cacheNamespace` (`WBW/BackendCacheKey.swift`) `switch` ครบทุก case
+ของ `Backend` อยู่ ส่วน `WBWTests/FeedbackOutboxTests.swift` กับ `WBWTests/CheckinProgressStoreTests.swift`
+อ้าง `.susLan` ตรง ๆ ใน array literal (ไม่ใช่ `switch`) แล้ว assert ว่านับได้ 5 ตัวไม่ซ้ำกัน ถ้าลบ
+`case susLan` ออก repo จะ build ไม่ผ่านเลยตอน clone ใหม่บนเครื่องอื่น สิ่งที่ต้องแก้เฉพาะเครื่องคือ **เลข
+IP** ใน `apiBase` เท่านั้น ไม่ใช่ตัว case
 
 **`Config.backend` เป็นบรรทัดที่ห้าม commit ตอนสลับไปทดสอบ** — ค่าที่อยู่ใน `WBW/Config.swift` ตอน push
 คือค่าที่จะส่งขึ้น store จริง ระหว่างสลับ backend ไปมาเพื่อเทส ให้ `git add` ทีละไฟล์เสมอ อย่า `git add -A`
