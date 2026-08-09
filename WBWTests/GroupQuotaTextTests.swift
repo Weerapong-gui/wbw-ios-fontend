@@ -28,8 +28,15 @@ final class GroupQuotaTextTests: XCTestCase {
         XCTAssertTrue(s.contains("อีกครั้งเดียว"), s)
     }
 
+    func testLeaveWarningWhenAlreadyExhausted() {
+        let s = GroupQuotaText.leaveWarning(groupNumber: 3, quota: 0)
+        XCTAssertFalse(s.contains("อีกครั้งเดียว"), "quota หมดแล้ว ต้องไม่บอกว่ายังเลือกกลุ่มใหม่ได้อีกครั้ง: \(s)")
+        XCTAssertTrue(s.contains("หมดแล้ว"), s)
+    }
+
     func testRemaining() {
         XCTAssertTrue(GroupQuotaText.remaining(quota: 2).contains("2 ครั้ง"))
-        XCTAssertTrue(GroupQuotaText.remaining(quota: 0).contains("ครบแล้ว"))
+        XCTAssertTrue(GroupQuotaText.remaining(quota: 0).contains("สิทธิ์ออกจากกลุ่ม"))
+        XCTAssertTrue(GroupQuotaText.remaining(quota: 0).contains("หมดแล้ว"))
     }
 }
