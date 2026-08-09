@@ -93,7 +93,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 `.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:101-103`) ซึ่งเปิดจาก
 `-uitestProfile` เท่านั้น (`WBW/HomeView.swift:98`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
 เลย ส่วน `-uitestMapPin`/`-uitestMapHeading`/`-uitestMapPitch` ถูกอ่านใน `.onAppear` ของ `Map3DScreen`
-(`WBW/Map3D/Map3DScreen.swift:350-366`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen() }` ที่
+(`WBW/Map3D/Map3DScreen.swift:367-383`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen() }` ที่
 `WBW/MainTabView.swift:49`) — `TabView` โหลดเนื้อในแท็บแบบ lazy แท็บที่ยังไม่เคยถูกเลือกจะไม่ mount View
 เลยสักครั้ง แท็บเริ่มต้นคือ Home (index 0) เสมอถ้าไม่ส่ง `-uitestTab` มา จึงต้องสั่ง `-uitestTab 1` กำกับไป
 ด้วยทุกครั้ง

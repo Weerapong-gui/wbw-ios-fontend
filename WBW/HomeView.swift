@@ -93,6 +93,13 @@ struct HomeView: View {
             plantStep: stage,
             plantTotal: total)
         .task {
+            // เริ่มโหลด map.usdz ไว้เลยระหว่างที่ผู้ใช้ยังดูหน้าแรกอยู่ — โมเดลกินเวลาราว 7 วิ
+            // ปล่อยให้เริ่มตอนกดแท็บแผนที่แปลว่าต้องนั่งรอทุกครั้งที่เปิดแอปครั้งแรก (ดู MapModelLoader)
+            //
+            // ต้องอยู่ "ก่อน" await profile.load — วัดแล้วตอนวางไว้หลัง งานโหลดโมเดลเริ่มช้าไปตาม
+            // ความเร็วเน็ตของ profile.load แล้วกลายเป็นยังโหลดไม่เสร็จตอนผู้ใช้กดแท็บอยู่ดี
+            // preload() ไม่บล็อก (แค่ตั้ง Task) วางหน้าสุดจึงไม่ได้ทำให้โปรไฟล์มาช้าลง
+            MapModelLoader.shared.preload()
             if profile.me == nil { await profile.load(token: session.token ?? "") }
             #if DEBUG
             if UserDefaults.standard.bool(forKey: "uitestProfile") { showProfile = true }

@@ -8,6 +8,8 @@ import SwiftUI
 struct Map3DScreen: View {
     /// โหลดโมเดลไม่สำเร็จ — โชว์ข้อความแทนจอเปล่า (ทรงเดียวกับ ForestSceneHost.loadFailed)
     @State private var loadFailed = false
+    /// ยังโหลดโมเดลไม่เสร็จ — โมเดลนี้ใช้เวลาหลายวินาที ปล่อยจอเปล่าไว้ผู้ใช้อ่านว่าแอปค้าง ไม่ใช่กำลังโหลด
+    @State private var isLoading = true
 
     @EnvironmentObject private var progress: CheckinProgressStore
     /// ฐานที่แตะค้างไว้อยู่ — nil = ไม่มีการ์ด
@@ -89,6 +91,21 @@ struct Map3DScreen: View {
                 }
             } else {
                 mapView
+
+                // ทับบน RealityView ระหว่างที่โมเดลยังไม่ขึ้น — RealityView ต้องถูก mount ไปแล้ว
+                // ตั้งแต่ต้นถึงจะเริ่มโหลด จึงซ้อนทับแทนที่จะสลับ if/else กัน
+                if isLoading {
+                    ZStack {
+                        Color.wbwForestVoid.ignoresSafeArea()
+                        VStack(spacing: 12) {
+                            ProgressView().tint(.white)
+                            Text("กำลังโหลดแผนที่")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                    }
+                    .transition(.opacity)
+                }
             }
 
             if shouldRender {
@@ -138,17 +155,15 @@ struct Map3DScreen: View {
             let root = Entity()
             content.add(root)
 
-            let map: Entity
-            do {
-                map = try await Entity(named: "map")
-            } catch {
-                // NSLog ไม่ใช่ print — print() ไม่โผล่ใน unified log ของ simulator
-                // (ยืนยันมาแล้วตอน debug จอขาวของฉากป่า) ต้องใช้ NSLog ถึงจะ grep เจอผ่าน
-                // `xcrun simctl spawn booted log stream`
-                NSLog("[Map3DScreen] Entity(named: \"map\") threw: %@", String(describing: error))
-                await MainActor.run { loadFailed = true }
+            // เอาของที่ Home สั่งโหลดล่วงหน้าไว้ — ถ้ายังไม่เสร็จก็รอรอบเดิม ไม่เริ่มโหลดใหม่ซ้อน
+            // (ดู MapModelLoader ว่าทำไมต้องโหลดล่วงหน้า และทำไมไม่ clone)
+            guard let map = await MapModelLoader.shared.model() else {
+                await MainActor.run { loadFailed = true; isLoading = false }
                 return
             }
+            // ถูกแขวนอยู่กับ root ของรอบก่อนได้ถ้า view ถูก mount ซ้ำ — ปลดก่อนเสมอ
+            // ไม่งั้นจะได้โมเดลค้างอยู่สองที่หรือ addChild ซ้ำ
+            map.removeFromParent()
             map.name = "Map"
 
             // โมเดลเป็นเมตรจริง รัศมีราว 1.9 กม. — ย่อให้ทั้งก้อนพอดีกรอบ 2 หน่วย
@@ -234,6 +249,8 @@ struct Map3DScreen: View {
             camera.camera.near = 0.01
             camera.camera.far = 100
             root.addChild(camera)
+
+            await MainActor.run { isLoading = false }
         } update: { content in
             guard let root = content.entities.first,
                   let map = root.findEntity(named: "Map") else { return }
