@@ -232,8 +232,13 @@ struct MainTabView: View {
             // ด้านล่างว่าทำไมต้องคำนวณเอง ไม่พึ่ง view lifecycle ของ GroupChatView
             .onChange(of: chatVisible) { _, visible in chat.setScreenVisible(visible) }
 
-            // แบนเนอร์ในแอป — เฉพาะตอนไม่ได้อยู่แท็บแชทอยู่แล้ว (ไม่ว่าจะที่รากหรือ push ลึกไปหน้ากลุ่ม/สมาชิก)
-            if let m = chat.incoming, tab != 3 {
+            // แบนเนอร์ในแอป — เงื่อนไขต้องเป็น !chatVisible ไม่ใช่ tab != 3 — ตั้งแต่ Task 5 แท็บ 3 มี
+            // sub-navigation แล้ว (push ไปกลุ่มของฉัน/สมาชิกได้) tab == 3 ตอนนั้นไม่ได้แปลว่า "เห็นจอแชท
+            // อยู่" อีกต่อไป ถ้าใช้ tab != 3 ตอนอยู่หน้ากลุ่มของฉัน/สมาชิก (tab ยังเป็น 3, chatVisible
+            // false) เงื่อนไขนี้จะเป็น false ทำให้ toast ไม่โผล่ — chat.incoming ที่ตั้งไว้ (ChatSession
+            // เห็นว่าจอไม่ visible แล้ว) เลยไม่มี .task(id:) มาเคลียร์ให้ ค้างเป็น latch ไปเรื่อยๆ จนกว่าจะ
+            // สลับแท็บออกไปแล้วโผล่มาแบบข้อความเก่า
+            if let m = chat.incoming, !chatVisible {
                 VStack {
                     ChatToast(message: m, photoUrl: nil, onTap: {
                         chat.incoming = nil
@@ -362,8 +367,12 @@ struct MainTabView: View {
     ///
     /// แยกเป็น property แทนที่จะใส่นิพจน์บูลีนยาวๆ ใน `if` ของ body — ไฟล์นี้มีประวัติทำ type-checker
     /// พังด้วยนิพจน์แบบนี้มาแล้ว (ดูคอมเมนต์ยาวที่ .onChange(of: tab))
+    ///
+    /// ใช้ !chatVisible ไม่ใช่ tab != 3 — เหตุผลเดียวกับแบนเนอร์แชทด้านบน: ตั้งแต่มี sub-navigation ใน
+    /// แท็บ 3 (Task 5) ผู้ใช้ที่อยู่หน้ากลุ่มของฉัน/สมาชิก (tab == 3 แต่ chatVisible == false) ควรเห็น
+    /// toast เช็คอินได้ตามปกติ ไม่ใช่ถูกกันไว้เพราะบังเอิญ tab เท่ากับ 3
     private var canShowCheckinToast: Bool {
-        tab != 3 && !showNotifications && feedbackCheckpoint == nil && chat.incoming == nil
+        !chatVisible && !showNotifications && feedbackCheckpoint == nil && chat.incoming == nil
     }
 
     /// มาร์คแจ้งเตือนขอความเห็นของฐานนี้ว่าอ่านแล้ว — เส้นทาง push พาเข้าฟอร์มตรงๆ ไม่ผ่าน
