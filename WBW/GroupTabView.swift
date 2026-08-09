@@ -38,63 +38,83 @@ struct GroupTabView: View {
     }
 }
 
-/// หน้ากลุ่มของฉัน (เข้ากลุ่มแล้ว) — ดูสมาชิก / ออกจากกลุ่ม · ถูก push มาจากการแตะหัวจอแชท
-/// ไม่มีปุ่มเข้าแชทแล้ว เพราะแชทเป็นรากของ stack อยู่แล้ว (หน้านี้อยู่บนแชท ไม่ใช่คนละกิ่ง)
+/// หน้ากลุ่มของฉัน — เข้าถึงจากการกดหัวจอแชท · ดูสมาชิก / ดูสิทธิ์ / ออกจากกลุ่ม
 struct GroupHomeView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
-    @EnvironmentObject var groups: GroupStore
     @Binding var path: [GroupRoute]
     @State private var leaving = false
+    @State private var confirmLeave = false
+    @State private var error: String?
 
-    private var groupNo: Int? { profile.me?.groupNumber }
-    private var groupId: Int? { profile.me?.groupId }
+    private var groupNo: Int { profile.me?.groupNumber ?? 0 }
+    /// อ่านเป็น 0 เมื่อไม่รู้ค่า — backend เก่าไม่ส่ง key นี้มา ปลอดภัยกว่าที่จะไม่โชว์ปุ่มออก
+    /// (กดแล้วเจอ 409 จาก server อยู่ดี) ดีกว่าโชว์ปุ่มที่พาไปเจอทางตัน
+    private var quota: Int { profile.me?.leaveQuota ?? 0 }
 
     var body: some View {
         ZStack {
             Color.wbwBg.ignoresSafeArea()
             VStack(spacing: 20) {
-                // การ์ดกลุ่ม
                 VStack(spacing: 6) {
                     Text("กลุ่มของฉัน").font(.system(size: 14)).foregroundStyle(.secondary)
-                    Text("กลุ่ม \(groupNo.map(String.init) ?? "-")")
+                    Text("กลุ่ม \(groupNo)")
                         .font(.system(size: 34, weight: .heavy)).foregroundStyle(Color.wbwInk)
+                    Text(GroupQuotaText.remaining(quota: quota))
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 28)
                 .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 20))
 
-                // ดูสมาชิก — push ผ่าน path แทน NavigationLink เพราะปลายทางประกาศไว้ที่
-                // navigationDestination ของ GroupTabView แล้ว ไม่ใช่ของหน้านี้เอง
-                if groupId != nil {
-                    Button { path.append(.members) } label: {
-                        Label("สมาชิกในกลุ่ม", systemImage: "person.2.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color.wbwInk)
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(16)
-                            .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 16))
-                    }
+                Button { path.append(.members) } label: {
+                    Label("สมาชิกในกลุ่ม", systemImage: "person.2.fill")
+                        .font(.system(size: 16)).foregroundStyle(Color.wbwInk)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(16)
+                        .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 16))
                 }
 
                 Spacer()
 
-                Button(role: .destructive) { Task { await leave() } } label: {
-                    Text(leaving ? "กำลังออก" : "ออกจากกลุ่ม")
-                        .font(.system(size: 15)).foregroundStyle(.red)
+                // สิทธิ์หมด = ไม่มีปุ่ม ไม่ใช่ปุ่มกดไม่ได้ — ไม่มีอะไรให้กดแล้วจริง ๆ
+                // ปุ่มจาง ๆ ที่กดไม่ได้ชวนให้กดซ้ำแล้วสงสัยว่าแอปค้าง
+                if quota > 0 {
+                    Button(role: .destructive) { confirmLeave = true } label: {
+                        Text(leaving ? "กำลังออก" : "ออกจากกลุ่ม")
+                            .font(.system(size: 15)).foregroundStyle(.red)
+                    }
+                    .disabled(leaving)
                 }
-                .disabled(leaving)
+
+                if let error {
+                    Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
+                }
             }
-            .padding(20)
-            .padding(.top, 8)
+            .padding(20).padding(.top, 8)
         }
-        .navigationTitle("กลุ่ม")
+        .navigationTitle("กลุ่ม \(groupNo)")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("ออกจากกลุ่ม \(groupNo)?", isPresented: $confirmLeave) {
+            Button("ยกเลิก", role: .cancel) {}
+            Button("ออกจากกลุ่ม", role: .destructive) { Task { await leave() } }
+        } message: {
+            Text(GroupQuotaText.leaveWarning(groupNumber: groupNo, quota: quota))
+        }
     }
 
     private func leave() async {
         guard let t = session.token else { return }
+        error = nil
         leaving = true
-        try? await APIClient.shared.leaveGroup(token: t)
-        await profile.load(token: t)   // group_id = nil → กลับไปหน้าจับกลุ่ม
-        leaving = false
+        defer { leaving = false }
+        do {
+            try await APIClient.shared.leaveGroup(token: t)
+            await profile.load(token: t)   // group_id = nil → GroupTabView สลับไปหน้าจับกลุ่มเอง
+            path.removeAll()               // หน้านี้กำลังจะไม่มีกลุ่มให้แสดง เด้งกลับรากก่อน
+        } catch {
+            // 409 = admin ตัดสิทธิ์ระหว่างที่จอนี้เปิดค้าง หรือออกไปแล้วจากอีกเครื่อง
+            // โหลดโปรไฟล์ใหม่ให้จอตรงกับความจริงทันที ไม่ใช่แค่โชว์ข้อความแล้วปล่อยค้าง
+            self.error = (error as? LocalizedError)?.errorDescription ?? "ออกจากกลุ่มไม่สำเร็จ"
+            await profile.load(token: t)
+        }
     }
 }
