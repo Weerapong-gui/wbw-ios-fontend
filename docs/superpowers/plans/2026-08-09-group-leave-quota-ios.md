@@ -69,25 +69,25 @@ import XCTest
 /// แล้วแก้กลับเองไม่ได้ (สิทธิ์หักไปแล้ว) จึงตรึงทุกกรณีไว้ด้วยเทส
 final class GroupQuotaTextTests: XCTestCase {
 
-    func testJoinWarningยังมีสิทธิ์() {
+    func testJoinWarningWithQuotaLeft() {
         let s = GroupQuotaText.joinWarning(groupNumber: 7, quota: 1)
         XCTAssertTrue(s.contains("กลุ่ม 7"), s)
         XCTAssertTrue(s.contains("1 ครั้ง"), s)
     }
 
-    func testJoinWarningสิทธิ์หมดเตือนว่าเปลี่ยนไม่ได้อีก() {
+    func testJoinWarningWhenQuotaExhausted() {
         let s = GroupQuotaText.joinWarning(groupNumber: 12, quota: 0)
         XCTAssertTrue(s.contains("หมดแล้ว"), s)
         XCTAssertTrue(s.contains("เปลี่ยนกลุ่มไม่ได้อีก"), s)
         XCTAssertFalse(s.contains("0 ครั้ง"), "ห้ามบอกว่าเหลือ 0 ครั้ง — ต้องบอกผลที่ตามมาแทน: \(s)")
     }
 
-    func testLeaveWarningเหลือมากกว่าหนึ่ง() {
+    func testLeaveWarningWithMoreThanOneLeft() {
         let s = GroupQuotaText.leaveWarning(groupNumber: 3, quota: 2)
         XCTAssertTrue(s.contains("1 ครั้ง"), "เหลือ 2 ก่อนออก = เหลือ 1 หลังออก: \(s)")
     }
 
-    func testLeaveWarningครั้งสุดท้ายเตือนว่าจะหมด() {
+    func testLeaveWarningOnLastChance() {
         let s = GroupQuotaText.leaveWarning(groupNumber: 3, quota: 1)
         XCTAssertTrue(s.contains("อีกครั้งเดียว"), s)
     }
@@ -116,12 +116,12 @@ final class MeDecodeTests: XCTestCase {
         return try dec.decode(Me.self, from: Data(json.utf8))
     }
 
-    func testไม่มีleaveQuotaยังdecodeผ่าน() throws {
+    func testDecodesWithoutLeaveQuota() throws {
         let me = try decode(#"{"user_id":"u1","username":"6931900011","role":"participant"}"#)
         XCTAssertNil(me.leaveQuota)
     }
 
-    func testมีleaveQuotaอ่านค่าได้() throws {
+    func testDecodesLeaveQuota() throws {
         let me = try decode(#"{"user_id":"u1","username":"x","role":"participant","leave_quota":2}"#)
         XCTAssertEqual(me.leaveQuota, 2)
     }
@@ -253,7 +253,7 @@ final class GroupLeaveTransportTests: XCTestCase {
         super.tearDown()
     }
 
-    func testสิทธิ์หมดได้ข้อความจากserver() async {
+    func testLeaveConflictSurfacesServerMessage() async {
         StubURLProtocol.status = 409
         StubURLProtocol.body = Data(#"{"error":"สิทธิ์ออกจากกลุ่มหมดแล้ว"}"#.utf8)
         do {
@@ -264,7 +264,7 @@ final class GroupLeaveTransportTests: XCTestCase {
         }
     }
 
-    func testสำเร็จไม่โยน() async throws {
+    func testLeaveSuccessDoesNotThrow() async throws {
         StubURLProtocol.status = 200
         StubURLProtocol.body = Data(#"{"ok":true}"#.utf8)
         try await APIClient.shared.leaveGroup(token: "t")
@@ -280,7 +280,7 @@ xcodegen generate && xcodebuild -scheme WBW -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
   test -only-testing:WBWTests/GroupLeaveTransportTests 2>&1 | tail -20
 ```
-Expected: `testสิทธิ์หมดได้ข้อความจากserver` FAIL ที่ `ต้องโยน error ไม่ใช่ผ่านเงียบ ๆ`
+Expected: `testLeaveConflictSurfacesServerMessage` FAIL ที่ `ต้องโยน error ไม่ใช่ผ่านเงียบ ๆ`
 
 - [ ] **Step 3: เขียน `leaveGroup` ใหม่**
 
@@ -343,7 +343,7 @@ git commit -m "fix(group): ออกจากกลุ่มไม่สำเ�
     /// เส้น "ข้อความใหม่" คำนวณจากค่านี้ · ถ้าอ่านค่าสดจาก myLastReadId เส้นจะไม่มีวันโผล่
     /// เพราะ setScreenVisible เรียก markRead() ซึ่งดัน myLastReadId ขึ้นสุดในเฟรมเดียวกัน
     @MainActor
-    func testสแนปเส้นข้อความใหม่ถูกเก็บก่อนmarkRead() {
+    func testUnreadLineSnapshotTakenBeforeMarkRead() {
         let s = ChatSession()
         s.testSetup(groupId: 1, myId: "me")
         XCTAssertEqual(s.unreadLineSnapshot, .max, "ก่อนเปิดจอต้องแปลว่าอ่านหมดแล้ว")

@@ -264,7 +264,7 @@ func readMembership(t *testing.T, pool *pgxpool.Pool, uid string) (*int, int) {
 	return gid, quota
 }
 
-func TestLeave_สิทธิ์หมดแล้วออกไม่ได้(t *testing.T) {
+func TestLeaveWithoutQuotaIsRejected(t *testing.T) {
 	pool, uid := openGroupTestDB(t)
 	repo := NewWBWGroupRepository(pool)
 	gid := freeGroupID(t, pool)
@@ -286,7 +286,7 @@ func TestLeave_สิทธิ์หมดแล้วออกไม่ได�
 	}
 }
 
-func TestLeave_สำเร็จหักโควตาและเขียนlog(t *testing.T) {
+func TestLeaveSpendsQuotaAndLogs(t *testing.T) {
 	pool, uid := openGroupTestDB(t)
 	repo := NewWBWGroupRepository(pool)
 	gid := freeGroupID(t, pool)
@@ -320,7 +320,7 @@ func TestLeave_สำเร็จหักโควตาและเขีย�
 	}
 }
 
-func TestLeave_ไม่มีกลุ่มไม่หักโควตา(t *testing.T) {
+func TestLeaveWithoutGroupKeepsQuota(t *testing.T) {
 	pool, uid := openGroupTestDB(t)
 	repo := NewWBWGroupRepository(pool)
 	setMembership(t, pool, uid, nil, 1)
@@ -334,7 +334,7 @@ func TestLeave_ไม่มีกลุ่มไม่หักโควตา(t
 	}
 }
 
-func TestLeave_สองคำขอพร้อมกันหักได้ครั้งเดียว(t *testing.T) {
+func TestLeaveConcurrentSpendsQuotaOnce(t *testing.T) {
 	pool, uid := openGroupTestDB(t)
 	repo := NewWBWGroupRepository(pool)
 	gid := freeGroupID(t, pool)
@@ -496,7 +496,7 @@ git commit -m "feat(group): หักโควตาตอนออกจาก�
 ต่อท้าย `internal/repository/wbw_group_repository_test.go`:
 
 ```go
-func TestJoin_มีกลุ่มอยู่แล้วย้ายตรงไม่ได้(t *testing.T) {
+func TestJoinWhileInGroupIsRejected(t *testing.T) {
 	pool, uid := openGroupTestDB(t)
 	repo := NewWBWGroupRepository(pool)
 	gid := freeGroupID(t, pool)
@@ -524,7 +524,7 @@ func TestJoin_มีกลุ่มอยู่แล้วย้ายตรง
 	}
 }
 
-func TestJoin_สำเร็จเขียนlogโดยไม่แตะโควตา(t *testing.T) {
+func TestJoinLogsWithoutSpendingQuota(t *testing.T) {
 	pool, uid := openGroupTestDB(t)
 	repo := NewWBWGroupRepository(pool)
 	setMembership(t, pool, uid, nil, 1)
