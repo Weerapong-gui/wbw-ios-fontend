@@ -20,8 +20,6 @@ struct FeedbackView: View {
     @State private var sent = false
     // ข้อความ error ตอนส่งไม่สำเร็จแบบถาวร (retry ด้วย draft เดิมไม่มีทางสำเร็จ) — nil = ไม่มี error ค้าง
     @State private var sendError: String?
-
-    private let cream = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255)
     private let errorRed = Color(red: 0.84, green: 0.27, blue: 0.27) // แดง — เฉดเดียวกับ NotificationsView (emergency)
     private var item: CheckinProgressItem? { progress.item(checkpointId: checkpointId) }
     private var answered: Bool { item?.answered == true || sent }
@@ -29,7 +27,7 @@ struct FeedbackView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                cream.ignoresSafeArea()
+                Color.wbwBg.ignoresSafeArea()
                 ScrollView {
                     card.padding(.horizontal, 16).padding(.top, 12)
                 }
@@ -95,7 +93,7 @@ struct FeedbackView: View {
                 .scrollContentBackground(.hidden)
                 .frame(height: 110)
                 .padding(8)
-                .background(cream, in: RoundedRectangle(cornerRadius: 12))
+                .background(Color.wbwBg, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.wbwInk.opacity(0.12), lineWidth: 1))
                 .overlay(alignment: .topLeading) {
                     if comment.isEmpty {
@@ -150,7 +148,7 @@ struct FeedbackView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .foregroundStyle(picked ? Color.wbwGreen : Color.wbwInk.opacity(0.5))
-            .background(picked ? Color.wbwGreen.opacity(0.12) : cream,
+            .background(picked ? Color.wbwGreen.opacity(0.12) : Color.wbwBg,
                         in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12)
                 .stroke(picked ? Color.wbwGreen : Color.wbwInk.opacity(0.14), lineWidth: 1))

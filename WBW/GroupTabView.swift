@@ -1,6 +1,5 @@
 import SwiftUI
 
-private let screenBG = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255) // ครีมอ่อน
 
 /// แท็บ 3 — ยังไม่เข้ากลุ่ม = หน้าจับกลุ่ม · เข้าแล้ว = หน้ากลุ่ม (เข้าแชท)
 struct GroupTabView: View {
@@ -31,7 +30,7 @@ struct GroupHomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                screenBG.ignoresSafeArea()
+                Color.wbwBg.ignoresSafeArea()
                 VStack(spacing: 20) {
                     // การ์ดกลุ่ม
                     VStack(spacing: 6) {
@@ -40,7 +39,7 @@ struct GroupHomeView: View {
                             .font(.system(size: 34, weight: .heavy)).foregroundStyle(Color.wbwInk)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 28)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 20))
+                    .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 20))
 
                     // ปุ่มเข้าแชท
                     Button(action: onOpenChat) {
@@ -58,7 +57,7 @@ struct GroupHomeView: View {
                                 .font(.system(size: 16))
                                 .foregroundStyle(Color.wbwInk)
                                 .frame(maxWidth: .infinity, alignment: .leading).padding(16)
-                                .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                                .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 16))
                         }
                     }
 

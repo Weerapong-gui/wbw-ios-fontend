@@ -1,6 +1,5 @@
 import SwiftUI
 
-private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255)
 
 /// รายชื่อสมาชิกในกลุ่ม — แตะดูโปรไฟล์
 struct GroupMembersView: View {
@@ -27,7 +26,7 @@ struct GroupMembersView: View {
             }
             .padding(16)
         }
-        .background(bg)
+        .background(Color.wbwBg)
         .navigationTitle("กลุ่ม \(groupNumber)")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -52,7 +51,7 @@ struct GroupMembersView: View {
             }
             Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(.tertiary)
         }
-        .padding(12).background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+        .padding(12).background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 

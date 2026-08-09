@@ -46,12 +46,10 @@ struct NotificationsView: View {
     /// ไม่เรียกตัวนี้เลย (feedbackCheckpointId เป็น nil)
     let onOpenFeedback: (Int) -> Void
 
-    private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255) // ครีมอ่อน #FAF7F0
-
     var body: some View {
         NavigationStack {
             ZStack {
-                bg.ignoresSafeArea()
+                Color.wbwBg.ignoresSafeArea()
                 if store.loaded && store.items.isEmpty {
                     emptyState
                 } else {
@@ -160,7 +158,7 @@ private struct NotiCard: View {
                     .padding(.trailing, 14)
             }
         }
-        .background(Color.white)
+        .background(Color.wbwSurface)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.05), lineWidth: 1))
     }

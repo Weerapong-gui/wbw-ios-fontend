@@ -6,18 +6,34 @@
 
 ## สีธีม
 
-ประกาศเป็น `extension Color` ใน `WBW/Config.swift` (บรรทัด 65 เป็นต้นไป) ครบ 5 ตัว:
+ประกาศเป็น `extension Color` ใน `WBW/Config.swift` (บรรทัด 66 เป็นต้นไป) แบ่งเป็นสองกลุ่ม
+
+**สีแบรนด์/สีฉาก — คงที่ทั้งสองธีม** (พลิกตามโหมดมืดเมื่อไหร่แอปจะดูเป็นคนละงาน):
 
 | ชื่อ | hex | ใช้ทำอะไร |
 |---|---|---|
 | `Color.wbwCream` | `#DEC684` | สีครีมหลักของธีม DOI-APP |
-| `Color.wbwInk` | `#2B2B2B` | สีตัวอักษร/เส้นเข้ม |
 | `Color.wbwGold` | `#C99A1F` | สีทอง |
 | `Color.wbwGreen` | `#40916C` | เขียวป่า ใช้ตอน toggle เปิด |
 | `Color.wbwForestVoid` | `#0A1610` | พื้นหลังทึบแทนฉากป่าตอน `Config.forest3D` ปิด (สีเดียวกับ scrim เดิมของ `ForestOverlay`) — รายละเอียด flag ดู `backend-and-config.md` |
 
-กติกา: **ใช้ของที่มี ห้ามหว่าน hex ใหม่ในจอเดียว** — เจอสีที่ยังไม่มีใน 5 ตัวนี้ ให้เพิ่มเป็น `static let`
-ใหม่ใน `WBW/Config.swift` ก่อน อย่าฝัง `Color(red:green:blue:)` แยกไว้กลางไฟล์จอ
+**สีพื้นผิว — ปรับตามโหมดมืด** ผ่าน `UIColor(dynamicProvider:)` ตัวขับคือ `.preferredColorScheme`
+ที่ `WBW/WBWApp.swift` ตั้งจาก `AppSettings.isDark`:
+
+| ชื่อ | light | dark | ใช้ทำอะไร |
+|---|---|---|---|
+| `Color.wbwBg` | `#FAF7F0` | `#14120F` | พื้นหลังจอ |
+| `Color.wbwSurface` | ขาว | `#211F1B` | การ์ด/ฟองแชท/ช่องพิมพ์ |
+| `Color.wbwInk` | `#2B2B2B` | `#EFEBE3` | ตัวอักษร/เส้นเข้ม |
+| `Color.wbwMuted` | `#8F8A80` | `#A8A196` | ข้อความรอง |
+| `Color.wbwLine` | `#ECE6DA` | `#332F29` | เส้นคั่น |
+
+กติกา: **ใช้ของที่มี ห้ามหว่าน hex ใหม่ในจอเดียว** — เจอสีที่ยังไม่มีในตารางพวกนี้ ให้เพิ่มเป็น
+`static let` ใหม่ใน `WBW/Config.swift` ก่อน อย่าฝัง `Color(red:green:blue:)` แยกไว้กลางไฟล์จอ
+(เคยมี `private let bg = Color(red: 250/255, ...)` ก๊อปกันอยู่ 6 จอ พอเพิ่มโหมดมืดเลยต้องไล่แก้ทีละที่)
+
+**จอที่ตั้งใจไม่ให้ปรับตามธีม** อย่าเผลอไปเปลี่ยน: `TicketView` (บัตรจำลองกระดาษ ต้องขาวเสมอ),
+`HomeView` (ใช้ `.forestBackground()` ซึ่งมืดอยู่แล้ว), `StaffScanView` (จอสแกนพื้นมืด), `Scene3D/*`
 
 ## Liquid Glass
 

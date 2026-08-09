@@ -1,7 +1,9 @@
 import SwiftUI
 import PhotosUI
 
-/// หน้าตั้งค่า — dark mode / ภาษา / บัญชี / ข้อมูล + ออกจากระบบ (ตาม DOI mockup)
+/// หน้าตั้งค่า — โหมดมืด / แจ้งเตือน / บัญชี / ข้อมูล + ออกจากระบบ (ตาม DOI mockup)
+///
+/// ตัวเลือกภาษาเคยอยู่ตรงนี้ แต่แปลจริงแค่หน้านี้หน้าเดียว เอาออกจนกว่าจะทำ i18n เต็ม (ดู AppSettings)
 struct SettingsView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var settings: AppSettings
@@ -21,41 +23,33 @@ struct SettingsView: View {
                     VStack(spacing: 22) {
                         // การ์ด toggle
                         card {
-                            toggleRow(icon: "moon.fill", title: settings.t("โหมดมืด", "Dark mode"), isOn: $settings.isDark)
+                            toggleRow(icon: "moon.fill", title: "โหมดมืด", isOn: $settings.isDark)
                             Divider().padding(.leading, 56)
-                            toggleRow(icon: "bell.fill", title: settings.t("การแจ้งเตือน", "Notifications"), isOn: $settings.notiEnabled)
+                            toggleRow(icon: "bell.fill", title: "การแจ้งเตือน", isOn: $settings.notiEnabled)
                         }
 
-                        // ภาษา + บัญชี
+                        // บัญชี
                         card {
-                            Menu {
-                                Button("ไทย") { settings.lang = "th" }
-                                Button("English") { settings.lang = "en" }
-                            } label: {
-                                navRow(icon: "globe", title: settings.t("ภาษา", "Language"),
-                                       value: settings.lang == "en" ? "English" : "ไทย")
-                            }
-                            Divider().padding(.leading, 56)
                             NavigationLink { AccountView() } label: {
-                                navRow(icon: "person.crop.circle", title: settings.t("บัญชี", "Account"))
+                                navRow(icon: "person.crop.circle", title: "บัญชี")
                             }
                         }
 
                         // ข้อมูล/นโยบาย
                         card {
-                            NavigationLink { docView(settings.t("คำถามที่พบบ่อย", "FAQ"), faqText) } label: {
-                                navRow(icon: "questionmark.circle", title: settings.t("คำถามที่พบบ่อย", "FAQ"))
+                            NavigationLink { docView("คำถามที่พบบ่อย", faqText) } label: {
+                                navRow(icon: "questionmark.circle", title: "คำถามที่พบบ่อย")
                             }
                             Divider().padding(.leading, 56)
-                            NavigationLink { docView(settings.t("เงื่อนไขการใช้งาน", "Terms of service"), termsText) } label: {
-                                navRow(icon: "doc.text", title: settings.t("เงื่อนไขการใช้งาน", "Terms of service"))
+                            NavigationLink { docView("เงื่อนไขการใช้งาน", termsText) } label: {
+                                navRow(icon: "doc.text", title: "เงื่อนไขการใช้งาน")
                             }
                             Divider().padding(.leading, 56)
-                            NavigationLink { docView(settings.t("นโยบายผู้ใช้", "User policy"), policyText) } label: {
-                                navRow(icon: "hand.raised", title: settings.t("นโยบายผู้ใช้", "User policy"))
+                            NavigationLink { docView("นโยบายผู้ใช้", policyText) } label: {
+                                navRow(icon: "hand.raised", title: "นโยบายผู้ใช้")
                             }
                             Divider().padding(.leading, 56)
-                            navRow(icon: "info.circle", title: settings.t("เวอร์ชัน", "Version"), value: version, chevron: false)
+                            navRow(icon: "info.circle", title: "เวอร์ชัน", value: version, chevron: false)
                         }
 
                         Spacer(minLength: 8)
@@ -64,7 +58,7 @@ struct SettingsView: View {
                         Button { showLogoutConfirm = true } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
-                                Text(settings.t("ออกจากระบบ", "Log Out")).fontWeight(.semibold)
+                                Text("ออกจากระบบ").fontWeight(.semibold)
                             }
                             .foregroundStyle(.red)
                             .frame(maxWidth: .infinity)
@@ -76,7 +70,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)  // กัน label ปุ่ม/ลิงก์ ไม่ให้ inherit สีทองจาก tint (text = ขาว)
             }
-            .navigationTitle(settings.t("ตั้งค่า", "Settings"))
+            .navigationTitle("ตั้งค่า")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -85,9 +79,9 @@ struct SettingsView: View {
                     }
                 }
             }
-            .alert(settings.t("ออกจากระบบใช่หรือไม่", "Log out?"), isPresented: $showLogoutConfirm) {
-                Button(settings.t("ยกเลิก", "Cancel"), role: .cancel) {}
-                Button(settings.t("ออกจากระบบ", "Log Out"), role: .destructive) { session.logout() }
+            .alert("ออกจากระบบใช่หรือไม่", isPresented: $showLogoutConfirm) {
+                Button("ยกเลิก", role: .cancel) {}
+                Button("ออกจากระบบ", role: .destructive) { session.logout() }
             }
             .onChange(of: settings.notiEnabled) { _, on in
                 // เปิด = ลงทะเบียน device, ปิด = ถอน token
@@ -150,26 +144,19 @@ struct SettingsView: View {
 
     // เนื้อหา placeholder (เติมจริงทีหลัง)
     private var faqText: String {
-        settings.t(
-            "ถาม: เข้าสู่ระบบอย่างไร\nตอบ: ใช้รหัสนักศึกษาและรหัสผ่านที่ลงทะเบียนไว้\n\nถาม: เช็คอินฐานอย่างไร\nตอบ: ให้เจ้าหน้าที่สแกน QR หรือแจ้ง BIB ที่ฐาน",
-            "Q: How do I log in?\nA: Use your student ID and the password you registered.\n\nQ: How do I check in at a base?\nA: Let staff scan your QR or tell them your BIB number.")
+        "ถาม: เข้าสู่ระบบอย่างไร\nตอบ: ใช้รหัสนักศึกษาและรหัสผ่านที่ลงทะเบียนไว้\n\nถาม: เช็คอินฐานอย่างไร\nตอบ: ให้เจ้าหน้าที่สแกน QR หรือแจ้ง BIB ที่ฐาน"
     }
     private var termsText: String {
-        settings.t(
-            "เงื่อนไขการใช้งานแอปเดินรอบดอย 2569 (ฉบับเต็มจะเพิ่มภายหลัง)",
-            "Terms of service for Walk Beyond the Wild 2569 (full text to be added).")
+        "เงื่อนไขการใช้งานแอปเดินรอบดอย 2569 (ฉบับเต็มจะเพิ่มภายหลัง)"
     }
     private var policyText: String {
-        settings.t(
-            "นโยบายผู้ใช้และการคุ้มครองข้อมูลส่วนบุคคล (PDPA) ฉบับเต็มจะเพิ่มภายหลัง",
-            "User policy and personal data protection (PDPA), full text to be added.")
+        "นโยบายผู้ใช้และการคุ้มครองข้อมูลส่วนบุคคล (PDPA) ฉบับเต็มจะเพิ่มภายหลัง"
     }
 }
 
 /// ข้อมูลบัญชีย่อ + เปลี่ยนรูปโปรไฟล์
 private struct AccountView: View {
     @EnvironmentObject var session: Session
-    @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var profile: ProfileStore
     @State private var pickerItem: PhotosPickerItem?
     @State private var uploading = false
@@ -197,16 +184,16 @@ private struct AccountView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 12)
-                Text(settings.t("แตะรูปเพื่อเปลี่ยน", "Tap photo to change"))
+                Text("แตะรูปเพื่อเปลี่ยน")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
 
                 VStack(spacing: 0) {
-                    row(settings.t("ชื่อ", "Name"), me?.fullName)
+                    row("ชื่อ", me?.fullName)
                     Divider().padding(.leading, 16)
-                    row(settings.t("รหัสนักศึกษา", "Student ID"), me?.studentId ?? session.user?.username)
+                    row("รหัสนักศึกษา", me?.studentId ?? session.user?.username)
                     Divider().padding(.leading, 16)
-                    row(settings.t("สำนักวิชา", "School"), me?.schoolName)
+                    row("สำนักวิชา", me?.schoolName)
                     Divider().padding(.leading, 16)
                     row("BIB", me?.bibNumber.map(String.init))
                 }
@@ -215,7 +202,7 @@ private struct AccountView: View {
             .padding(20)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle(settings.t("บัญชี", "Account"))
+        .navigationTitle("บัญชี")
         .navigationBarTitleDisplayMode(.inline)
         .task { if profile.me == nil, let t = session.token { await profile.load(token: t) } }
         .onChange(of: pickerItem) { _, item in
@@ -230,14 +217,14 @@ private struct AccountView: View {
         guard let data = try? await item.loadTransferable(type: Data.self),
               let img = UIImage(data: data),
               let dataUrl = Self.squareDataURL(img) else {
-            error = settings.t("อ่านรูปไม่ได้", "Cannot read image"); return
+            error = "อ่านรูปไม่ได้"; return
         }
         uploading = true
         defer { uploading = false; pickerItem = nil }
         guard let t = session.token else { return }
         // optimistic: profile.photoUrl เปลี่ยนทันที → Home/Ticket/Account เห็นพร้อมกัน; พลาด = คืนค่าเดิม
         let ok = await profile.updatePhoto(dataUrl: dataUrl, token: t)
-        if !ok { error = settings.t("อัปโหลดไม่สำเร็จ ลองใหม่", "Upload failed, try again") }
+        if !ok { error = "อัปโหลดไม่สำเร็จ ลองใหม่" }
     }
 
     // ครอปกลางเป็นสี่เหลี่ยมจัตุรัส + ย่อ 400px → data URL (JPEG)

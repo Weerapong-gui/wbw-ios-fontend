@@ -63,11 +63,37 @@ final class PushManager {
         registerCurrent()
     }
 
-    /// ลงทะเบียนถ้ามีทั้ง JWT (login แล้ว) + fcmToken
+    /// คีย์เดียวกับที่ AppSettings เขียน — ประกาศไว้ที่นี่เพราะ PushManager ไม่ได้ถือ AppSettings
+    /// (คนละ object กัน) พิมพ์คีย์ต่างกันเมื่อไหร่จะพังเงียบ ๆ ไม่มีอะไรฟ้อง
+    static let notiEnabledKey = "wbw.noti.enabled"
+
+    /// ไม่เคยตั้งค่า = เปิด — ต้องตีความเหมือน AppSettings.init ไม่งั้นเครื่องที่ไม่เคยเข้าหน้าตั้งค่า
+    /// จะไม่ได้รับ push เลยสักครั้ง
+    static func notificationsEnabledPreference() -> Bool {
+        UserDefaults.standard.object(forKey: notiEnabledKey) as? Bool ?? true
+    }
+
+    /// เงื่อนไขทั้งหมดของการลงทะเบียน แยกเป็น static func บริสุทธิ์ให้เทสเรียกตรงได้
+    /// โดยไม่ต้องมี Firebase/UserDefaults จริง
+    static func shouldRegister(pushEnabled: Bool, notiEnabled: Bool, fcmToken: String?, jwt: String?) -> Bool {
+        guard pushEnabled, notiEnabled,
+              let fcm = fcmToken, !fcm.isEmpty,
+              let jwt, !jwt.isEmpty
+        else { return false }
+        return true
+    }
+
+    /// ลงทะเบียนถ้ามีทั้ง JWT (login แล้ว) + fcmToken + ผู้ใช้ยังไม่ได้ปิดแจ้งเตือน
+    ///
+    /// ต้องเช็กสวิตช์ตรงนี้ ไม่ใช่แค่ตอนกดปิดในหน้าตั้งค่า — เดิมปิดแล้วถอน token จริง แต่ Session
+    /// .save() ตอน login และ updateFcmToken() ตอน FCM หมุน token เรียกตัวนี้โดยไม่รู้เรื่องสวิตช์
+    /// เครื่องจึงกลับไปอยู่ในรายชื่อรับ push เงียบ ๆ ทั้งที่สวิตช์ยังโชว์ปิดอยู่
     func registerCurrent() {
-        guard enabled,
-              let fcm = fcmToken,
-              let jwt = UserDefaults.standard.string(forKey: "wbw.token"), !jwt.isEmpty
+        let jwt = UserDefaults.standard.string(forKey: "wbw.token")
+        guard Self.shouldRegister(pushEnabled: enabled,
+                                  notiEnabled: Self.notificationsEnabledPreference(),
+                                  fcmToken: fcmToken, jwt: jwt),
+              let fcm = fcmToken, let jwt
         else { return }
         Task { try? await APIClient.shared.registerDevice(token: jwt, fcmToken: fcm, platform: "ios") }
     }

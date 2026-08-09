@@ -1,6 +1,5 @@
 import SwiftUI
 
-private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255)
 
 /// หน้าจับกลุ่ม — ปุ่มย้อนกลับ + ค้นหา (ระนาบเดียว) + 40 กลุ่ม (xx/50, ดูสมาชิก, เข้ากลุ่ม)
 struct GroupJoinView: View {
@@ -14,7 +13,7 @@ struct GroupJoinView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                bg.ignoresSafeArea()
+                Color.wbwBg.ignoresSafeArea()
                 VStack(spacing: 0) {
                     header
                     ScrollView {
@@ -54,7 +53,7 @@ struct GroupJoinView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Color.wbwInk)
                     .frame(width: 40, height: 40)
-                    .background(Color.white, in: Circle())
+                    .background(Color.wbwSurface, in: Circle())
             }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -62,7 +61,7 @@ struct GroupJoinView: View {
                     .autocorrectionDisabled()
             }
             .padding(.horizontal, 14).frame(height: 40)
-            .background(Color.white, in: Capsule())
+            .background(Color.wbwSurface, in: Capsule())
         }
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
     }
@@ -80,7 +79,7 @@ struct GroupJoinView: View {
                     }
                     Spacer()
                 }
-                .padding(12).background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+                .padding(12).background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 14))
             }
         }
     }
@@ -141,7 +140,7 @@ private struct GroupCard: View {
             .disabled(group.isFull || joining)
         }
         .padding(12)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var avatarPreview: some View {

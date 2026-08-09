@@ -91,7 +91,7 @@ struct ChatBubble: View {
                         .font(.system(size: 15))
                         .foregroundStyle(isMine ? .white : Color.wbwInk)
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(isMine ? Color.wbwGold : Color.white,
+                        .background(isMine ? Color.wbwGold : Color.wbwSurface,
                                     in: BubbleShape(isMine: isMine, hasTail: layout.isLastInGroup))
                     if isMine { stateIcon }
                     if !isMine && layout.showTime { timeLabel }

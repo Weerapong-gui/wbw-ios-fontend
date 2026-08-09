@@ -62,12 +62,49 @@ enum Config {
 
 /// สีธีม (DOI-APP)
 import SwiftUI
+import UIKit   // UIColor(dynamicProvider:) — SwiftUI ไม่ได้ re-export UIKit ให้
 extension Color {
+    // ===== สีแบรนด์ — คงที่ทั้งสองธีม =====
+    //
+    // ทองกับเขียวเป็นเอกลักษณ์ของงาน ไม่ใช่สีพื้นผิว พลิกตามธีมเมื่อไหร่แอปจะดูเป็นคนละงาน
     static let wbwCream = Color(red: 222 / 255, green: 198 / 255, blue: 132 / 255) // #DEC684
-    static let wbwInk = Color(red: 43 / 255, green: 43 / 255, blue: 43 / 255)
     static let wbwGold = Color(red: 201 / 255, green: 154 / 255, blue: 31 / 255) // #C99A1F ทอง
     static let wbwGreen = Color(red: 64 / 255, green: 145 / 255, blue: 108 / 255) // #40916C เขียวป่า (toggle on)
 
     /// พื้นหลังทึบแทนฉากป่าตอน Config.forest3D ปิด — สีเดียวกับ scrim เดิมของ ForestOverlay
+    /// มืดโดยตั้งใจทั้งสองธีม เป็นพื้นฉาก ไม่ใช่พื้นจอ
     static let wbwForestVoid = Color(red: 10 / 255, green: 22 / 255, blue: 16 / 255) // #0A1610
+
+    // ===== สีพื้นผิว — ปรับตามโหมดมืด =====
+    //
+    // ใช้ UIColor(dynamicProvider:) ไม่ใช่ .colorset ใน Assets เพราะโปรเจกต์สร้างจาก XcodeGen
+    // การเพิ่ม colorset ต้องแตะหลายไฟล์ใน Assets.xcassets แล้ว `xcodegen generate` ทุกครั้ง
+    // ส่วนแบบนี้อยู่ไฟล์เดียว รีวิวจบในที่เดียว · ตัวขับคือ .preferredColorScheme ที่ WBWApp
+    // ตั้งไว้จาก AppSettings.isDark ซึ่ง resolve ให้ถูกต้องอยู่แล้ว
+    //
+    // ค่าโหมดสว่างต้องเท่าของเดิมเป๊ะ — งานนี้เพิ่มโหมดมืด ไม่ได้เปลี่ยนหน้าตาโหมดสว่าง
+    private static func adaptive(light: UIColor, dark: UIColor) -> Color {
+        Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? dark : light })
+    }
+
+    /// พื้นหลังจอ — เดิมแต่ละจอประกาศ `private let bg = Color(red: 250/255, ...)` ของตัวเอง 6 ที่
+    static let wbwBg = adaptive(
+        light: UIColor(red: 250 / 255, green: 247 / 255, blue: 240 / 255, alpha: 1), // #FAF7F0 ครีมอ่อน
+        dark: UIColor(red: 20 / 255, green: 18 / 255, blue: 15 / 255, alpha: 1))     // #14120F
+    /// การ์ด/ฟองแชท/ช่องพิมพ์ — เดิมเป็น Color.white ตรง ๆ
+    static let wbwSurface = adaptive(
+        light: .white,
+        dark: UIColor(red: 33 / 255, green: 31 / 255, blue: 27 / 255, alpha: 1))     // #211F1B
+    /// ตัวอักษร/เส้นเข้ม — ตัวที่ได้ผลกว้างสุด ถูกใช้อยู่ 41 จุดใน 16 ไฟล์
+    static let wbwInk = adaptive(
+        light: UIColor(red: 43 / 255, green: 43 / 255, blue: 43 / 255, alpha: 1),    // #2B2B2B
+        dark: UIColor(red: 239 / 255, green: 235 / 255, blue: 227 / 255, alpha: 1))  // #EFEBE3
+    /// ข้อความรอง — เดิมหว่าน Color(0xFF8F8A80)/.secondary ปนกัน
+    static let wbwMuted = adaptive(
+        light: UIColor(red: 143 / 255, green: 138 / 255, blue: 128 / 255, alpha: 1), // #8F8A80
+        dark: UIColor(red: 168 / 255, green: 161 / 255, blue: 150 / 255, alpha: 1))  // #A8A196
+    /// เส้นคั่น
+    static let wbwLine = adaptive(
+        light: UIColor(red: 236 / 255, green: 230 / 255, blue: 218 / 255, alpha: 1), // #ECE6DA
+        dark: UIColor(red: 51 / 255, green: 47 / 255, blue: 41 / 255, alpha: 1))     // #332F29
 }

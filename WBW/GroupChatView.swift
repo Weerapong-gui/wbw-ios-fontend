@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 
-private let bg = Color(red: 250 / 255, green: 247 / 255, blue: 240 / 255)
 
 /// แชทกลุ่ม — เต็มจอ (navbar หายไป) + bubble + floating input · offline-first ผ่าน ChatSession
 struct GroupChatView: View {
@@ -35,7 +34,7 @@ struct GroupChatView: View {
             if !store.connectivity.online { offlineBanner }
             messageList
         }
-        .background(bg.ignoresSafeArea())
+        .background(Color.wbwBg.ignoresSafeArea())
         .sensoryFeedback(.impact(weight: .light), trigger: sentTick)
         // overload closure แทน .error ตรงๆ — ตัวเดิมสั่นทุกครั้งที่ค่าเปลี่ยนไม่ว่าทิศไหน แม้แต่ retry สำเร็จ
         // (1 ล้มเหลว → 0) ก็นับว่า "เปลี่ยน" เหมือนกัน สั่น error ทั้งที่จริงๆ ส่งสำเร็จแล้ว
@@ -70,7 +69,7 @@ struct GroupChatView: View {
             Button(action: onClose) {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.wbwInk)
-                    .frame(width: 40, height: 40).background(Color.white, in: Circle())
+                    .frame(width: 40, height: 40).background(Color.wbwSurface, in: Circle())
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text("แชทกลุ่ม \(profile.me?.groupNumber.map(String.init) ?? "")")
@@ -80,7 +79,7 @@ struct GroupChatView: View {
             Spacer()
         }
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 10)
-        .background(bg)
+        .background(Color.wbwBg)
     }
 
     private var offlineBanner: some View {
@@ -192,7 +191,7 @@ struct GroupChatView: View {
             TextField("ข้อความ", text: $draft, axis: .vertical)
                 .lineLimit(1...4)
                 .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(Color.white, in: Capsule())
+                .background(Color.wbwSurface, in: Capsule())
             Button { send() } label: {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
