@@ -49,6 +49,9 @@ struct Me: Codable {
     let year: Int?
     let groupId: Int?
     let groupNumber: Int?
+    /// สิทธิ์ออกจากกลุ่มคงเหลือ · optional เพราะ backend ที่ยังไม่ได้ deploy โควตาไม่ส่ง key นี้มา
+    /// ผู้ใช้ค่านี้ต้องอ่านเป็น `?? 0` เสมอ — พลาดไปทาง "ไม่มีสิทธิ์" ปลอดภัยกว่าทาง "แจกฟรี"
+    let leaveQuota: Int?
     let bibNumber: Int?
     let qrToken: String?
     let photoUrl: String?
