@@ -45,13 +45,12 @@ struct GroupChatView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.82), value: store.messages.count)
         .safeAreaInset(edge: .bottom) { inputBar }
         .task {
-            store.setScreenVisible(true)
+            // setScreenVisible ย้ายออกไปให้ MainTabView คุมแล้ว (Task 5) — TabView เก็บ view นี้ไว้ตอนสลับ
+            // แท็บ ไม่เรียก onDisappear จริง ถ้ายังยิงจากที่นี่ heartbeat จะค้างวิ่งทั้งที่ผู้ใช้ไปแท็บอื่นแล้ว
+            // (ดูคอมเมนต์ที่ MainTabView.chatVisible)
             let gid = profile.me?.groupId ?? 0
             let ms = await groups.members(groupId: gid, token: session.token ?? "")
             members = Dictionary(uniqueKeysWithValues: ms.map { ($0.userId, $0) })
-        }
-        .onDisappear {
-            store.setScreenVisible(false)
         }
     }
 

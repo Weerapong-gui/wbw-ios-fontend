@@ -13,7 +13,9 @@ struct MainTabView: View {
     @StateObject private var chat = ChatSession()
     @StateObject private var feedback = FeedbackStore()
     @State private var tab = 0
-    @State private var chatOpen = false
+    // เส้นทางของแท็บกลุ่ม — ว่าง = อยู่ที่จอแชท · ถือไว้ที่นี่เพราะ push แจ้งเตือนและ toast
+    // ต้องสั่งเด้งกลับรากได้จากข้างนอก GroupTabView
+    @State private var groupPath: [GroupRoute] = []
     @State private var showNotifications = false
     // ฐานที่กำลังเปิดหน้าให้ความเห็นอยู่ (nil = ไม่มีจอเปิด) — จุดบรรจบของทั้ง 4 ทางเข้า: แตะ push ตอน
     // แอปปิด (PendingPush → .openCheckinFeedback), push ตอนแอปเปิด, แตะการ์ดในหน้าแจ้งเตือน,
@@ -49,9 +51,7 @@ struct MainTabView: View {
                 Tab(value: 1) { Map3DScreen() } label: { Image(systemName: "map.fill") }
                 Tab(value: 2) { SURunView() } label: { Image(systemName: "figure.run") }
                 Tab(value: 3) {
-                    // path: .constant([]) ชั่วคราว — Task 5 จะเปลี่ยนให้ MainTabView ถือ path จริง
-                    // และรื้อ overlay/chatOpen ทั้งบล็อกด้านล่างออก
-                    GroupTabView(chat: chat, path: .constant([]), onBack: { tab = 0 })
+                    GroupTabView(chat: chat, path: $groupPath, onBack: { tab = 0 })
                 } label: {
                     Image(systemName: profile.me?.groupId == nil ? "sharedwithyou" : "message.fill")
                 }
@@ -61,7 +61,7 @@ struct MainTabView: View {
             }
             .tint(Color.wbwGold)
             .task {
-                // เรียกครั้งแรกตอน mount ด้วย ไม่ใช่แค่รอ onChange(tab)/onChange(chatOpen) ข้างล่าง —
+                // เรียกครั้งแรกตอน mount ด้วย ไม่ใช่แค่รอ onChange(of: tab) ข้างล่าง —
                 // host.suppressed อยู่ที่ host ซึ่งอายุยาวกว่า MainTabView instance นี้ (เช่น รอบก่อนออก
                 // จากแท็บที่ไม่ใช่ Home/QR ทิ้ง suppressed = true ค้างไว้ แล้ว logout/login ใหม่ — instance
                 // ใหม่นี้เริ่ม tab ที่ 0 จาก @State default แต่นั่นไม่ใช่ "การเปลี่ยนแปลง" ที่ onChange จับได้
@@ -82,6 +82,10 @@ struct MainTabView: View {
                 await progress.load(token: session.token ?? "")
                 chat.configure(groupId: profile.me?.groupId, token: session.token ?? "",
                                myId: profile.me?.userId ?? "", context: context)
+                // เรียกเองครั้งแรกตอน mount ด้วย — .onChange(of: chatVisible) ด้านล่างไม่ยิงให้ตอน mount
+                // (ทรงเดียวกับ updateSceneGate() ด้านบน) เข้าแอปมาที่แท็บ 3 พร้อมกลุ่มอยู่แล้วเลยจะไม่มีใคร
+                // บอก store ว่าจอเปิดอยู่ ถ้าไม่เรียกตรงนี้
+                chat.setScreenVisible(chatVisible)
                 // ความเห็นที่ค้างคิวไว้ตอนเน็ตหลุดรอบก่อน (ปิดแอปไปแล้วเปิดใหม่ = ไม่มี .active ให้จับ)
                 // — ถ้าไม่ยิงตรงนี้ ของค้างจะรออีกทีตอนสลับแอปออกแล้วกลับมาเท่านั้น
                 //
@@ -90,7 +94,7 @@ struct MainTabView: View {
                 // ซึ่งเป็นสภาพเดียวกับที่ทำให้มีของค้างตั้งแต่แรก ยิ่งชัด)
                 await feedback.flush(token: session.token ?? "")
                 #if DEBUG
-                if UserDefaults.standard.bool(forKey: "uitestChat") { chatOpen = true }
+                if UserDefaults.standard.bool(forKey: "uitestChat") { tab = 3 }
                 // เปิดหน้าแจ้งเตือนตรงๆ โดยไม่ต้องพึ่งปุ่มกระดิ่งจริง — ทรงเดียวกับ uitestChat ด้านบน
                 // เป็นทางเดียวที่เข้าถึงหน้านี้ได้โดยไม่มี tap tooling ใช้ verify การ์ดขอความเห็น (Task 10)
                 if UserDefaults.standard.bool(forKey: "uitestNotifications") { showNotifications = true }
@@ -100,21 +104,12 @@ struct MainTabView: View {
                 // ต้องมีเหตุมาจากข้างนอก: push, การ์ดที่แตะ, หรือฐานใหม่จาก poll)
                 let uitestFeedbackId = UserDefaults.standard.integer(forKey: "uitestFeedback")
                 if uitestFeedbackId > 0 { feedbackCheckpoint = FeedbackTarget(id: uitestFeedbackId) }
-                // ปิดแชทเองหลัง N วิ (แอปยัง foreground อยู่) — จำลอง "ผู้ใช้ปิดจอแชทแต่ไม่ได้ปิดแอป"
-                // แบบ headless เพราะไม่มี tap tooling ใช้เทส GroupChatView.onDisappear
-                let closeAfter = UserDefaults.standard.double(forKey: "uitestChatCloseAfter")
-                if closeAfter > 0 {
-                    Task {
-                        try? await Task.sleep(nanoseconds: UInt64(closeAfter * 1_000_000_000))
-                        chatOpen = false
-                    }
-                }
-                // จำลอง "แตะสลับแท็บ" แบบ headless (ไม่มี tap tooling ในสภาพแวดล้อมนี้ — ทรงเดียวกับ
-                // uitestChatCloseAfter ด้านบน) ใช้ verify การสลับแท็บ "จริง" ในโปรเซสเดียวกัน ต่างจาก
-                // -uitestTab (ตั้งค่าเริ่มต้นตอน launch เท่านั้น) ตรงที่นี่คือ transition สดๆ ระหว่างแอปรัน
-                // อยู่ — จำเป็นสำหรับพิสูจน์บั๊กที่พึ่ง state ค้างข้าม transition (เช่น host.enabled ก่อนแก้
-                // เป็น derived property ในรีวิวรอบนี้) เปิดแยกทีละหน้าด้วย simctl launch คนละรอบไม่มีทาง
-                // reproduce บั๊กคลาสนี้เลย เพราะ host ถูกสร้างใหม่ทุกรอบ ไม่มี state ค้างให้ทดสอบ
+                // จำลอง "แตะสลับแท็บ" แบบ headless (ไม่มี tap tooling ในสภาพแวดล้อมนี้) ใช้ verify การสลับแท็บ
+                // "จริง" ในโปรเซสเดียวกัน ต่างจาก -uitestTab (ตั้งค่าเริ่มต้นตอน launch เท่านั้น) ตรงที่นี่คือ
+                // transition สดๆ ระหว่างแอปรันอยู่ — จำเป็นสำหรับพิสูจน์บั๊กที่พึ่ง state ค้างข้าม transition
+                // (เช่น host.enabled ก่อนแก้เป็น derived property ในรีวิวรอบนี้, และ chatVisible/heartbeat
+                // ใน Task 5) เปิดแยกทีละหน้าด้วย simctl launch คนละรอบไม่มีทาง reproduce บั๊กคลาสนี้เลย
+                // เพราะ host/chat ถูกสร้างใหม่ทุกรอบ ไม่มี state ค้างให้ทดสอบ
                 //
                 // รูปแบบ: "<วินาทีนับจาก launch>:<เลขแท็บ>,<วินาที>:<เลขแท็บ>,..." เช่น "6:4,12:0"
                 let tabSequence = UserDefaults.standard.string(forKey: "uitestTabSequence") ?? ""
@@ -183,11 +178,10 @@ struct MainTabView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .openGroupChat)) { _ in
                 // ไม่เช็ค profile.me?.groupId ตรงนี้ — cold launch: อาจถูกเรียกก่อน profile.load() (network
-                // round trip ใน .task) จะจบ เช็คแล้วจะเป็น false เสมอ ทำให้ push ถูกทิ้งไปเงียบๆ overlay เอง
-                // เช็คเงื่อนไขนี้ซ้ำอยู่แล้ว (ดูด้านล่าง) ซึ่ง re-evaluate เองเมื่อโปรไฟล์โหลดเสร็จภายหลัง —
-                // ถ้าไม่มีกลุ่มจริงๆ ก็แค่ลงแท็บ 3 เฉยๆ ไม่มี overlay โผล่มา
+                // round trip ใน .task) จะจบ เช็คแล้วจะเป็น false เสมอ ทำให้ push ถูกทิ้งไปเงียบๆ · ไม่เช็คก็
+                // ปลอดภัย ถ้าไม่มีกลุ่มจริงๆ GroupTabView เองก็แค่โชว์หน้าจับกลุ่มแทนจอแชทที่แท็บ 3 อยู่ดี
                 tab = 3
-                chatOpen = true
+                groupPath = []   // เด้งกลับรากเสมอ ไม่ว่าก่อนหน้านี้จะค้าง push อยู่ที่หน้ากลุ่ม/สมาชิกแค่ไหน
                 PendingPush.clear()   // รับสดแล้ว — เคลียร์กัน mount ถัดไปดึงไปเล่นซ้ำ (ดู PendingPush.clear())
             }
             .onChange(of: profile.me?.groupId) { _, gid in
@@ -215,47 +209,36 @@ struct MainTabView: View {
                 }
                 else if phase == .background { chat.stop() }
             }
-            // โดนเอาออกจากกลุ่มระหว่าง sync (403) — ปิดจอแชท + โหลดโปรไฟล์ใหม่ (purge cache ทำใน
+            // โดนเอาออกจากกลุ่มระหว่าง sync (403) — เด้งกลับรากของแท็บกลุ่ม (ปิดจอย่อยที่ค้างอยู่ เช่น
+            // หน้ากลุ่ม/สมาชิก ซึ่งอ้างอิงกลุ่มที่ไม่มีแล้ว) + โหลดโปรไฟล์ใหม่ (purge cache ทำใน
             // ChatSession ไปแล้วก่อนตั้ง kickedOut)
             .onChange(of: chat.kickedOut) { _, kicked in
                 guard kicked else { return }
-                chatOpen = false
+                groupPath = []
                 chat.kickedOut = false
                 Task { await profile.load(token: session.token ?? "") }
             }
-            // เปิดฉากป่าเฉพาะแท็บที่มันเป็นพื้นหลังจริง (Home, QR) และเฉพาะตอนไม่มีจอแชททับเต็มจออยู่ — แท็บ
-            // Map รัน MapLibre บน GPU อยู่แล้ว · SU RUN กับ Group ทับเต็มจอ ปล่อยให้ฉากวิ่งอยู่ข้างหลังคือเผา
-            // แบตให้สิ่งที่ไม่มีใครเห็น (host.suppressed ยังถูกตั้ง false จาก .forestBackground ของ Home/QR
-            // เองผ่าน wantsScene ด้วย onAppear/onDisappear — สองตัวนี้เป็นชั้นกันซ้ำที่จับเงื่อนไข chatOpen
-            // ซึ่ง forestBackground มองไม่เห็น เพราะ Home ยังคง mount อยู่ใต้ GroupChatView ตอนแชทเปิดทับ
-            // ไม่ได้ disappear จริง)
+            // เปิดฉากป่าเฉพาะแท็บที่มันเป็นพื้นหลังจริง (Home, QR) — แท็บ Map รัน MapLibre บน GPU อยู่แล้ว
+            // ส่วน SU RUN กับ Group ทับเต็มจอ ปล่อยให้ฉากวิ่งอยู่ข้างหลังคือเผาแบตให้สิ่งที่ไม่มีใครเห็น
+            // (host.suppressed ยังถูกตั้ง false จาก .forestBackground ของ Home/QR เองผ่าน wantsScene ด้วย
+            // onAppear/onDisappear ตอนแท็บสลับ — สองตัวนี้เป็นชั้นกันซ้ำ)
             //
-            // เรียกผ่าน updateSceneGate() แทนที่จะใส่นิพจน์ `host.suppressed = !((t == 0 || t == 4) &&
-            // !chatOpen)` ตรงๆ ใน closure ของ .onChange — วัดจริงแล้วว่าใส่ตรงๆ ทำให้ compiler พังด้วย
-            // "unable to type-check this expression in reasonable time" (ยืนยันด้วย
-            // -Xfrontend -warn-long-expression-type-checking=50: ใช้ ~1.5 วินาทีแล้วชนขีดจำกัดภายในของ
-            // solver) แม้จะแยก .onChange ออกเป็น modifier เดี่ยวๆ ก็ยังพัง — ลองใส่ closure ว่างเปล่า
-            // `{ _, _ in }` แทนแล้ว build ผ่านทันที พิสูจน์ว่าตัวนิพจน์บูลีนเองคือปัญหา ไม่ใช่ความยาวของ
-            // modifier chain ย้ายนิพจน์ไปเป็นฟังก์ชันธรรมดาตัดปัญหาที่ root แทนที่จะเดาเพิ่ม
+            // เรียกผ่าน updateSceneGate() แทนที่จะใส่นิพจน์ `host.suppressed = !(t == 0 || t == 4)` ตรงๆ ใน
+            // closure ของ .onChange — ไฟล์นี้เคยพัง "unable to type-check this expression in reasonable
+            // time" มาแล้วตอนนิพจน์มีเงื่อนไข chatOpen ร่วมด้วย (ก่อน Task 5 ตัด overlay/chatOpen ออก) ไม่
+            // เสี่ยงลองย้ายกลับเข้า closure อีก ทิ้งไว้เป็นฟังก์ชันแยกเหมือนเดิม
             .onChange(of: tab) { _, _ in updateSceneGate() }
-            .onChange(of: chatOpen) { _, _ in updateSceneGate() }
+            // จุดเดียวที่เรียก setScreenVisible จาก MainTabView — ดูคอมเมนต์ที่ property chatVisible
+            // ด้านล่างว่าทำไมต้องคำนวณเอง ไม่พึ่ง view lifecycle ของ GroupChatView
+            .onChange(of: chatVisible) { _, visible in chat.setScreenVisible(visible) }
 
-            // แชทกลุ่ม — overlay เลื่อนขึ้นจากล่าง (navbar หายแบบเด้งๆ)
-            if chatOpen, profile.me?.groupId != nil {
-                // onClose หายไปจาก GroupChatView แล้ว (ปิดด้วยปุ่มในหัวจอไม่ได้อีกต่อไป) — overlay
-                // นี้ทั้งบล็อกจะถูกลบใน Task 5 ตอนแท็บ 3 เป็น NavigationStack เดียวจริง ไม่ใช่ overlay ทับ
-                GroupChatView(store: chat)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(1)
-            }
-
-            // แบนเนอร์ในแอป — เฉพาะตอนไม่ได้เปิดจอแชท
-            if let m = chat.incoming, !chatOpen {
+            // แบนเนอร์ในแอป — เฉพาะตอนไม่ได้อยู่แท็บแชทอยู่แล้ว (ไม่ว่าจะที่รากหรือ push ลึกไปหน้ากลุ่ม/สมาชิก)
+            if let m = chat.incoming, tab != 3 {
                 VStack {
                     ChatToast(message: m, photoUrl: nil, onTap: {
                         chat.incoming = nil
                         tab = 3
-                        chatOpen = true
+                        groupPath = []
                     })
                     Spacer()
                 }
@@ -287,7 +270,6 @@ struct MainTabView: View {
                 }
             }
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.78), value: chatOpen)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: chat.incoming?.clientId)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: liveToastBases.first?.checkpointId)
         // สองชีตแขวนอยู่บน view เดียวกัน สั่งเปิดอันใหม่ในรอบเดียวกับที่เพิ่งสั่งปิดอันเก่าไม่ได้ —
@@ -343,11 +325,19 @@ struct MainTabView: View {
         }
     }
 
-    /// ผสมเงื่อนไขแท็บปัจจุบัน + จอแชทเปิดอยู่หรือเปล่า เป็นค่า host.suppressed เดียว (ดูคอมเมนต์ที่เรียกใช้)
-    /// เขียน suppressed ไม่ใช่ enabled ตรงๆ อีกต่อไป — enabled เป็น derived property แล้ว (ดูคอมเมนต์ยาว
-    /// ที่ ForestSceneHost.enabled) ตรงนี้แค่บอกว่า "แท็บ/จอแชทตอนนี้อนุญาตให้ฉากโชว์ไหม" เฉยๆ
+    /// แปลงแท็บปัจจุบันเป็นค่า host.suppressed เดียว (ดูคอมเมนต์ที่เรียกใช้)
+    /// เขียน suppressed ไม่ใช่ enabled ตรงๆ — enabled เป็น derived property แล้ว (ดูคอมเมนต์ยาว
+    /// ที่ ForestSceneHost.enabled) ตรงนี้แค่บอกว่า "แท็บตอนนี้อนุญาตให้ฉากโชว์ไหม" เฉยๆ
     private func updateSceneGate() {
-        host.suppressed = !((tab == 0 || tab == 4) && !chatOpen)
+        host.suppressed = !(tab == 0 || tab == 4)
+    }
+
+    /// จอแชทกำลังถูกมองเห็นจริงไหม — TabView เก็บ view ไว้ตอนสลับแท็บ และ NavigationStack push
+    /// ทับก็ไม่รับประกันว่า onDisappear จะยิง จึงเชื่อ lifecycle ของ view ไม่ได้ ต้องคำนวณเอง
+    /// ไม่คุมตรงนี้ = heartbeat วิ่งค้างตอนผู้ใช้ไปแท็บอื่น server เข้าใจว่ายังจ้อจออยู่แล้วไม่ส่ง
+    /// push ให้เลย (พังเงียบสนิท ไม่มี error ให้เห็น)
+    private var chatVisible: Bool {
+        tab == 3 && profile.me?.groupId != nil && groupPath.isEmpty
     }
 
     /// ฐานใน toastBases ที่ยัง "รอประเมิน" อยู่จริง ณ ตอนนี้ — toast อ่านตัวนี้ ไม่ใช่ toastBases ตรงๆ
@@ -361,7 +351,7 @@ struct MainTabView: View {
         toastBases.filter { progress.item(checkpointId: $0.checkpointId)?.answered == false }
     }
 
-    /// toast เช็คอินโผล่ได้ไหมตอนนี้ — ไม่แทรกตอนมีจอแชท/ชีตเปิดคาอยู่ (ผู้ใช้กำลังทำอย่างอื่นค้าง และ
+    /// toast เช็คอินโผล่ได้ไหมตอนนี้ — ไม่แทรกตอนอยู่แท็บแชท/ชีตเปิดคาอยู่ (ผู้ใช้กำลังทำอย่างอื่นค้าง และ
     /// ใต้ชีตก็มองไม่เห็นอยู่ดี) และไม่ซ้อน toast แชทที่เด้งอยู่ก่อน — สองอันวางตำแหน่งเดียวกันเป๊ะ
     /// ทับกันแล้วอ่านไม่ออกทั้งคู่
     ///
@@ -373,7 +363,7 @@ struct MainTabView: View {
     /// แยกเป็น property แทนที่จะใส่นิพจน์บูลีนยาวๆ ใน `if` ของ body — ไฟล์นี้มีประวัติทำ type-checker
     /// พังด้วยนิพจน์แบบนี้มาแล้ว (ดูคอมเมนต์ยาวที่ .onChange(of: tab))
     private var canShowCheckinToast: Bool {
-        !chatOpen && !showNotifications && feedbackCheckpoint == nil && chat.incoming == nil
+        tab != 3 && !showNotifications && feedbackCheckpoint == nil && chat.incoming == nil
     }
 
     /// มาร์คแจ้งเตือนขอความเห็นของฐานนี้ว่าอ่านแล้ว — เส้นทาง push พาเข้าฟอร์มตรงๆ ไม่ผ่าน
