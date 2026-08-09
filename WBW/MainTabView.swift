@@ -49,7 +49,9 @@ struct MainTabView: View {
                 Tab(value: 1) { Map3DScreen() } label: { Image(systemName: "map.fill") }
                 Tab(value: 2) { SURunView() } label: { Image(systemName: "figure.run") }
                 Tab(value: 3) {
-                    GroupTabView(onBack: { tab = 0 }, onOpenChat: { chatOpen = true })
+                    // path: .constant([]) ชั่วคราว — Task 5 จะเปลี่ยนให้ MainTabView ถือ path จริง
+                    // และรื้อ overlay/chatOpen ทั้งบล็อกด้านล่างออก
+                    GroupTabView(chat: chat, path: .constant([]), onBack: { tab = 0 })
                 } label: {
                     Image(systemName: profile.me?.groupId == nil ? "sharedwithyou" : "message.fill")
                 }
@@ -240,7 +242,9 @@ struct MainTabView: View {
 
             // แชทกลุ่ม — overlay เลื่อนขึ้นจากล่าง (navbar หายแบบเด้งๆ)
             if chatOpen, profile.me?.groupId != nil {
-                GroupChatView(store: chat, onClose: { chatOpen = false })
+                // onClose หายไปจาก GroupChatView แล้ว (ปิดด้วยปุ่มในหัวจอไม่ได้อีกต่อไป) — overlay
+                // นี้ทั้งบล็อกจะถูกลบใน Task 5 ตอนแท็บ 3 เป็น NavigationStack เดียวจริง ไม่ใช่ overlay ทับ
+                GroupChatView(store: chat)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(1)
             }

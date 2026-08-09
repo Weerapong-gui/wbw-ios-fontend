@@ -11,38 +11,36 @@ struct GroupJoinView: View {
     @State private var error: String?
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.wbwBg.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    header
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            if !groups.matchedPeople.isEmpty { peopleSection }
-                            ForEach(groups.filteredGroups) { g in
-                                GroupCard(
-                                    group: g,
-                                    previews: groups.indexMembers(groupId: g.groupId),
-                                    joining: joining == g.groupId,
-                                    onJoin: { Task { await join(g) } }
-                                )
-                            }
-                            if groups.loaded && groups.filteredGroups.isEmpty && groups.matchedPeople.isEmpty {
-                                Text("ไม่พบกลุ่ม").foregroundStyle(.secondary).padding(.top, 40)
-                            }
+        ZStack {
+            Color.wbwBg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                header
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        if !groups.matchedPeople.isEmpty { peopleSection }
+                        ForEach(groups.filteredGroups) { g in
+                            GroupCard(
+                                group: g,
+                                previews: groups.indexMembers(groupId: g.groupId),
+                                joining: joining == g.groupId,
+                                onJoin: { Task { await join(g) } }
+                            )
                         }
-                        .padding(16)
+                        if groups.loaded && groups.filteredGroups.isEmpty && groups.matchedPeople.isEmpty {
+                            Text("ไม่พบกลุ่ม").foregroundStyle(.secondary).padding(.top, 40)
+                        }
                     }
-                }
-                if let error {
-                    Text(error).font(.footnote).foregroundStyle(.white)
-                        .padding(12).background(.red.opacity(0.9), in: Capsule())
-                        .padding(.bottom, 30).frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(16)
                 }
             }
-            .navigationBarHidden(true)
-            .task { if !groups.loaded { await groups.load(token: session.token ?? "") } }
+            if let error {
+                Text(error).font(.footnote).foregroundStyle(.white)
+                    .padding(12).background(.red.opacity(0.9), in: Capsule())
+                    .padding(.bottom, 30).frame(maxHeight: .infinity, alignment: .bottom)
+            }
         }
+        .navigationBarHidden(true)
+        .task { if !groups.loaded { await groups.load(token: session.token ?? "") } }
     }
 
     // แถวบน: ย้อนกลับ + ค้นหา
