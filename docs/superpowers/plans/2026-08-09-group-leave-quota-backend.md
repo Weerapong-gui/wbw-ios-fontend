@@ -714,7 +714,7 @@ git commit -m "feat(group): ตอบ 409 พร้อมเหตุผล เ�
 - Modify: `internal/repository/wbw_admin_repository.go:24-49` (`participantSelect` + `scanParticipant`), `:117-157` (`ParticipantDetail`)
 
 **Interfaces:**
-- Produces: `GET /wbw/me` และ `GET /wbw/admin/participants/{id}` มี key `leave_quota` (int) · `GET /wbw/admin/participants` ทุกแถวมี `leave_quota`
+- Produces: `GET /wbw/me` และ `GET /wbw/admin/participants/{id}/detail` มี key `leave_quota` (int) · `GET /wbw/admin/participants` ทุกแถวมี `leave_quota`
 
 หมายเหตุสำคัญ: `/wbw/me` ของแอป iOS ใช้ `WBWAdminHandler.Me` ซึ่งคืน `model.ParticipantDetail`
 ตัวเดียวกับที่ admin ใช้ — แก้ที่เดียวได้ทั้งสองทาง
@@ -905,7 +905,7 @@ git commit -m "feat(admin): ปรับสิทธิ์ออกกลุ่�
 - Modify: `internal/repository/wbw_admin_repository.go:117-157` (`ParticipantDetail`)
 
 **Interfaces:**
-- Produces: `GET /wbw/admin/participants/{id}` มี key `membership_log` — array เรียงใหม่ไปเก่า สูงสุด 10 แถว
+- Produces: `GET /wbw/admin/participants/{id}/detail` มี key `membership_log` — array เรียงใหม่ไปเก่า สูงสุด 10 แถว
   แต่ละแถว `{action, group_id, group_number, quota_after, actor_name, created_at}` (dashboard Task ฝั่งเว็บใช้ตัวนี้)
 
 - [ ] **Step 1: เพิ่ม model**

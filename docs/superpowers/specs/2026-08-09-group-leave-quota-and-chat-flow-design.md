@@ -109,7 +109,7 @@ query "คนนี้ออกกี่ครั้ง" ไม่ได้
 | `POST /wbw/groups/leave` | quota = 0 → `ErrNoQuota` → `409 "สิทธิ์ออกจากกลุ่มหมดแล้ว"` · สำเร็จ → quota−1 + INSERT log `leave` · ไม่มีกลุ่มอยู่แล้ว → `200` เหมือนเดิม และ **ไม่หักสิทธิ์** |
 | `PATCH /wbw/admin/participants/{id}` | รับ `leave_quota` (0–10) → เขียน `group_membership_log` action `quota_adjust` (`actor_id` = admin, `group_id` = กลุ่มปัจจุบันหรือ NULL) **และ** `admin_log` action `ปรับสิทธิ์ออกกลุ่ม` |
 | `GET /wbw/admin/participants` | เพิ่ม `leave_quota` ในแถว |
-| `GET /wbw/admin/participants/{id}` | เพิ่ม `membership_log` — 10 แถวล่าสุดของ user นั้น |
+| `GET /wbw/admin/participants/{id}/detail` | เพิ่ม `membership_log` — 10 แถวล่าสุดของ user นั้น |
 
 ### 3.3 Leave — statement เดียวคือหัวใจ
 
