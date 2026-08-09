@@ -26,6 +26,13 @@
 - **ห้าม `git add -A` หรือ `git add .`** — add ทีละไฟล์เสมอ
 - ค่าโควตาที่ admin ตั้งได้อยู่ในช่วง 0–10 (ตัวเลขนี้ตายตัว ใช้ทั้งฝั่ง validation และ dashboard)
 - action ใน `group_membership_log` มี 3 ค่าเท่านั้น: `'join'`, `'leave'`, `'quota_adjust'`
+- **ห้ามแตะฐานข้อมูลระหว่างลงมือ (ตัดสินใจ 2026-08-09)** — ฐาน dev บนเครื่องนี้ drift อยู่ก่อนแล้ว
+  (`schema_migrations` = 12 ไม่ dirty · ตารางของ migration 13–15 มีครบ · แต่ตารางผู้ใช้ยังชื่อ `app_user`
+  ไม่ใช่ `wbw_user` ที่โค้ดทั้ง repo query) การซ่อมมันไม่ใช่งานของแผนนี้ · ผลที่ตามมา: ห้ามรัน
+  `make migrate-up/down/force`, `psql`, หรืออะไรก็ตามที่ต่อฐาน · เทสที่ต้องใช้ Postgres จริงจะ `t.Skip`
+  ตัวเอง (ไม่ตั้ง `WBW_DB_TESTS=1`) — **ยังต้องเขียนเทสให้ครบตามแผน** แต่หลักฐานที่รายงานได้คือ
+  `go build` + `go vet` + `go test ./internal/...` ที่ขึ้น skip เท่านั้น ห้ามเคลมว่าเทส DB ผ่าน
+  · การ verify จริงของ migration และ SQL ทั้งหมดเลื่อนไปตอน deploy บนฐานที่ schema ตรงกับโค้ด
 
 ## File Structure
 
@@ -566,11 +573,22 @@ Expected: compile error `undefined: ErrAlreadyInGroup`
 	ErrAlreadyInGroup = errors.New("already in a group")
 ```
 
-- [ ] **Step 4: แก้ `Join`**
+- [ ] **Step 4: แก้ `Join`** (แก้ 2026-08-09 หลังรีวิว — ลำดับล็อกเปลี่ยนจากฉบับแรกของแผน)
 
-แทนบล็อกที่อ่าน `current` แล้วคิด `alreadyHere` (บรรทัด ~99-113 ของไฟล์เดิม) ด้วย:
+**ลำดับล็อกต้องเป็น "แถวผู้ใช้ก่อน แล้วค่อยแถวกลุ่ม"** — ฉบับแรกของแผนสั่งกลับกัน (ล็อกกลุ่มก่อน)
+ซึ่งสวนทางกับ `Leave` ที่ล็อกแถวผู้ใช้ก่อนแล้วปล่อยให้ trigger `trg_group_count`
+(`db/migrations/000005_wbw.up.sql:229`) ไป `UPDATE participant_group` ต่อในทรานแซกชันเดียวกัน =
+ล็อกแถวกลุ่มทีหลัง · ลำดับสวนกันแบบนั้นทำให้ join กับ leave ของ **ผู้ใช้คนเดียวกัน** ที่ชนกันพอดี
+(กดรัว/client retry) เกิด `deadlock detected` แล้วโผล่เป็น 500
+
+ดังนั้นให้ **ย้าย** บล็อกอ่าน/ล็อกแถวกลุ่ม (`SELECT capacity, member_count ... FOR UPDATE`)
+ลงไปไว้ *หลัง* การเช็คผู้ใช้ แล้วโครงของ `Join` ช่วงต้นเป็นแบบนี้:
 
 ```go
+	// ล็อกแถวผู้ใช้ก่อนแถวกลุ่มเสมอ — Leave ล็อกผู้ใช้ก่อนแล้ว trigger trg_group_count ค่อยไปแตะ
+	// participant_group ต่อในทรานแซกชันเดียวกัน ถ้าที่นี่ล็อกกลุ่มก่อน สองทางจะจับล็อกสวนลำดับกัน
+	// แล้ว join/leave ของคนเดียวกันที่ชนกันพอดีจะ deadlock (โผล่เป็น 500 ที่ผู้ใช้แก้อะไรไม่ได้)
+	//
 	// อยู่กลุ่มไหนอยู่แล้วห้ามย้ายตรง ๆ — ถ้ายอม จะเลี่ยงโควตาได้ทั้งหมดเพราะโควตาหักตอน leave เท่านั้น
 	// (เดิมยอมให้เข้ากลุ่มเดิมซ้ำเพื่อรีเซ็ตจุดตัดประวัติแชท — ความสามารถนั้นหายไป ไม่มี UI ไหนเรียกใช้)
 	var current *int
@@ -584,6 +602,18 @@ Expected: compile error `undefined: ErrAlreadyInGroup`
 	}
 	if current != nil {
 		return ErrAlreadyInGroup
+	}
+
+	// ล็อกแถวกลุ่มปลายทาง กันสองคนแย่งที่นั่งสุดท้ายพร้อมกัน
+	var capacity, memberCount int
+	err = tx.QueryRow(ctx,
+		`SELECT capacity, member_count FROM participant_group WHERE group_id = $1 FOR UPDATE`,
+		groupID).Scan(&capacity, &memberCount)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
 	}
 	if memberCount >= capacity {
 		return ErrGroupFull
