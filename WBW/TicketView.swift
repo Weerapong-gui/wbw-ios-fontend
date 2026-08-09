@@ -20,18 +20,27 @@ struct TicketView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                background
-                VStack(spacing: 0) {
-                    topBar
-                    Spacer(minLength: 8)
-                    card
-                    Spacer(minLength: 18)
-                    medicalButton
-                    Spacer(minLength: 24)
+            // ScrollView เพราะจอเตี้ยใส่ไม่ครบ — SE สูง 667pt เทียบ iPhone 17 ที่ 852 หายไป 185pt
+            // ปุ่ม Medical ID เคยโดนตัดครึ่งแล้วกดไม่ได้เลย · จอสูงยังเห็นเต็มใบเหมือนเดิมเพราะ
+            // minHeight ดันให้เต็มจอก่อน แล้ว Spacer ค่อยกระจายที่ว่างที่เหลือ
+            GeometryReader { g in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        topBar
+                        Spacer(minLength: 8)
+                        card
+                        Spacer(minLength: 18)
+                        medicalButton
+                        Spacer(minLength: 24)
+                    }
+                    .padding(.horizontal, 22)
+                    .frame(minHeight: g.size.height)
                 }
-                .padding(.horizontal, 22)
             }
+            // background เป็น .background ไม่ใช่ ZStack sibling — ภาพที่ ignoresSafeArea อยู่ใน
+            // ZStack จะดันให้ทั้ง stack กินเต็มจอ แล้วเนื้อหาวางในกรอบเต็มตามไปด้วย ปุ่ม top bar
+            // เลยไปชนแถบสถานะบนเครื่องที่ safe area บาง (SE ขอบบน 20pt เทียบเครื่องมีบาก 59pt)
+            .background(background)
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 if profile.me == nil, let token = session.token { await profile.load(token: token) }
@@ -49,27 +58,41 @@ struct TicketView: View {
         }
     }
 
-    /// ที่เดียวที่คุมพื้นหลังจอ — ของจริงจะเป็นรูปภาพ เปลี่ยนตรงนี้บรรทัดเดียวจบ
-    /// (ถ้ารูปสว่าง ต้องเติม scrim ทับด้วย ไม่งั้นไอคอน/ชื่อสีขาวบน top bar อ่านไม่ออก)
+    /// ที่เดียวที่คุมพื้นหลังจอ
+    ///
+    /// .frame + .clipped ก่อน .ignoresSafeArea — scaledToFill ทำให้ภาพล้นกรอบจริง ถ้าไม่คลิป
+    /// ภาพส่วนเกินจะไปดันขนาดของ ZStack แล้วเลย์เอาต์ข้างในเพี้ยนตาม
+    ///
+    /// รูปเป็น 1440×2880 (อัตราส่วน 1:2) เลือกไว้ให้อยู่กึ่งกลางระหว่างจอที่กว้างสุด (SE 0.562)
+    /// กับสูงสุด (Pro Max 0.460) ตัดหนักสุดราว 11% แนวตั้ง หรือ 8% แนวนอน แทนที่จะเป็น 18%
+    /// ด้านเดียวถ้าออกแบบตามจอใดจอหนึ่ง
     private var background: some View {
-        Color.wbwTicketBG.ignoresSafeArea()
+        Image("bg_ticket")
+            .resizable()
+            .scaledToFill()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+            .ignoresSafeArea()
     }
 
     private var topBar: some View {
         HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
+            Button { dismiss() } label: { barIcon("chevron.left") }
             Spacer()
-            Button { showSettings = true } label: {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(.white)
-            }
+            Button { showSettings = true } label: { barIcon("gearshape.fill") }
         }
         .padding(.top, 6)
+    }
+
+    /// ไอคอนบนกระจก ไม่ใช่ไอคอนเปล่า — พื้นหลังเป็นภาพป่าที่สว่างมากและสว่างไม่เท่ากันทั้งจอ
+    /// ไอคอนสีเดียวล้วนจะจมหายเป็นบางจุดไม่ว่าจะเลือกสีขาวหรือดำ · กระจกให้พื้นรองที่อ่านออก
+    /// ทุกพื้นหลังโดยไม่ต้องคลุม scrim ทับรูปทั้งใบจนภาพวาดหมดความหมาย
+    private func barIcon(_ system: String) -> some View {
+        Image(systemName: system)
+            .font(.system(size: 19, weight: .semibold))
+            .foregroundStyle(Color.wbwInk)
+            .frame(width: 44, height: 44)
+            .glassSurface(Circle(), interactive: true)
     }
 
     private var medicalButton: some View {
