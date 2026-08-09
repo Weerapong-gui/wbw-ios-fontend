@@ -16,6 +16,8 @@
 | `Color.wbwGold` | `#C99A1F` | สีทอง |
 | `Color.wbwGreen` | `#40916C` | เขียวป่า ใช้ตอน toggle เปิด |
 | `Color.wbwForestVoid` | `#0A1610` | พื้นหลังทึบแทนฉากป่าตอน `Config.forest3D` ปิด (สีเดียวกับ scrim เดิมของ `ForestOverlay`) — รายละเอียด flag ดู `backend-and-config.md` |
+| `Color.wbwTicketBG` | `#1A1A1A` | พื้นจอตั๋วประจำตัว — **ที่พักไว้ก่อน ของจริงจะเป็นรูปภาพ** เปลี่ยนที่ `TicketView.background` ที่เดียว |
+| `Color.wbwMedical` | `#421717` | แดงเลือดหมูของปุ่ม Medical ID ใช้เป็น tint ของกระจก |
 
 **สีพื้นผิว — ปรับตามโหมดมืด** ผ่าน `UIColor(dynamicProvider:)` ตัวขับคือ `.preferredColorScheme`
 ที่ `WBW/WBWApp.swift` ตั้งจาก `AppSettings.isDark`:
@@ -37,9 +39,27 @@
 
 ## Liquid Glass
 
-`func glassSurface<S: Shape>(_ shape: S, interactive: Bool = false)` ใน `WBW/GlassSurface.swift` คือตัว
-กลางที่ใช้ซ้ำได้ — เรียกผ่าน `extension View` เช่น `.glassSurface(Capsule())` เวลาจะเอาพื้นผิวกระจกใช้
-ตัวนี้ ไม่ต้องเขียนเอง
+`func glassSurface<S: Shape>(_ shape: S, tint: Color? = nil, interactive: Bool = false)` ใน
+`WBW/GlassSurface.swift` คือตัวกลางที่ใช้ซ้ำได้ — เรียกผ่าน `extension View` เช่น
+`.glassSurface(Capsule())` เวลาจะเอาพื้นผิวกระจกใช้ตัวนี้ ไม่ต้องเขียนเอง
+
+อยากได้กระจก **มีสี** ส่ง `tint:` ไป มันใช้ `Glass.tint(_:)` ของระบบให้ — **อย่าเอาสีไปแปะเป็นพื้น
+ใต้กระจกเอง** เพราะกระจกจะไปซ้อนอยู่หลังสีทึบจนไม่เห็นการหักเหอะไรเลย ได้แค่รูปทรงสีเดียว
+ตัวอย่างของจริง: ปุ่ม Medical ID ที่ `WBW/TicketView.swift` ใช้ `tint: Color.wbwMedical`
+
+## ทรงที่เจาะรู — ห้ามแปะสีพื้นทับ
+
+`WBW/TicketShape.swift` คือทรงตั๋วที่เจาะรอยเว้าจริง (บนกลางสำหรับ avatar, ซ้าย/ขวาที่แนวฉีก)
+ของเดิมใช้ `Circle().fill(สีพื้น)` แปะทับ ซึ่งเนียนเฉพาะตอนพื้นหลังเป็นสีเรียบสีเดียว — พื้นจอตั๋ว
+กำลังจะเปลี่ยนเป็นรูปภาพ วงกลมสีทึบจะโผล่กลางรูปทันที
+
+วาดเป็นเส้นรอบรูปเส้นเดียวที่ไม่ตัดตัวเองด้วย `addArc` โค้งกลับเข้าใน **ไม่ใช่** วาดสี่เหลี่ยมแล้ว
+`addEllipse` ทับหวังให้หักลบ — แบบหลังต้องพึ่ง `FillStyle(eoFill: true)` ซึ่ง `.clipShape` กับ
+`.background(_:in:)` ไม่รับ ใช้ได้แค่ `.fill` พอจะเอาไปคลิปเนื้อหาหรือทำเงาตามทรงจะพังเงียบ ๆ
+
+เส้นแนวฉีกใช้ `DashedLine` (ไฟล์เดียวกัน) เป็น `Shape` — `Path` ที่ลากยาวแล้วครอบ `.frame()`
+วาดทะลุกรอบออกไปได้ `frame` คุมแค่พื้นที่ layout ไม่ได้คลิปการวาด (เคยพลาดมาแล้ว เส้นประพาด
+ออกนอกการ์ดไปจนสุดขอบจอ)
 
 `GlassRing` เป็น `private struct` (`ViewModifier`) อยู่ใน `WBW/HomeView.swift` (บรรทัด 108) — **ไม่ใช่ API
 กลาง** ใช้ได้เฉพาะภายในไฟล์นั้น (เรียกอยู่ 2 จุดในไฟล์เดียวกัน) จะเอาไปใช้ที่จออื่นต้องยกออกมาเป็นไฟล์

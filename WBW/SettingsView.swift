@@ -7,7 +7,6 @@ import PhotosUI
 struct SettingsView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var settings: AppSettings
-    @Environment(\.dismiss) private var dismiss
     @State private var showLogoutConfirm = false
 
     private var version: String {
@@ -16,77 +15,68 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color(.systemGroupedBackground).ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: 22) {
-                        // การ์ด toggle
-                        card {
-                            toggleRow(icon: "moon.fill", title: "โหมดมืด", isOn: $settings.isDark)
-                            Divider().padding(.leading, 56)
-                            toggleRow(icon: "bell.fill", title: "การแจ้งเตือน", isOn: $settings.notiEnabled)
-                        }
+        ZStack {
+            Color(.systemGroupedBackground).ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 22) {
+                    // การ์ด toggle
+                    card {
+                        toggleRow(icon: "moon.fill", title: "โหมดมืด", isOn: $settings.isDark)
+                        Divider().padding(.leading, 56)
+                        toggleRow(icon: "bell.fill", title: "การแจ้งเตือน", isOn: $settings.notiEnabled)
+                    }
 
-                        // บัญชี
-                        card {
-                            NavigationLink { AccountView() } label: {
-                                navRow(icon: "person.crop.circle", title: "บัญชี")
-                            }
-                        }
-
-                        // ข้อมูล/นโยบาย
-                        card {
-                            NavigationLink { docView("คำถามที่พบบ่อย", faqText) } label: {
-                                navRow(icon: "questionmark.circle", title: "คำถามที่พบบ่อย")
-                            }
-                            Divider().padding(.leading, 56)
-                            NavigationLink { docView("เงื่อนไขการใช้งาน", termsText) } label: {
-                                navRow(icon: "doc.text", title: "เงื่อนไขการใช้งาน")
-                            }
-                            Divider().padding(.leading, 56)
-                            NavigationLink { docView("นโยบายผู้ใช้", policyText) } label: {
-                                navRow(icon: "hand.raised", title: "นโยบายผู้ใช้")
-                            }
-                            Divider().padding(.leading, 56)
-                            navRow(icon: "info.circle", title: "เวอร์ชัน", value: version, chevron: false)
-                        }
-
-                        Spacer(minLength: 8)
-
-                        // ออกจากระบบ
-                        Button { showLogoutConfirm = true } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "rectangle.portrait.and.arrow.right")
-                                Text("ออกจากระบบ").fontWeight(.semibold)
-                            }
-                            .foregroundStyle(.red)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+                    // บัญชี
+                    card {
+                        NavigationLink { AccountView() } label: {
+                            navRow(icon: "person.crop.circle", title: "บัญชี")
                         }
                     }
-                    .padding(20)
-                }
-                .buttonStyle(.plain)  // กัน label ปุ่ม/ลิงก์ ไม่ให้ inherit สีทองจาก tint (text = ขาว)
-            }
-            .navigationTitle("ตั้งค่า")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.left").fontWeight(.semibold).foregroundStyle(.primary)
+
+                    // ข้อมูล/นโยบาย
+                    card {
+                        NavigationLink { docView("คำถามที่พบบ่อย", faqText) } label: {
+                            navRow(icon: "questionmark.circle", title: "คำถามที่พบบ่อย")
+                        }
+                        Divider().padding(.leading, 56)
+                        NavigationLink { docView("เงื่อนไขการใช้งาน", termsText) } label: {
+                            navRow(icon: "doc.text", title: "เงื่อนไขการใช้งาน")
+                        }
+                        Divider().padding(.leading, 56)
+                        NavigationLink { docView("นโยบายผู้ใช้", policyText) } label: {
+                            navRow(icon: "hand.raised", title: "นโยบายผู้ใช้")
+                        }
+                        Divider().padding(.leading, 56)
+                        navRow(icon: "info.circle", title: "เวอร์ชัน", value: version, chevron: false)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    // ออกจากระบบ
+                    Button { showLogoutConfirm = true } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                            Text("ออกจากระบบ").fontWeight(.semibold)
+                        }
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
                     }
                 }
+                .padding(20)
             }
-            .alert("ออกจากระบบใช่หรือไม่", isPresented: $showLogoutConfirm) {
-                Button("ยกเลิก", role: .cancel) {}
-                Button("ออกจากระบบ", role: .destructive) { session.logout() }
-            }
-            .onChange(of: settings.notiEnabled) { _, on in
-                // เปิด = ลงทะเบียน device, ปิด = ถอน token
-                if on { PushManager.shared.registerCurrent() } else { PushManager.shared.unregister() }
-            }
+            .buttonStyle(.plain)  // กัน label ปุ่ม/ลิงก์ ไม่ให้ inherit สีทองจาก tint (text = ขาว)
+        }
+        .navigationTitle("ตั้งค่า")
+        .navigationBarTitleDisplayMode(.large)
+        .alert("ออกจากระบบใช่หรือไม่", isPresented: $showLogoutConfirm) {
+            Button("ยกเลิก", role: .cancel) {}
+            Button("ออกจากระบบ", role: .destructive) { session.logout() }
+        }
+        .onChange(of: settings.notiEnabled) { _, on in
+            // เปิด = ลงทะเบียน device, ปิด = ถอน token
+            if on { PushManager.shared.registerCurrent() } else { PushManager.shared.unregister() }
         }
         .tint(.primary)  // back chevron + toolbar ไม่เอาสีทองจาก navbar (เทา/ขาว)
     }

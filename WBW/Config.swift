@@ -75,6 +75,12 @@ extension Color {
     /// มืดโดยตั้งใจทั้งสองธีม เป็นพื้นฉาก ไม่ใช่พื้นจอ
     static let wbwForestVoid = Color(red: 10 / 255, green: 22 / 255, blue: 16 / 255) // #0A1610
 
+    /// พื้นจอตั๋วประจำตัว — ที่พักไว้ก่อน ของจริงจะเป็นรูปภาพ (ดู TicketView.background)
+    /// คงที่ทั้งสองธีม จอนี้เป็นดีไซน์ตายตัว ไม่ใช่พื้นผิวที่ปรับตามโหมด
+    static let wbwTicketBG = Color(red: 26 / 255, green: 26 / 255, blue: 26 / 255) // #1A1A1A
+    /// แดงเลือดหมูของปุ่ม Medical ID — ใช้เป็น tint ของกระจก
+    static let wbwMedical = Color(red: 66 / 255, green: 23 / 255, blue: 23 / 255) // #421717
+
     // ===== สีพื้นผิว — ปรับตามโหมดมืด =====
     //
     // ใช้ UIColor(dynamicProvider:) ไม่ใช่ .colorset ใน Assets เพราะโปรเจกต์สร้างจาก XcodeGen

@@ -20,7 +20,7 @@ brainstorm → spec `docs/superpowers/specs/YYYY-MM-DD-<หัวข้อ>-desi
 
 ## เทส
 
-**XCTest ล้วน 21/21 ไฟล์ ใน `WBWTests/`** (`import Testing` ของ Swift Testing มี 0 ไฟล์ตอนนี้) —
+**XCTest ล้วน 22/22 ไฟล์ ใน `WBWTests/`** (`import Testing` ของ Swift Testing มี 0 ไฟล์ตอนนี้) —
 **จะเอา Swift Testing เข้ามาต้องคุยก่อน** อย่าเผลอใช้เพราะเห็นเป็นของใหม่กว่า ตั้งชื่อไฟล์
 `<Thing>Tests.swift` วางแบนที่รากของ `WBWTests/` ไม่มีโฟลเดอร์ย่อย
 

@@ -5,6 +5,9 @@ struct ProfileAvatar: View {
     let name: String
     let photoUrl: String?
     var size: CGFloat = 50
+    /// จอตั๋วส่ง .clear มา เพราะช่องไฟระหว่าง avatar กับรอยเว้าของการ์ดทำหน้าที่วงแหวนอยู่แล้ว
+    /// วงแหวนขาวซ้อนอีกชั้นจะกลายเป็นสองวง · ค่าปริยาย = ของเดิม จุดที่เรียกอยู่ไม่ต้องแก้
+    var ringColor: Color = .white.opacity(0.85)
 
     var body: some View {
         Group {
@@ -23,7 +26,7 @@ struct ProfileAvatar: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 2))
+        .overlay(Circle().stroke(ringColor, lineWidth: 2))
         .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
     }
 

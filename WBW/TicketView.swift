@@ -1,7 +1,9 @@
 import SwiftUI
 import CoreImage.CIFilterBuiltins
 
-private let ticketBG = Color(white: 0.96)
+/// รัศมี avatar และช่องไฟที่อยากให้เห็นพื้นหลังลอดระหว่าง avatar กับขอบการ์ด
+private let avatarSize: CGFloat = 116
+private let avatarGap: CGFloat = 9
 
 /// โปรไฟล์ = ตั๋วประจำตัวทรงป้ายห้อย (luggage tag) + barcode + ปุ่ม Medical ID — ตาม DOI-APP
 struct TicketView: View {
@@ -10,59 +12,74 @@ struct TicketView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showMedical = false
     @State private var showSettings = false
+    /// ตำแหน่งแนวฉีกในพิกัดของการ์ด — วัดจาก layout จริงแล้วส่งกลับมาให้ TicketShape เจาะรอยเว้า
+    /// ให้ตรงเส้นประ ถ้าฮาร์ดโค้ดไว้ รอยเว้ากับเส้นประจะเลื่อนออกจากกันทันทีที่ชื่อยาวขึ้นอีกบรรทัด
+    @State private var tearY: CGFloat = 0
 
     private var me: Me? { profile.me }
 
     var body: some View {
-        ZStack {
-            ticketBG.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                topBar
-                Spacer(minLength: 8)
-                card
-                Spacer(minLength: 14)
-                Button { showMedical = true } label: {
-                    Text("Medical ID")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 190, height: 44)
-                        .background(Color(red: 0.26, green: 0.09, blue: 0.09), in: Capsule())
+        NavigationStack {
+            ZStack {
+                background
+                VStack(spacing: 0) {
+                    topBar
+                    Spacer(minLength: 8)
+                    card
+                    Spacer(minLength: 18)
+                    medicalButton
+                    Spacer(minLength: 24)
                 }
-                Spacer(minLength: 24)
+                .padding(.horizontal, 22)
             }
-            .padding(.horizontal, 24)
+            .toolbar(.hidden, for: .navigationBar)
+            .task {
+                if profile.me == nil, let token = session.token { await profile.load(token: token) }
+                #if DEBUG
+                if UserDefaults.standard.bool(forKey: "uitestMedical") { showMedical = true }
+                if UserDefaults.standard.bool(forKey: "uitestSettings") { showSettings = true }
+                #endif
+            }
+            .sheet(isPresented: $showMedical) {
+                MedicalIdView(me: me).presentationDetents([.large])
+            }
+            // push เนทีฟ = สไลด์จากขวาไปซ้าย และได้ปัดขอบจอกลับมาฟรี — .fullScreenCover เดิม
+            // ขึ้นจากล่างเสมอ เปลี่ยน transition ไม่ได้
+            .navigationDestination(isPresented: $showSettings) { SettingsView() }
         }
-        .task {
-            if profile.me == nil, let token = session.token { await profile.load(token: token) }
-            #if DEBUG
-            if UserDefaults.standard.bool(forKey: "uitestMedical") { showMedical = true }
-            if UserDefaults.standard.bool(forKey: "uitestSettings") { showSettings = true }
-            #endif
-        }
-        .sheet(isPresented: $showMedical) {
-            MedicalIdView(me: me).presentationDetents([.large])
-        }
-        .fullScreenCover(isPresented: $showSettings) {
-            SettingsView()
-        }
+    }
+
+    /// ที่เดียวที่คุมพื้นหลังจอ — ของจริงจะเป็นรูปภาพ เปลี่ยนตรงนี้บรรทัดเดียวจบ
+    /// (ถ้ารูปสว่าง ต้องเติม scrim ทับด้วย ไม่งั้นไอคอน/ชื่อสีขาวบน top bar อ่านไม่ออก)
+    private var background: some View {
+        Color.wbwTicketBG.ignoresSafeArea()
     }
 
     private var topBar: some View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(Color(white: 0.15))
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.white)
             }
             Spacer()
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Color(white: 0.15))
+                    .font(.system(size: 22))
+                    .foregroundStyle(.white)
             }
         }
         .padding(.top, 6)
+    }
+
+    private var medicalButton: some View {
+        Button { showMedical = true } label: {
+            Text("Medical ID")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 258, height: 52)
+                .glassSurface(Capsule(), tint: Color.wbwMedical, interactive: true)
+        }
     }
 
     private var card: some View {
@@ -75,30 +92,25 @@ struct TicketView: View {
         let idDigits = (me?.studentId ?? me?.username ?? "").map { String($0) }.joined(separator: " ")
 
         return ZStack(alignment: .top) {
-            // การ์ดขาว + รอยบากข้าง (notch) จำลองด้วยวงกลมสีพื้น
             VStack(alignment: .leading, spacing: 0) {
-                Color.clear.frame(height: 54) // เว้นที่ให้ avatar ห้อย
+                // เว้นที่ให้ avatar ที่ห้อยคร่อมรอยเว้าขอบบน
+                Color.clear.frame(height: avatarSize / 2 + 14)
 
-                Text(first.uppercased())
-                    .font(.system(size: 34, weight: .heavy))
+                Text(first)
+                    .font(.system(size: 40, weight: .heavy))
                     .foregroundStyle(.black)
                     .fixedSize(horizontal: false, vertical: true)
                 if !last.isEmpty {
-                    Text(last.uppercased())
-                        .font(.system(size: 20, weight: .semibold))
+                    Text(last)
+                        .font(.system(size: 26, weight: .light))
                         .foregroundStyle(Color(white: 0.15))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                field("School of", school).padding(.top, 16)
-                field("Major", major).padding(.top, 12)
+                field("School of", school).padding(.top, 18)
+                field("Major", major).padding(.top, 14)
 
-                // แถวบาก + ข้อมูลตั๋ว
-                ZStack {
-                    Rectangle().fill(Color(white: 0.88)).frame(height: 1)
-                }
-                .padding(.top, 18)
-                .padding(.horizontal, -22)
-                .overlay(notches)
+                tearLine.padding(.top, 20)
 
                 HStack(alignment: .top) {
                     miniField("Group", group)
@@ -107,29 +119,46 @@ struct TicketView: View {
                     Spacer()
                     miniField("Date", "29 AUG 2026")
                 }
-                .padding(.top, 16)
+                .padding(.top, 18)
 
-                barcode(idDigits: idDigits).padding(.top, 16)
+                barcode(idDigits: idDigits).padding(.top, 18)
             }
-            .padding(.horizontal, 22)
-            .padding(.bottom, 24)
-            .background(.white, in: RoundedRectangle(cornerRadius: 26))
-            .shadow(color: .black.opacity(0.10), radius: 16, y: 8)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 26)
+            // ตั้งชื่อกรอบนี้ไว้ให้ tearLine วัดตำแหน่งตัวเองเทียบกับมัน — เป็นกรอบเดียวกับที่
+            // TicketShape ได้รับเป็น rect พอดี (background ใช้ bounds ของ view ที่มันเกาะอยู่)
+            .coordinateSpace(name: "ticket")
+            .background(
+                TicketShape(corner: 34, avatarCut: avatarSize / 2 + avatarGap,
+                            sideCut: 14, tearY: tearY)
+                    .fill(.white)
+                    // เงาเบา ๆ ตามทรงที่เจาะรูแล้ว — ภาพอ้างอิงแทบไม่มีเงา แต่พอพื้นหลังเป็นรูปจริง
+                    // การ์ดจะจมไปกับรูปถ้าไม่มีเลย
+                    .shadow(color: .black.opacity(0.28), radius: 10, y: 4)
+            )
 
-            // avatar ห้อยคร่อมขอบบน (รูปจาก store = อัปเดตทันทีเมื่อเปลี่ยน)
-            ProfileAvatar(name: first, photoUrl: profile.photoUrl, size: 104)
-                .offset(y: -52)
+            // avatar ห้อยคร่อมรอยเว้า (รูปจาก store = อัปเดตทันทีเมื่อเปลี่ยน)
+            // ringColor .clear เพราะช่องไฟ avatarGap ทำหน้าที่วงแหวนอยู่แล้ว
+            ProfileAvatar(name: first, photoUrl: profile.photoUrl, size: avatarSize, ringColor: .clear)
+                .offset(y: -avatarSize / 2)
         }
-        .padding(.top, 52)
+        .padding(.top, avatarSize / 2 + 8)
+        .onPreferenceChange(TearYKey.self) { tearY = $0 }
     }
 
-    // รอยบากครึ่งวงกลมซ้าย/ขวา (สีพื้น) ตรงเส้นแบ่ง
-    private var notches: some View {
-        HStack {
-            Circle().fill(ticketBG).frame(width: 26, height: 26).offset(x: -13)
-            Spacer()
-            Circle().fill(ticketBG).frame(width: 26, height: 26).offset(x: 13)
-        }
+    /// เส้นประแนวฉีก + รายงานตำแหน่งกลับให้ TicketShape เจาะรอยเว้าข้างให้ตรงกัน
+    private var tearLine: some View {
+        DashedLine()
+            .stroke(Color(white: 0.78), style: StrokeStyle(lineWidth: 1, dash: [3, 4]))
+            .frame(height: 1)
+            // -10 = ยืดออกไปให้ชนโคนรอยเว้าข้างพอดี (padding การ์ด 24 − รัศมีรอยเว้า 14)
+            .padding(.horizontal, -10)
+        .background(
+            GeometryReader { g in
+                // frame(in: .named("ticket")) = พิกัดในกรอบการ์ด ตรงกับ rect ที่ TicketShape ได้รับ
+                Color.clear.preference(key: TearYKey.self, value: g.frame(in: .named("ticket")).midY)
+            }
+        )
     }
 
     private func field(_ label: String, _ value: String) -> some View {
