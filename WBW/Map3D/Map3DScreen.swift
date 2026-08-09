@@ -10,6 +10,8 @@ struct Map3DScreen: View {
     @State private var loadFailed = false
     /// ยังโหลดโมเดลไม่เสร็จ — โมเดลนี้ใช้เวลาหลายวินาที ปล่อยจอเปล่าไว้ผู้ใช้อ่านว่าแอปค้าง ไม่ใช่กำลังโหลด
     @State private var isLoading = true
+    /// intro เล่นจบแล้ว — ใช้สั่งปิดชั้นเมฆ (เมฆมีไว้ให้บินทะลุตอนเข้าจอ ไม่ใช่ของถาวร)
+    @State private var introFinished = MapModelLoader.shared.hasPlayedIntro
 
     @EnvironmentObject private var progress: CheckinProgressStore
     /// ฐานที่แตะค้างไว้อยู่ — nil = ไม่มีการ์ด
@@ -150,6 +152,29 @@ struct Map3DScreen: View {
         }
     }
 
+    /// บินทะลุเมฆลงมา — ครั้งแรกต่อการเปิดแอปเท่านั้น
+    ///
+    /// เดินค่าเองทีละเฟรมแทน withAnimation เพราะกล้องถูกอ่านใน update closure ของ RealityView
+    /// การพึ่งว่า SwiftUI จะ re-run closure นั้นตามค่า animated ให้ครบทุกเฟรมเป็นข้อสมมติที่
+    /// พิสูจน์ไม่ได้จากโค้ด · ตั้งค่าเองทีละครั้งคือ state เปลี่ยนจริงทุกครั้ง update ถูกเรียกแน่นอน
+    @MainActor
+    private func playIntroIfNeeded() {
+        guard !MapModelLoader.shared.hasPlayedIntro else { return }
+        MapModelLoader.shared.hasPlayedIntro = true
+        Task {
+            let started = CFAbsoluteTimeGetCurrent()
+            while true {
+                let progress = Float(min((CFAbsoluteTimeGetCurrent() - started) / Map3DIntro.duration, 1))
+                let frame = Map3DIntro.frame(at: progress)
+                pitch = frame.pitch
+                distance = frame.distance
+                if progress >= 1 { break }
+                try? await Task.sleep(nanoseconds: 16_000_000)   // ~60 เฟรมต่อวินาที
+            }
+            introFinished = true
+        }
+    }
+
     private var mapView: some View {
         RealityView { content in
             let root = Entity()
@@ -179,6 +204,20 @@ struct Map3DScreen: View {
             // ตรงกับความสูงภูมิประเทศจริง ไม่ใช่ด้านกว้างของพื้นที่ จึงไม่ต้องหมุนแก้ Z-up/Y-up
 
             root.addChild(map)
+
+            // โดมฟ้า + ม่านปิดขอบ + ชั้นเมฆ — แขวนใต้ root ไม่ใช่ใต้ map เพราะไม่ควรหมุนตาม
+            // cameraFramingYaw ที่ใช้หันทิศพื้นที่งาน (ท้องฟ้าไม่มีทิศ)
+            //
+            // เช็คชื่อก่อนสร้าง: MapModelLoader คืน entity ตัวเดิมทุกครั้ง แต่ make closure อาจ
+            // ถูกเรียกซ้ำได้ ถ้าไม่เช็คจะได้โดมซ้อนกันหลายใบ ซึ่งมองไม่ออกด้วยตาแต่กินหน่วยความจำ
+            if root.findEntity(named: Map3DSky.rootName) == nil {
+                // ครึ่งความกว้างหลังย่อสเกลแล้ว — โมเดลถูกย่อให้ด้านกว้างสุดพอดีกรอบ 2 หน่วย
+                // สองแกนไม่เท่ากัน (พื้นที่งานเป็นสี่เหลี่ยมผืนผ้า) ต้องส่งแยกกัน ดู Map3DSky.build
+                let scaled = map.visualBounds(relativeTo: nil)
+                root.addChild(Map3DSky.build(halfX: scaled.extents.x / 2,
+                                             halfZ: scaled.extents.z / 2,
+                                             slabDepth: scaled.extents.y))
+            }
 
             // ให้แท่งแดงแตะได้ — ต้องมีทั้งสองคอมโพเนนต์ ขาดตัวใดตัวหนึ่ง tap ไม่เข้า
             for name in Map3DPins.entityNames {
@@ -250,10 +289,26 @@ struct Map3DScreen: View {
             camera.camera.far = 100
             root.addChild(camera)
 
-            await MainActor.run { isLoading = false }
+            await MainActor.run {
+                // ตั้งกล้องไว้ที่จุดเริ่มของ intro "ก่อน" ปิดจอโหลด ไม่งั้นจะเห็นภาพมุมปกติแวบนึง
+                // แล้วค่อยกระโดดขึ้นไปเหนือเมฆ
+                if !MapModelLoader.shared.hasPlayedIntro {
+                    let start = Map3DIntro.frame(at: 0)
+                    pitch = start.pitch
+                    distance = start.distance
+                }
+                isLoading = false
+                playIntroIfNeeded()
+            }
         } update: { content in
             guard let root = content.entities.first,
                   let map = root.findEntity(named: "Map") else { return }
+
+            // เมฆเป็นของสำหรับ intro — ปิดเมื่อเล่นจบ ไม่งั้นมุมกล้องต่ำจะมองทะลุชั้นเมฆ
+            // เห็นแผนที่เป็นสีจาง ๆ ทั้งจอ (เจอจากสกรีนช็อตรอบแรก)
+            if let clouds = root.findEntity(named: Map3DSky.cloudsName) {
+                clouds.isEnabled = !introFinished
+            }
 
             if let heading = headingOverride, let content = map.children.first {
                 content.orientation = simd_quatf(angle: heading * .pi / 180,
@@ -376,9 +431,23 @@ struct Map3DScreen: View {
                 headingOverride = Float(UserDefaults.standard.integer(forKey: "uitestMapHeading"))
             }
             // ลองมุมเงยหลายค่าแล้วถ่ายเทียบภาพอ้างอิง โดยไม่ต้อง build ใหม่ทุกครั้ง (หน่วยองศา)
+            //
+            // ต้องปิด intro ไปด้วย ไม่งั้นค่าที่ตั้งตรงนี้ไร้ผล: intro เดินค่า pitch/distance ทับทุก
+            // เฟรมแล้วจบที่ defaultPitch เสมอ · เจอจริงตอนถ่ายเทียบ — สั่ง -uitestMapPitch 8 แล้วได้
+            // ภาพเหมือนมุมปกติเป๊ะทุกพิกเซล ไม่มีอะไรฟ้องว่าแฟลกถูกกลืน
             if UserDefaults.standard.object(forKey: "uitestMapPitch") != nil {
+                MapModelLoader.shared.hasPlayedIntro = true
+                introFinished = true
                 pitch = Map3DCamera.clampPitch(
                     Float(UserDefaults.standard.integer(forKey: "uitestMapPitch")) * .pi / 180)
+            }
+            // ระยะกล้องสำหรับถ่ายเทียบตอนซูมสุดสองทาง · หน่วยเป็น "ร้อยเท่า" เพราะ launch arg
+            // ที่ simctl ส่งมาอ่านเป็น Int ได้อย่างเดียว (0.8 ส่งไม่ได้ ต้องส่ง 80)
+            if UserDefaults.standard.object(forKey: "uitestMapDistance") != nil {
+                MapModelLoader.shared.hasPlayedIntro = true
+                introFinished = true
+                distance = Map3DCamera.clampDistance(
+                    Float(UserDefaults.standard.integer(forKey: "uitestMapDistance")) / 100)
             }
             #endif
             location.start()

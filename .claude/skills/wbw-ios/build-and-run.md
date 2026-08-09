@@ -85,15 +85,16 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestMedical` | flag | เปิดหน้าข้อมูลการแพทย์ตรงๆ (จาก Ticket) | `-uitestProfile` |
 | `-uitestSettings` | flag | เปิดหน้าตั้งค่าตรงๆ (จาก Ticket) | `-uitestProfile` |
 | `-uitestMapHeading <องศา>` | int | ทับมุมกล้อง yaw ของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
-| `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
+| `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว (ปิด intro ไปด้วย) | `-uitestTab 1` |
+| `-uitestMapDistance <ร้อยเท่า>` | int | ทับระยะกล้อง — `80` = 0.8 (ซูมเข้าสุด), `400` = 4.0 (ออกสุด) | `-uitestTab 1` |
 | `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ | `-uitestTab 1` |
 
 **ทำไมบางคีย์ต้องมาคู่กัน:** `-uitestMedical`/`-uitestSettings` ถูกอ่านใน `.task` ของ `TicketView`
 (`WBW/TicketView.swift:38-41`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน
 `.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:101-103`) ซึ่งเปิดจาก
 `-uitestProfile` เท่านั้น (`WBW/HomeView.swift:98`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
-เลย ส่วน `-uitestMapPin`/`-uitestMapHeading`/`-uitestMapPitch` ถูกอ่านใน `.onAppear` ของ `Map3DScreen`
-(`WBW/Map3D/Map3DScreen.swift:367-383`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen() }` ที่
+เลย ส่วน `-uitestMapPin`/`-uitestMapHeading`/`-uitestMapPitch`/`-uitestMapDistance` ถูกอ่านใน
+`.onAppear` ของ `Map3DScreen` (`WBW/Map3D/Map3DScreen.swift:422-452`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen() }` ที่
 `WBW/MainTabView.swift:49`) — `TabView` โหลดเนื้อในแท็บแบบ lazy แท็บที่ยังไม่เคยถูกเลือกจะไม่ mount View
 เลยสักครั้ง แท็บเริ่มต้นคือ Home (index 0) เสมอถ้าไม่ส่ง `-uitestTab` มา จึงต้องสั่ง `-uitestTab 1` กำกับไป
 ด้วยทุกครั้ง

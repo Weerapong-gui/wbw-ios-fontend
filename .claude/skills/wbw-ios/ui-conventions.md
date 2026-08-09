@@ -78,12 +78,31 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
 จอเดี่ยว ๆ วางแบน ๆ ที่ราก `WBW/` (เช่น `WBW/HomeView.swift`, `WBW/WelcomeView.swift`) แตกเป็นโฟลเดอร์
 ย่อยเมื่อฟีเจอร์เกิน ~3 ไฟล์ ของจริงที่มีอยู่ตอนนี้:
 
-- `WBW/Map3D/` — 6 ไฟล์ (`Map3DCamera`, `Map3DGeo`, `Map3DLocation`, `Map3DPins`, `Map3DScreen`, `MapModelLoader`)
+- `WBW/Map3D/` — 8 ไฟล์ (`Map3DCamera`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
+  `Map3DScreen`, `Map3DSky`, `MapModelLoader`)
 - `WBW/Chat/` — 5 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`)
 - `WBW/Feedback/` — 4 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`)
 - `WBW/Scene3D/` — 7 ไฟล์ (ฉากป่า — **ปิดอยู่ตอนนี้แต่ไม่ได้ลบ** ดู `Config.forest3D` ใน
   `backend-and-config.md`)
 - `WBW/Resources/` — asset สามมิติ (`.usdz`, `.glb` ใต้ `models/`) ไม่ใช่โค้ด Swift
+
+## ฉาก RealityKit ต้องมีโดมฟ้าเสมอ
+
+`RealityView` วาด **ดำล้วน** ตรงที่ไม่มีเรขาคณิต ไม่ใช่โปร่งใส — ฉากไหนที่กล้องหมุน/ซูมได้จะเห็นพื้นดำ
+รอบโมเดลทันทีที่หันไปทางที่ไม่มีอะไร ทั้งสองฉากจึงล้อมด้วยทรงกลมใหญ่:
+
+- ฉากป่า — `WBW/Scene3D/ForestSceneView.swift`
+- แท็บแผนที่ — `WBW/Map3D/Map3DSky.swift` (โดม + ม่านปิดสันตัดของแผ่นภูมิประเทศ + ก้อนเมฆของ intro)
+
+กติกาที่พังซ้ำได้ง่าย:
+
+- `faceCulling = .none` **บังคับ** — กล้องอยู่ข้างในทรงกลม ถ้า cull back-face ตามค่าปริยายจะโดน cull
+  ทิ้งทั้งใบ กลับไปดำเหมือนเดิมโดยไม่มี error
+- texture ที่มี alpha ต้องเขียน buffer เอง **ห้ามวาดผ่าน `UIGraphicsImageRenderer`/`CGContext`** —
+  ผลลัพธ์เป็น premultiplied เสมอ RealityKit อ่านเป็น straight alpha แล้วได้สีเทาแทนสีที่ตั้งไว้
+- ผิวที่มีบริเวณไล่เฉดกว้าง ๆ **ห้ามตั้ง `opacityThreshold`** — มันสั่งใช้ alpha test แทน alpha blend
+  ขอบจะไล่เป็นขั้น เห็นเป็นวงซ้อนหลายชั้น
+- ระนาบแบนที่กล้องอาจมองเฉียง ให้ใส่ `BillboardComponent` ไม่งั้นเห็นขอบสี่เหลี่ยมของแผ่น
 
 ## จอที่ยังไม่มีของจริง
 

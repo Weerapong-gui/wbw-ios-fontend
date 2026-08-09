@@ -14,6 +14,10 @@ import Foundation
 final class MapModelLoader {
     static let shared = MapModelLoader()
 
+    /// แอนิเมชันบินทะลุเมฆเล่นไปแล้วหรือยัง — ครั้งเดียวต่อการเปิดแอป
+    /// เก็บไว้ที่นี่เพราะเป็น singleton ที่มีอายุเท่าแอปอยู่แล้ว ไม่ต้องสร้างที่เก็บสถานะใหม่
+    var hasPlayedIntro = false
+
     private var loaded: Entity?
     private var loading: Task<Void, Never>?
 
