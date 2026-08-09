@@ -772,7 +772,7 @@ curl -s -X PATCH "$API/admin/participants/$UID" -H "Authorization: Bearer $ADMIN
   -H 'Content-Type: application/json' -d '{"leave_quota": 1}' > /dev/null
 ```
 เปิดแอป → แท็บ 3 → กดหัวจอ → ถ่ายภาพ: ต้องเห็น "สิทธิ์ออกจากกลุ่มคงเหลือ 1 ครั้ง" + ปุ่มออก
-แล้วตั้งเป็น `0` ปิด-เปิดแอปใหม่ → ถ่ายอีกภาพ: ต้องเห็น "ท่านใช้สิทธิ์เปลี่ยนกลุ่มครบแล้ว" และ**ไม่มี**ปุ่มออก
+แล้วตั้งเป็น `0` ปิด-เปิดแอปใหม่ → ถ่ายอีกภาพ: ต้องเห็น "สิทธิ์ออกจากกลุ่มของท่านหมดแล้ว" และ**ไม่มี**ปุ่มออก
 
 ```bash
 xcrun simctl io booted screenshot /tmp/wbw-group-quota1.png
