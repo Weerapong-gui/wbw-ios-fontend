@@ -29,7 +29,7 @@ check_count() {
 }
 
 echo "== จำนวนไฟล์ที่ skill อ้างไว้ =="
-check_count "ไฟล์ .swift ที่รากของ WBW/" 37 "$(find WBW -maxdepth 1 -name '*.swift' | wc -l | tr -d ' ')"
+check_count "ไฟล์ .swift ที่รากของ WBW/" 38 "$(find WBW -maxdepth 1 -name '*.swift' | wc -l | tr -d ' ')"
 check_count "WBW/Map3D"    5 "$(find WBW/Map3D    -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Chat"     5 "$(find WBW/Chat     -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Feedback" 4 "$(find WBW/Feedback -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"

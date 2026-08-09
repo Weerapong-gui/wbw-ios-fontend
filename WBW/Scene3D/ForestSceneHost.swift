@@ -175,7 +175,7 @@ private struct ForestBackground: ViewModifier {
                         }
                     }
                 } else {
-                    // ฉาก 3D ปิดอยู่ — พื้นทึบสีเดียว รอรูปพื้นหลังที่จะเอามาทับทีหลัง
+                    // ฉาก 3D ปิดอยู่ — ใช้ภาพป่าเป็นพื้นแทน (เดิมเป็นพื้นทึบสีเดียวรอรูปอยู่)
                     //
                     // ยังต้องมี TabRootOpaqueBackgroundRemover เหมือนทางฉากเปิด แม้สีนี้จะถูกวาดในกรอบ
                     // ของจอเอง: แท็บ QR (Tab role .search ของ iOS 26) วาง content ไว้ใน container ที่
@@ -184,7 +184,7 @@ private struct ForestBackground: ViewModifier {
                     // สิ่งที่โผล่แทนคือพื้นทึบสีเดียวกันที่ RootView วาดไว้ใต้ทุกอย่าง — ไม่ใช่ขาวและไม่ใช่ดำ
                     ZStack {
                         TabRootOpaqueBackgroundRemover().frame(width: 1, height: 1).allowsHitTesting(false)
-                        Color.wbwForestVoid.ignoresSafeArea()
+                        AppBackdrop()
                     }
                 }
             }

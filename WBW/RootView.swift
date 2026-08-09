@@ -34,7 +34,7 @@ struct RootView: View {
             // จำเป็นเพราะ TabRootOpaqueBackgroundRemover เจาะพื้นทึบของ per-tab container ทิ้ง สิ่งที่อยู่
             // หลังรูที่เจาะคือชั้นนี้ ไม่มีชั้นนี้จะเห็นพื้นดำของหน้าต่างแทนตรงขอบจอแท็บ QR
             if !Config.forest3D {
-                Color.wbwForestVoid.ignoresSafeArea()
+                AppBackdrop()
             }
 
             // ฉากป่า 3D ใต้ทุกอย่าง — mount ครั้งแรกที่มีหน้าขอใช้ฉาก (everEnabled) แล้วอยู่คงที่

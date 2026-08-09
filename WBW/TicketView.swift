@@ -58,22 +58,8 @@ struct TicketView: View {
         }
     }
 
-    /// ที่เดียวที่คุมพื้นหลังจอ
-    ///
-    /// .frame + .clipped ก่อน .ignoresSafeArea — scaledToFill ทำให้ภาพล้นกรอบจริง ถ้าไม่คลิป
-    /// ภาพส่วนเกินจะไปดันขนาดของ ZStack แล้วเลย์เอาต์ข้างในเพี้ยนตาม
-    ///
-    /// รูปเป็น 1440×2880 (อัตราส่วน 1:2) เลือกไว้ให้อยู่กึ่งกลางระหว่างจอที่กว้างสุด (SE 0.562)
-    /// กับสูงสุด (Pro Max 0.460) ตัดหนักสุดราว 11% แนวตั้ง หรือ 8% แนวนอน แทนที่จะเป็น 18%
-    /// ด้านเดียวถ้าออกแบบตามจอใดจอหนึ่ง
-    private var background: some View {
-        Image("bg_ticket")
-            .resizable()
-            .scaledToFill()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
-            .ignoresSafeArea()
-    }
+    /// พื้นหลังจอ — ตัวเดียวกับทั้งแอป (ดู AppBackdrop) จะได้ไม่มีรอยต่อตอนสลับจอ
+    private var background: some View { AppBackdrop() }
 
     private var topBar: some View {
         HStack {
