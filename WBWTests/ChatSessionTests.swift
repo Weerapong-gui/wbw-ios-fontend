@@ -88,4 +88,21 @@ final class ChatSessionTests: XCTestCase {
         // กลุ่มมีเราคนเดียว — ไม่มีใครให้อ่าน
         XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 1), "ส่งแล้ว")
     }
+
+    // ===== สแนปเส้น "ข้อความใหม่" ต้องเกิดก่อน markRead() เสมอ =====
+
+    /// เส้น "ข้อความใหม่" คำนวณจากค่านี้ · ถ้าอ่านค่าสดจาก myLastReadId เส้นจะไม่มีวันโผล่
+    /// เพราะ setScreenVisible เรียก markRead() ซึ่งดัน myLastReadId ขึ้นสุดในเฟรมเดียวกัน
+    @MainActor
+    func testUnreadLineSnapshotTakenBeforeMarkRead() {
+        let s = ChatSession()
+        s.testSetup(groupId: 1, myId: "me")
+        XCTAssertEqual(s.unreadLineSnapshot, .max, "ก่อนเปิดจอต้องแปลว่าอ่านหมดแล้ว")
+
+        s.setScreenVisible(true)
+        XCTAssertEqual(s.unreadLineSnapshot, 0, "สแนปต้องเป็นค่า myLastReadId ก่อน markRead")
+
+        s.setScreenVisible(false)
+        XCTAssertEqual(s.unreadLineSnapshot, .max, "ปิดจอแล้วต้องรีเซ็ตกลับ")
+    }
 }
