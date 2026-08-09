@@ -75,6 +75,9 @@ final class ChatSession: ObservableObject {
         self.groupId = groupId
         guard groupId != nil else {
             messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+            // .max ไม่ใช่ 0 — สแนปของกลุ่ม/บัญชีก่อนหน้าต้องไม่ข้ามมาโผล่ในกลุ่มถัดไป property นี้อยู่ยาว
+            // เท่าแอป (ไม่ตายไปกับจอเหมือน @State เดิมของ GroupChatView) จึงต้องรีเซ็ตเองทุกจุดที่ myLastReadId รีเซ็ต
+            unreadLineSnapshot = .max
             return
         }
         cursor = Int64(UserDefaults.standard.integer(forKey: cursorKey))
@@ -281,6 +284,7 @@ final class ChatSession: ObservableObject {
             try? context.save()
         }
         messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+        unreadLineSnapshot = .max   // เหมือนกับ myLastReadId ด้านบน — ล้างสแนปของกลุ่มที่เพิ่งโดนเอาออก
         incoming = nil   // ข้อความที่ toast กำลังจะโชว์อาจเป็น @Model ที่เพิ่งลบไปแล้วข้างบน — render ต่อไม่ได้
         UserDefaults.standard.removeObject(forKey: cursorKey)
         UserDefaults.standard.removeObject(forKey: readKey)
@@ -298,6 +302,7 @@ final class ChatSession: ObservableObject {
             try? context.save()
         }
         messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+        unreadLineSnapshot = .max   // เหมือนกับ myLastReadId ด้านบน — ล้างสแนปของบัญชีที่เพิ่ง logout ออกไป
         incoming = nil
         for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("chat.") {
             UserDefaults.standard.removeObject(forKey: key)

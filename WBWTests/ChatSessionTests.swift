@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import WBW
 
 final class ChatSessionTests: XCTestCase {
@@ -6,6 +7,16 @@ final class ChatSessionTests: XCTestCase {
         ChatMessage(clientId: "c\(id ?? -1)-\(sender)", serverId: id, groupId: 1,
                     senderId: sender, body: "x", deviceTime: Date(), createdAt: Date(),
                     senderName: sender, state: id == nil ? .pending : .sent)
+    }
+
+    /// ModelContainer ในหน่วยความจำ — เหมือนแพทเทิร์นใน ChatSessionPersistenceTests ใช้กับ merge(...)
+    /// เพื่อใส่ข้อความที่มี serverId จริง ให้ markRead() มีอะไรให้ขยับจริง (ดูเหตุผลเต็มที่
+    /// testUnreadLineSnapshotTakenBeforeMarkRead ด้านล่าง)
+    private func makeContext() -> ModelContext {
+        let schema = Schema([ChatMessage.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(for: schema, configurations: [config])
+        return ModelContext(container)
     }
 
     /// ข้อความปลอม ระบุ createdAt/deviceTime เองได้ — ใช้ทดสอบการเรียงตาม displayTime (createdAt ?? deviceTime)
@@ -93,14 +104,26 @@ final class ChatSessionTests: XCTestCase {
 
     /// เส้น "ข้อความใหม่" คำนวณจากค่านี้ · ถ้าอ่านค่าสดจาก myLastReadId เส้นจะไม่มีวันโผล่
     /// เพราะ setScreenVisible เรียก markRead() ซึ่งดัน myLastReadId ขึ้นสุดในเฟรมเดียวกัน
+    ///
+    /// ต้องมีข้อความจริงที่ serverId เกิน myLastReadId เดิม (ผ่าน merge(...) ไม่ใช่แค่ testSetup เฉยๆ)
+    /// ไม่งั้น markRead() จะเป็น no-op (guard maxId > myLastReadId ไม่ผ่าน เพราะ messages ว่าง maxId เลยเป็น 0
+    /// เท่ากับ myLastReadId เดิมพอดี) แล้วเทสนี้จะผ่านไม่ว่าจะสแนปก่อนหรือหลัง markRead() ก็ตาม — ไม่พิสูจน์
+    /// ลำดับที่เทสนี้มีไว้ยันเลย
     @MainActor
     func testUnreadLineSnapshotTakenBeforeMarkRead() {
         let s = ChatSession()
-        s.testSetup(groupId: 1, myId: "me")
+        s.testSetup(groupId: 1, myId: "me", context: makeContext())
+        let dto = MessageDTO(id: "5", groupId: 1, senderId: "other", clientId: "c5", body: "x",
+                             deviceTime: nil, createdAt: nil, firstName: "A", lastName: nil)
+        _ = s.merge([dto], groupId: 1)   // ข้อความจากคนอื่น serverId 5 — markRead() มีอะไรให้ขยับจริง
         XCTAssertEqual(s.unreadLineSnapshot, .max, "ก่อนเปิดจอต้องแปลว่าอ่านหมดแล้ว")
+        XCTAssertEqual(s.myLastReadId, 0, "ยังไม่เปิดจอ — ยังไม่มีอะไรถูก markRead")
 
         s.setScreenVisible(true)
         XCTAssertEqual(s.unreadLineSnapshot, 0, "สแนปต้องเป็นค่า myLastReadId ก่อน markRead")
+        XCTAssertEqual(s.myLastReadId, 5, "markRead() ต้องขยับ myLastReadId ไปถึงข้อความล่าสุดจริง")
+        XCTAssertLessThan(s.unreadLineSnapshot, s.myLastReadId,
+                          "สแนปต้องค้างอยู่ค่าก่อน markRead ไม่ใช่ค่าหลัง — ถ้าเท่ากันแปลว่าสแนปไปเกิดหลัง markRead")
 
         s.setScreenVisible(false)
         XCTAssertEqual(s.unreadLineSnapshot, .max, "ปิดจอแล้วต้องรีเซ็ตกลับ")
