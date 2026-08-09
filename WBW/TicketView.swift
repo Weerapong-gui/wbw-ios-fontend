@@ -117,7 +117,7 @@ struct TicketView: View {
                     Spacer()
                     miniField("Seat", seat)
                     Spacer()
-                    miniField("Date", "29 AUG 2026")
+                    miniField("Date", WBWEvent.ticketDate())
                 }
                 .padding(.top, 18)
 

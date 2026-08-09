@@ -114,3 +114,31 @@ extension Color {
         light: UIColor(red: 236 / 255, green: 230 / 255, blue: 218 / 255, alpha: 1), // #ECE6DA
         dark: UIColor(red: 51 / 255, green: 47 / 255, blue: 41 / 255, alpha: 1))     // #332F29
 }
+
+/// ข้อเท็จจริงของงาน — ไม่มีมาจาก backend เลย ฝังมากับแอป
+///
+/// เดิมช่อง Date บนตั๋วเป็น string `"29 AUG 2026"` ฮาร์ดโค้ดกลางไฟล์จอ ย้ายมาที่นี่เพื่อให้แก้ที่เดียว
+/// และให้รูปแบบที่โชว์คำนวณจากวันจริง ไม่ใช่สตริงคนละชุดที่ต้องมาไล่แก้ให้ตรงกันเอง
+enum WBWEvent {
+    /// วันเดินรอบดอย — ค.ศ. 2026 = พ.ศ. 2569
+    static let day = DateComponents(year: 2026, month: 8, day: 29)
+
+    /// ข้อความช่อง Date บนตั๋ว เช่น "29 AUG 2026"
+    ///
+    /// deviceLocale รับเข้ามาเพื่อ "ประกาศว่าจงใจไม่ใช้" — ตัวจัดรูปแบบบังคับ en_US_POSIX กับ
+    /// ปฏิทินเกรกอเรียนเสมอ เพราะบัตรออกแบบมาเป็นรูปแบบนี้แบบเดียว ถ้าปล่อยให้ตาม locale เครื่อง
+    /// มือถือที่ตั้งภาษาไทยจะได้ "29 ส.ค. 2569" (พุทธศักราช) ซึ่งเดฟที่ simulator เป็น en_US
+    /// จะไม่มีวันเห็น · พารามิเตอร์นี้ทำให้เทสพิสูจน์ได้ และกันคนหวังดีเปลี่ยนไปใช้ .current ทีหลัง
+    static func ticketDate(deviceLocale: Locale = .current) -> String {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        guard let date = cal.date(from: day) else { return "" }
+
+        let f = DateFormatter()
+        f.calendar = cal
+        f.timeZone = cal.timeZone
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "d MMM yyyy"
+        return f.string(from: date).uppercased()
+    }
+}
