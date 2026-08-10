@@ -11,6 +11,12 @@ final class ChatSession: ObservableObject {
     @Published private(set) var memberCount = 0
     @Published private(set) var unreadCount = 0
     @Published private(set) var myLastReadId: Int64 = 0
+    /// ค่า myLastReadId ณ วินาทีที่จอแชทเปิด — ChatRowBuilder ใช้วางเส้น "ข้อความใหม่"
+    ///
+    /// เริ่มที่ .max ไม่ใช่ 0 ตั้งใจ: "ยังไม่สแนป" ต้องแปลว่า "อ่านหมดแล้ว" ไม่ใช่ "ยังไม่อ่านเลย"
+    /// ถ้าเริ่มที่ 0 เฟรมแรกก่อนสแนปจะมองว่าข้อความคนอื่นแทบทุกอันยังไม่อ่าน เส้นจะไปโผล่ที่
+    /// ข้อความเก่าสุดก่อนวาบไปตำแหน่งจริง
+    @Published private(set) var unreadLineSnapshot: Int64 = .max
     /// ข้อความล่าสุดที่เพิ่งเข้ามาตอนไม่ได้เปิดจอแชท — ใช้เด้ง toast
     @Published var incoming: ChatMessage?
     /// โดนเอาออกจากกลุ่มระหว่าง sync (403) — MainTabView ฟังค่านี้เพื่อปิดจอแชท + โหลดโปรไฟล์ใหม่
@@ -69,6 +75,9 @@ final class ChatSession: ObservableObject {
         self.groupId = groupId
         guard groupId != nil else {
             messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+            // .max ไม่ใช่ 0 — สแนปของกลุ่ม/บัญชีก่อนหน้าต้องไม่ข้ามมาโผล่ในกลุ่มถัดไป property นี้อยู่ยาว
+            // เท่าแอป (ไม่ตายไปกับจอเหมือน @State เดิมของ GroupChatView) จึงต้องรีเซ็ตเองทุกจุดที่ myLastReadId รีเซ็ต
+            unreadLineSnapshot = .max
             return
         }
         cursor = Int64(UserDefaults.standard.integer(forKey: cursorKey))
@@ -115,11 +124,17 @@ final class ChatSession: ObservableObject {
         readDebounce?.cancel(); readDebounce = nil
     }
 
-    /// จอแชทเปิด/ปิด — คุม heartbeat และการเด้ง toast
+    /// จอแชทเปิด/ปิด — คุม heartbeat, การเด้ง toast และสแนปเส้น "ข้อความใหม่"
     func setScreenVisible(_ visible: Bool) {
         screenVisible = visible
         heartbeatTask?.cancel(); heartbeatTask = nil
-        guard visible else { return }
+        guard visible else {
+            unreadLineSnapshot = .max   // เปิดครั้งหน้าคำนวณจากค่า ณ ตอนนั้นใหม่ทั้งหมด (ไม่ใช่ 0 — เหตุผลเดียวกับ property ด้านบน)
+            return
+        }
+        // ต้องสแนปก่อน markRead() บรรทัดล่างเสมอ — markRead ดัน myLastReadId ขึ้นสุดทันทีในเฟรมเดียวกัน
+        // ถ้าสลับลำดับ เส้น "ข้อความใหม่" จะไม่มีวันโผล่เพราะค่าที่ใช้วางเส้นจะเท่ากับค่าล่าสุดเสมอ
+        unreadLineSnapshot = myLastReadId
         UNUserNotificationCenter.current().setBadgeCount(0)   // เปิดจอแชท = เคลียร์ badge ไอคอนแอป (ของเก่าที่ server คำนวณไว้)
         markRead()
         armHeartbeat()
@@ -269,6 +284,7 @@ final class ChatSession: ObservableObject {
             try? context.save()
         }
         messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+        unreadLineSnapshot = .max   // เหมือนกับ myLastReadId ด้านบน — ล้างสแนปของกลุ่มที่เพิ่งโดนเอาออก
         incoming = nil   // ข้อความที่ toast กำลังจะโชว์อาจเป็น @Model ที่เพิ่งลบไปแล้วข้างบน — render ต่อไม่ได้
         UserDefaults.standard.removeObject(forKey: cursorKey)
         UserDefaults.standard.removeObject(forKey: readKey)
@@ -286,6 +302,7 @@ final class ChatSession: ObservableObject {
             try? context.save()
         }
         messages = []; cursors = []; memberCount = 0; unreadCount = 0; myLastReadId = 0
+        unreadLineSnapshot = .max   // เหมือนกับ myLastReadId ด้านบน — ล้างสแนปของบัญชีที่เพิ่ง logout ออกไป
         incoming = nil
         for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("chat.") {
             UserDefaults.standard.removeObject(forKey: key)

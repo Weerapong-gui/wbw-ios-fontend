@@ -31,9 +31,18 @@ original Node backend — file references point to
 sex, contact_phone, school_name, major, year, group_id, group_number,
 bib_number, qr_token, photo_url, emergency_contact_name,
 emergency_contact_phone, blood_type, food_allergies, chronic_disease,
-medications, weight_kg, height_cm`.
+medications, weight_kg, height_cm, leave_quota, membership_log`.
 `weight_kg`/`height_cm` may be a number or numeric string. If the current
 `/wbw/me` omits medical fields, `qr_token`, or `bib_number`, extend it.
+
+`leave_quota` (int) is how many more times the participant may leave a group
+(new accounts default to 1; 0 means no more leaves allowed). `membership_log`
+is an array, newest first, up to 10 entries, of
+`{action, group_id, group_number, quota_after, actor_name, created_at}` —
+`action` is `join` / `leave` / `quota_adjust`; `group_id`/`group_number` are
+`null` only for a `quota_adjust` row logged while the participant had no
+group; `actor_name` is `null` when the participant did it themselves,
+otherwise the admin's display name.
 
 ## 3. Endpoints to add (mirror Node paths under `/wbw`)
 
@@ -43,8 +52,8 @@ medications, weight_kg, height_cm`.
 | 2 | POST | `/wbw/notifications/{id}/read` | participant | — | `200` | `notificationRoutes.js:69` |
 | 3 | GET | `/wbw/groups/members/index` | participant | — | `[{user_id,first_name,last_name,group_id,group_number}]` | `groupRoutes.js:17` |
 | 4 | GET | `/wbw/groups/{id}/members` | participant | — | `{members:[{user_id,first_name,last_name,photo_url,bib,school}], count}` | `groupRoutes.js:39` |
-| 5 | POST | `/wbw/groups/{id}/join` | participant | — | `200`; `409 {error}` when full | `groupRoutes.js:55` |
-| 6 | POST | `/wbw/groups/leave` | participant | — | `200` | `groupRoutes.js:85` |
+| 5 | POST | `/wbw/groups/{id}/join` | participant | — | `200`; `409 {error}` when full or already in a group | `groupRoutes.js:55` |
+| 6 | POST | `/wbw/groups/leave` | participant | — | `200` (also when not in any group — no-op, quota untouched); `409 {error}` when leave quota is exhausted | `groupRoutes.js:85` |
 | 7 | GET | `/wbw/groups/{id}/messages?after=<id>&limit=<n>` | participant | — | `[Message]` (below), ordered ascending | `groupRoutes.js:132` |
 | 8 | POST | `/wbw/groups/{id}/messages` | participant | `{client_id, body, device_time}` | `201` with `Message`; idempotent on `client_id` | `groupRoutes.js:96` |
 | 9 | GET | `/wbw/staff/checkpoints` | staff/admin | — | `[{id,name,sequence}]` | `staffRoutes.js:9` |
@@ -54,6 +63,11 @@ medications, weight_kg, height_cm`.
 
 `Message` shape (endpoints 7 & 8):
 `{id, group_id, sender_id, client_id, body, device_time, created_at, first_name, last_name}`.
+
+409 error text for endpoints 5 & 6 (`{ "error": "<message>" }`, copied verbatim from SUS):
+- Join, already in a group: `ท่านอยู่ในกลุ่มอยู่แล้ว ต้องออกจากกลุ่มเดิมก่อน`
+- Join, group full (pre-existing): `กลุ่มเต็มแล้ว เลือกกลุ่มอื่น`
+- Leave, quota exhausted: `สิทธิ์ออกจากกลุ่มหมดแล้ว`
 
 ## 4. Known type note
 The iOS app treats `notification.id` and `message.id` as **strings** (the Node
@@ -67,6 +81,18 @@ The app is being updated to accept either number or string for these ids, so
   `created_at`. Index `(group_id, id)` for `after`-based polling.
 - `device_tokens`: `user_id`, `token` (unique), `platform`, `created_at`.
   Upsert on register, delete on unregister.
+- `participant_profile.leave_quota` (int, not null, default `1`) — how many
+  more times the participant may leave a group; decremented by 1 on each
+  successful `POST /wbw/groups/leave`. Accounts that already had a group
+  when this column was added were backfilled to `0`.
+- `group_membership_log`: `log_id` (bigserial pk), `user_id`, `group_id`
+  (nullable — `null` only for a `quota_adjust` row logged while the
+  participant had no group), `action` (`join` / `leave` / `quota_adjust`),
+  `quota_after` (leave_quota right after the action), `actor_id` (nullable —
+  `null` means the participant did it themselves, otherwise the admin's
+  `user_id`), `created_at`. Indexed on `(user_id, log_id DESC)`. Separate
+  from `admin_log` on purpose (that table logs admin actions as free-text
+  and would be swamped by per-participant join/leave rows).
 - Group membership, checkpoint↔staff assignment, and notification-read
   tracking are assumed to already exist (they back current admin features) —
   verify, no new table expected.

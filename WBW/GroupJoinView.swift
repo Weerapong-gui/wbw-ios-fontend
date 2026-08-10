@@ -9,39 +9,54 @@ struct GroupJoinView: View {
     var onBack: () -> Void = {}
     @State private var joining: Int?
     @State private var error: String?
+    // กลุ่มที่รอการยืนยัน (nil = ไม่มี alert) — ผู้ใช้ต้องรู้ก่อนกดว่าจะเหลือสิทธิ์เท่าไร
+    // ไม่ใช่รู้ทีหลังตอนอยากออกแล้วออกไม่ได้
+    @State private var pendingJoin: GroupSummary?
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.wbwBg.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    header
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            if !groups.matchedPeople.isEmpty { peopleSection }
-                            ForEach(groups.filteredGroups) { g in
-                                GroupCard(
-                                    group: g,
-                                    previews: groups.indexMembers(groupId: g.groupId),
-                                    joining: joining == g.groupId,
-                                    onJoin: { Task { await join(g) } }
-                                )
-                            }
-                            if groups.loaded && groups.filteredGroups.isEmpty && groups.matchedPeople.isEmpty {
-                                Text("ไม่พบกลุ่ม").foregroundStyle(.secondary).padding(.top, 40)
-                            }
+        ZStack {
+            Color.wbwBg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                header
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        if !groups.matchedPeople.isEmpty { peopleSection }
+                        ForEach(groups.filteredGroups) { g in
+                            GroupCard(
+                                group: g,
+                                previews: groups.indexMembers(groupId: g.groupId),
+                                joining: joining == g.groupId,
+                                onJoin: { pendingJoin = g }
+                            )
                         }
-                        .padding(16)
+                        if groups.loaded && groups.filteredGroups.isEmpty && groups.matchedPeople.isEmpty {
+                            Text("ไม่พบกลุ่ม").foregroundStyle(.secondary).padding(.top, 40)
+                        }
                     }
-                }
-                if let error {
-                    Text(error).font(.footnote).foregroundStyle(.white)
-                        .padding(12).background(.red.opacity(0.9), in: Capsule())
-                        .padding(.bottom, 30).frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(16)
                 }
             }
-            .navigationBarHidden(true)
-            .task { if !groups.loaded { await groups.load(token: session.token ?? "") } }
+            if let error {
+                Text(error).font(.footnote).foregroundStyle(.white)
+                    .padding(12).background(.red.opacity(0.9), in: Capsule())
+                    .padding(.bottom, 30).frame(maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+        .navigationBarHidden(true)
+        .task { if !groups.loaded { await groups.load(token: session.token ?? "") } }
+        .alert("เข้ากลุ่ม \(pendingJoin?.groupNumber ?? 0)?",
+               isPresented: Binding(get: { pendingJoin != nil },
+                                    set: { if !$0 { pendingJoin = nil } }),
+               presenting: pendingJoin) { g in
+            Button("ยกเลิก", role: .cancel) { pendingJoin = nil }
+            Button("เข้ากลุ่ม") {
+                let target = g
+                pendingJoin = nil
+                Task { await join(target) }
+            }
+        } message: { g in
+            Text(GroupQuotaText.joinWarning(groupNumber: g.groupNumber,
+                                            quota: profile.me?.leaveQuota ?? 0))
         }
     }
 
@@ -93,7 +108,10 @@ struct GroupJoinView: View {
             try await groups.join(groupId: g.groupId, token: t)
             await profile.load(token: t)   // group_id ใหม่ → GroupTabView สลับไปหน้ากลุ่ม + icon เปลี่ยน
         } catch {
+            // 409 "ท่านอยู่ในกลุ่มอยู่แล้ว" = เข้ากลุ่มไปแล้วจากอีกเครื่อง · โหลดโปรไฟล์ใหม่
+            // ให้แท็บสลับไปจอแชทเอง แทนที่จะค้างอยู่หน้าลิสต์พร้อม error ที่ผู้ใช้แก้ไม่ได้
             self.error = (error as? LocalizedError)?.errorDescription ?? "เข้ากลุ่มไม่สำเร็จ"
+            await profile.load(token: t)
         }
     }
 }

@@ -228,8 +228,25 @@ struct APIClient {
         throw http.statusCode == 409 ? AppError.groupFull(msg) : AppError.message(msg)
     }
 
+    /// ออกจากกลุ่ม — ไม่ใช้ deviceCall เพราะตัวนั้น `try?` ทิ้งทุก error ทิ้ง (ตั้งใจสำหรับ device token
+    /// ที่ล้มเหลวแล้วไม่มีอะไรให้ผู้ใช้ทำ) · ที่นี่ 409 "สิทธิ์ออกจากกลุ่มหมดแล้ว" คือคำตอบที่ผู้ใช้
+    /// ต้องเห็น ไม่ใช่ความเงียบ
     func leaveGroup(token: String) async throws {
-        try await deviceCall(path: "/groups/leave", token: token, body: [:])
+        guard let url = URL(string: "\(Config.apiBase)/groups/leave") else {
+            throw AppError.message("URL ไม่ถูกต้อง")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = Data("{}".utf8)
+        let (data, resp): (Data, URLResponse)
+        do { (data, resp) = try await Self.send(req) }
+        catch { throw AppError.offline }
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        if http.statusCode == 200 { return }
+        let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
+        throw AppError.message(b?.error ?? "ออกจากกลุ่มไม่สำเร็จ")
     }
 
     /// ส่งข้อความ — idempotent ด้วย clientId

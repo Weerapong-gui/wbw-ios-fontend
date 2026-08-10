@@ -8,19 +8,11 @@ struct GroupChatView: View {
     @EnvironmentObject var profile: ProfileStore
     @EnvironmentObject var groups: GroupStore
     @ObservedObject var store: ChatSession
-    let onClose: () -> Void
     @State private var draft = ""
     @State private var members: [String: GroupMember] = [:]   // senderId → member (avatar)
     @State private var atBottom = true
     @State private var reveal: CGFloat = 0
     @State private var sentTick = 0
-    /// สแนปช็อต myLastReadId ตอนเปิดจอ — ต้องอ่านค่าก่อน setScreenVisible(true) จะเรียก markRead() แล้วดัน
-    /// store.myLastReadId ขึ้นไปจนสุดทันที ถ้าเอา store.myLastReadId มาใช้ตรงๆ เส้น "ข้อความใหม่" จะไม่มีวันโผล่
-    /// เพราะ rows คำนวณใหม่ทุกครั้งที่ store เปลี่ยน (@ObservedObject) ค่าที่ใช้ก็ขยับตามไปในเฟรมเดียวกันพอดี
-    /// เริ่มที่ .max ไม่ใช่ 0 — rows ถูกคำนวณตั้งแต่เฟรมแรกก่อน .task จะทันรัน ถ้าเริ่มที่ 0 (= "ยังไม่อ่านอะไร
-    /// เลย") ChatRowBuilder จะมองว่าข้อความคนอื่นแทบทุกอันยังไม่อ่าน เส้นเลยไปโผล่ที่ข้อความเก่าสุดในเฟรมแรก
-    /// ก่อนวาบไปตำแหน่งจริงตอน .task เซ็ตค่า — "ยังไม่สแนป" ต้องแปลว่า "อ่านหมดแล้ว" ไม่ใช่ "ยังไม่อ่านเลย"
-    @State private var readSnapshot: Int64 = .max
     /// จำนวนข้อความที่เข้ามาระหว่างเรากำลังเลื่อนอ่านย้อนหลัง
     ///
     /// นับเองแทนที่จะใช้ store.unreadCount เพราะ ChatSession เรียก markRead() ทุกครั้งที่
@@ -34,6 +26,7 @@ struct GroupChatView: View {
             if !store.connectivity.online { offlineBanner }
             messageList
         }
+        .navigationBarHidden(true)   // หัวจอเป็นของเราเอง (ปุ่ม NavigationLink ใน header) ไม่ใช่ของระบบ
         .background(Color.wbwBg.ignoresSafeArea())
         .sensoryFeedback(.impact(weight: .light), trigger: sentTick)
         // overload closure แทน .error ตรงๆ — ตัวเดิมสั่นทุกครั้งที่ค่าเปลี่ยนไม่ว่าทิศไหน แม้แต่ retry สำเร็จ
@@ -52,32 +45,33 @@ struct GroupChatView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.82), value: store.messages.count)
         .safeAreaInset(edge: .bottom) { inputBar }
         .task {
-            readSnapshot = store.myLastReadId   // ต้องสแนปก่อน setScreenVisible เปลี่ยนค่าจริงบรรทัดถัดไปเท่านั้น
-            store.setScreenVisible(true)
+            // setScreenVisible ย้ายออกไปให้ MainTabView คุมแล้ว (Task 5) — TabView เก็บ view นี้ไว้ตอนสลับ
+            // แท็บ ไม่เรียก onDisappear จริง ถ้ายังยิงจากที่นี่ heartbeat จะค้างวิ่งทั้งที่ผู้ใช้ไปแท็บอื่นแล้ว
+            // (ดูคอมเมนต์ที่ MainTabView.chatVisible)
             let gid = profile.me?.groupId ?? 0
             let ms = await groups.members(groupId: gid, token: session.token ?? "")
             members = Dictionary(uniqueKeysWithValues: ms.map { ($0.userId, $0) })
         }
-        .onDisappear {
-            store.setScreenVisible(false)
-            readSnapshot = .max   // เปิดใหม่ครั้งหน้าคำนวณจากค่า ณ ตอนนั้นใหม่ทั้งหมด (ไม่ใช่ 0 — เหตุผลเดียวกับด้านบน)
-        }
     }
 
+    /// หัวจอ = ทางเข้าเดียวไปหน้ากลุ่ม (ไม่มีปุ่มปิดแล้ว — แชทเป็นแท็บ ไม่ใช่จอที่ลอยทับ)
     private var header: some View {
-        HStack(spacing: 12) {
-            Button(action: onClose) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.wbwInk)
-                    .frame(width: 40, height: 40).background(Color.wbwSurface, in: Circle())
+        NavigationLink(value: GroupRoute.home) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        Text("กลุ่ม \(profile.me?.groupNumber.map(String.init) ?? "")")
+                            .font(.system(size: 17, weight: .bold)).foregroundStyle(Color.wbwInk)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                    }
+                    Text("\(store.memberCount) คน").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                Spacer()
             }
-            VStack(alignment: .leading, spacing: 1) {
-                Text("แชทกลุ่ม \(profile.me?.groupNumber.map(String.init) ?? "")")
-                    .font(.system(size: 17, weight: .bold)).foregroundStyle(Color.wbwInk)
-                Text("\(store.memberCount) คน").font(.system(size: 12)).foregroundStyle(.secondary)
-            }
-            Spacer()
+            .contentShape(Rectangle())   // แตะได้ทั้งแถบ ไม่ใช่เฉพาะบนตัวอักษร
         }
+        .buttonStyle(.plain)
         .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 10)
         .background(Color.wbwBg)
     }
@@ -90,7 +84,7 @@ struct GroupChatView: View {
     }
 
     private var rows: [ChatRow] {
-        ChatRowBuilder.build(store.messages, myLastReadId: readSnapshot,
+        ChatRowBuilder.build(store.messages, myLastReadId: store.unreadLineSnapshot,
                              myId: profile.me?.userId ?? "")
     }
 
