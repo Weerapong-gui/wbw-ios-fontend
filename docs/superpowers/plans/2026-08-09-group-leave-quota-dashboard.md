@@ -256,10 +256,20 @@ git commit -m "feat(dashboard): คอลัมน์สิทธิ์ออก
       return;
     }
 ```
-แล้วใน object ที่ส่งเข้า `patchParticipant` เพิ่ม:
+แล้วใน object ที่ส่งเข้า `patchParticipant` เพิ่ม **แบบมีเงื่อนไข** (แก้ 2026-08-10 หลัง final review):
+
 ```tsx
-        leave_quota: quota,
+        ...(quota !== loadedQuota ? { leave_quota: quota } : {}),
 ```
+
+โดย `loadedQuota` คือค่าที่โหลดมาตอนเปิดโมดัล (เก็บไว้ใน state คู่กับ `form.leave_quota`)
+
+**ห้ามส่งทุกครั้ง** — backend ถือว่า "มี key `leave_quota` ใน body = แอดมินสั่งปรับโควตา" แล้วเขียน
+audit สองตาราง (`group_membership_log` action `quota_adjust` + `admin_log`) · ถ้าส่งไปด้วยทุกครั้ง
+การแก้เบอร์โทรเฉย ๆ จะสร้างแถวประวัติปลอม และที่แย่กว่านั้นคือ `COALESCE($13, leave_quota)` จะเขียน
+ค่าที่ค้างอยู่ในฟอร์มทับของจริง — โมดัลเปิดค้างตอนสิทธิ์ยังเป็น 1 แล้วผู้ใช้กดออกจากกลุ่มจนเหลือ 0
+พอแอดมินกดบันทึก สิทธิ์จะกลับไปเป็น 1 โดยไม่มีใครตั้งใจ · แถม `membership_log` มี `LIMIT 10`
+แถวประวัติจริงจะถูกแถวปลอมเบียดหายไป
 
 - [ ] **Step 5: ทดสอบของจริงทั้งทางถูกและทางผิด**
 
