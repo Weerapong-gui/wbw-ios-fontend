@@ -22,7 +22,10 @@
 - ใช้คลาส Tailwind ที่ไฟล์นั้นใช้อยู่แล้วเท่านั้น (`text-muted`, `border-line`, `bg-card`,
   `text-forest`, `bg-danger/12`, `rounded-[20px]`) ห้ามใส่ค่าสีดิบ
 - ช่วงค่าโควตาที่ยอมรับคือ 0–10 ตรงกับ validation ฝั่ง backend
-- `npm run lint` ต้องสะอาดก่อน commit ทุกครั้ง
+- `npm run lint` **ห้ามเพิ่มปัญหาใหม่** — repo นี้ lint ไม่ผ่านอยู่ก่อนแล้ว (17 problems: 13 error /
+  4 warning ณ 2026-08-10 วัดที่ `main` = `79cdadb`) การไล่แก้ของเดิมไม่ใช่งานของแผนนี้ ·
+  วิธีตรวจ: รัน lint แล้วเทียบจำนวนกับ baseline ไฟล์ที่ตัวเองแตะต้องไม่มี error โผล่ใหม่
+- `npx tsc --noEmit` ต้องผ่านสะอาด — เป็นตาข่ายเดียวที่จับ key i18n ขาดฝั่งใดฝั่งหนึ่งได้
 - commit ภาษาไทย ขึ้นต้น `feat:` / `fix:` / `docs:` · **ห้าม `git add -A`**
 
 ## File Structure
@@ -83,7 +86,7 @@ export type MembershipLogEntry = {
 
 ใน `lib/i18n/dictionaries.ts` บล็อก `participants` ของภาษาไทย (ต่อจาก `colCheckin`):
 ```ts
-      colQuota: "สิทธิ์ออกกลุ่ม",
+      colQuota: "สิทธิ์ออกจากกลุ่ม",
       quotaLabel: "สิทธิ์ออกจากกลุ่ม (0–10)",
       quotaZeroOnly: "เฉพาะคนที่สิทธิ์หมด",
       quotaRange: "สิทธิ์ต้องอยู่ระหว่าง 0 ถึง 10",
@@ -191,7 +194,7 @@ git commit -m "feat(dashboard): type และข้อความของส�
 - [ ] **Step 5: ดูของจริง**
 
 Run: `npm run dev` แล้วเปิด `http://localhost:3000/dashboard` ล็อกอินเป็น admin
-Expected: คอลัมน์ "สิทธิ์ออกกลุ่ม" มีตัวเลขทุกแถว · กดปุ่มกรองแล้วเหลือเฉพาะแถวที่เป็น 0
+Expected: คอลัมน์ "สิทธิ์ออกจากกลุ่ม" มีตัวเลขทุกแถว · กดปุ่มกรองแล้วเหลือเฉพาะแถวที่เป็น 0
 · สลับภาษาเป็นอังกฤษแล้วหัวคอลัมน์เปลี่ยนตาม
 
 - [ ] **Step 6: lint แล้ว commit**
