@@ -36,8 +36,10 @@ final class ChatSession: ObservableObject {
     private var readDebounce: Task<Void, Never>?
     private var flushing = false             // กัน flushOutbox ยิงซ้อนกัน (กดส่งรัว/ทริกเกอร์หลายทางชนกัน)
 
-    private var cursorKey: String { "chat.cursor.\(groupId ?? 0)" }
-    private var readKey: String { "chat.read.\(groupId ?? 0)" }
+    // ต่อ CacheScope.suffix ด้วยเพื่อกันข้อความจำลองของโหมดเดโม่ปนกับ cursor ของบัญชีจริง
+    // (คีย์ชุดนี้ไม่ได้แยกตาม backend มาแต่ไหนแต่ไร — กับดักที่ docs/sus-test-backend.md บันทึกไว้)
+    private var cursorKey: String { "chat.cursor.\(groupId ?? 0)\(CacheScope.suffix)" }
+    private var readKey: String { "chat.read.\(groupId ?? 0)\(CacheScope.suffix)" }
 
     // ===== ค่าที่ view ใช้ =====
 

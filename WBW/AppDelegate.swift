@@ -45,8 +45,23 @@ final class PushManager {
     private(set) var enabled = false
     private var fcmToken: String?
 
+    /// โหมดเดโม่ไม่แตะ Firebase เลยสักบรรทัด
+    ///
+    /// ไม่ใช่แค่ "ไม่ลงทะเบียน device token" — ตัว Firebase Messaging เองเป็นคนทำให้ระบบเด้ง
+    /// dialog ขอสิทธิ์แจ้งเตือน (พิสูจน์แล้ว: guard ที่ `didFinishLaunching` ทำงานถูก
+    /// `requestAuthorization` ของเราไม่เคยถูกเรียก — console ยืนยัน `enteringDemo=1` — แต่ dialog
+    /// ยังเด้งอยู่ดี) · โหมดเดโม่ไม่มีทางได้รับ push สักอัน การขอสิทธิ์จึงเป็นการรบกวนล้วน ๆ
+    /// และมันบัง reviewer ไม่ให้เห็นจอแรกด้วย
+    static func enteringDemo() -> Bool {
+        DemoMode.active || UserDefaults.standard.bool(forKey: "uitestDemo")
+    }
+
     func configureFirebaseIfAvailable() {
         if enabled { return }
+        if Self.enteringDemo() {
+            NSLog("[push] โหมดเดโม่ — ข้าม Firebase ทั้งหมด (in-app ยังทำงาน)")
+            return
+        }
         // โหลด options จากไฟล์ตรงๆ — ไม่มี/โหลดไม่ได้ = ปิด push (in-app ยังทำงาน)
         guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
               let options = FirebaseOptions(contentsOfFile: path) else {
@@ -89,6 +104,10 @@ final class PushManager {
     /// .save() ตอน login และ updateFcmToken() ตอน FCM หมุน token เรียกตัวนี้โดยไม่รู้เรื่องสวิตช์
     /// เครื่องจึงกลับไปอยู่ในรายชื่อรับ push เงียบ ๆ ทั้งที่สวิตช์ยังโชว์ปิดอยู่
     func registerCurrent() {
+        // ตั้งค่าให้เองก่อน — ออกจากโหมดเดโม่แล้วล็อกอินจริงในรอบเดียวกัน Firebase จะยังไม่ถูก
+        // configure เลย (ตอน launch ข้ามไป) ไม่เรียกตรงนี้เครื่องนั้นจะไม่ได้รับ push ทั้งวันโดยไม่มี
+        // อะไรฟ้อง — อาการเดียวกับที่เคยไล่หาแล้วเห็นแค่ device_token ค้างที่ 0
+        configureFirebaseIfAvailable()
         let jwt = UserDefaults.standard.string(forKey: "wbw.token")
         guard Self.shouldRegister(pushEnabled: enabled,
                                   notiEnabled: Self.notificationsEnabledPreference(),
@@ -117,6 +136,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNU
 
         Messaging.messaging().delegate = self
         UNUserNotificationCenter.current().delegate = self
+        // กันชั้นที่สอง — ชั้นแรกคือ configureFirebaseIfAvailable() ที่ข้ามทั้งก้อนในโหมดเดโม่
+        // (ทำให้ guard `enabled` ด้านบนคืนก่อนถึงตรงนี้อยู่แล้ว) เก็บไว้ทั้งคู่เพราะสองทางนี้
+        // เปลี่ยนแยกกันได้ในอนาคต
+        guard !PushManager.enteringDemo() else { return true }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
             if granted {
                 DispatchQueue.main.async { application.registerForRemoteNotifications() }

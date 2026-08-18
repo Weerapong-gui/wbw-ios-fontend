@@ -25,7 +25,7 @@ struct FeedbackOutbox {
     init(backend: Backend = Config.backend) { self.backend = backend }
 
     static func key(for backend: Backend) -> String {
-        "wbw.feedback.outbox.\(backend.cacheNamespace)"
+        "wbw.feedback.outbox.\(backend.cacheNamespace)\(CacheScope.suffix)"
     }
 
     func all() -> [FeedbackDraft] {

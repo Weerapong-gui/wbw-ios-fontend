@@ -63,6 +63,34 @@ struct LoginView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(busy)
 
+                // ปุ่มโหมดตัวอย่าง — **ห้ามย้ายเข้า `#if DEBUG` และห้ามถอดออก**
+                //
+                // build 1.0 (7) โดน App Review ตีกลับด้วย Guideline 2.1 เพราะบัญชีเดโม่ที่ส่งให้
+                // ล็อกอินไม่ผ่าน (prod ตอบ 401 ยืนยันด้วยการยิงจริงแล้ว) และงานปิดรับสมัครไปแล้วที่
+                // 2000/2000 ที่นั่ง — สมัครบัญชีใหม่ไม่ได้อีก · ใบตีกลับของ Apple เขียนเองว่ารับ
+                // "a demonstration mode that shows all of the features and functionality" แทนได้
+                //
+                // ต่างจาก `-uitest*` ทั้ง 14 ตัวตรงที่ปุ่มนี้ต้องกดได้จริงบน build ที่ส่งขึ้น store
+                Button {
+                    session.startDemo()
+                } label: {
+                    Text("ดูตัวอย่างแอป (Demo)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 200, height: 42)
+                        .glassSurface(Capsule(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 12)
+                .disabled(busy)
+
+                Text("เดินดูทุกหน้าจอด้วยข้อมูลตัวอย่าง ไม่ต้องมีบัญชี")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 6)
+
                 // ตรงนี้เคยมี "Don't have an account? Sign up" — ถอดออกโดยตั้งใจ ห้ามใส่กลับ
                 // โดยไม่อ่านเหตุผลก่อน
                 //

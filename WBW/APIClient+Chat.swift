@@ -4,6 +4,16 @@ extension APIClient {
     /// long-poll ข้อความ — wait = วินาทีที่ยอมให้ server ค้าง request ไว้ (0 = ตอบทันที)
     /// คืน messages ว่าง = หมดเวลา ไม่ใช่ error
     func chatSync(token: String, groupId: Int, after: Int64, wait: Int) async throws -> ChatSyncResponse {
+        if DemoMode.active {
+            // ชุดแรกครั้งเดียว จากนั้นจอดรอเงียบ ๆ — long-poll ตัวจริงค้างที่ server ฝั่งนี้ไม่มี
+            // server ให้ค้าง ถ้าคืนลิสต์ว่างทันทีทุกครั้ง ลูปใน ChatSession จะหมุนเต็มสปีดไม่หยุด
+            if after > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(max(wait, 1)) * 1_000_000_000)
+                return ChatSyncResponse(sinceId: 0, memberCount: DemoData.chatSync.memberCount,
+                                        messages: [], cursors: DemoData.chatSync.cursors)
+            }
+            return DemoData.chatSync
+        }
         var path = "\(Config.apiBase)/groups/\(groupId)/chat/sync?wait=\(wait)"
         if after > 0 { path += "&after=\(after)" }
         guard let url = URL(string: path) else { throw AppError.message("URL ไม่ถูกต้อง") }
@@ -24,6 +34,7 @@ extension APIClient {
     /// ไม่ throw — ผู้เรียกทำอะไรกับความล้มเหลวไม่ได้อยู่แล้ว (ตัวถัดไปจะยิงซ้ำค่าเดิม/ค่าใหม่กว่าเอง)
     /// พังแล้ว log ไว้เฉยๆ ให้ตามรอยได้ ไม่ใช่หายเงียบ
     func chatRead(token: String, groupId: Int, lastReadId: Int64) async {
+        if DemoMode.active { return }
         guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/chat/read") else {
             NSLog("[chat] chatRead: URL ไม่ถูกต้อง (group \(groupId))")
             return

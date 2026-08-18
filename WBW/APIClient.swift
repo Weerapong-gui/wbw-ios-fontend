@@ -18,6 +18,8 @@ struct APIClient {
     }
 
     func login(studentId: String, password: String) async throws -> LoginResponse {
+        // โหมดเดโม่เข้าทาง Session.startDemo() ไม่ได้ผ่านฟอร์มนี้ — กันไว้เผื่อมีใครเรียกซ้ำ
+        if DemoMode.active { return LoginResponse(user: DemoMode.user, token: DemoMode.token) }
         guard let url = URL(string: "\(Config.apiBase)/auth/login") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
@@ -47,6 +49,7 @@ struct APIClient {
 
     /// โปรไฟล์ผู้ใช้ปัจจุบัน (ต้องมี token)
     func me(token: String) async throws -> Me {
+        if DemoMode.active { return DemoData.me }
         guard let url = URL(string: "\(Config.apiBase)\(Config.mePath)") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
@@ -69,14 +72,16 @@ struct APIClient {
 
     /// ความคืบหน้าเช็คอินของตัวเอง — คุมขั้นต้นไม้กับเวลาของวันที่หน้า Home
     func progress(token: String) async throws -> CheckinProgress {
-        try await getDecoded("/me/progress", token: token, CheckinProgress.self,
-                             error: "โหลดความคืบหน้าไม่สำเร็จ")
+        if DemoMode.active { return DemoData.progress }
+        return try await getDecoded("/me/progress", token: token, CheckinProgress.self,
+                                    error: "โหลดความคืบหน้าไม่สำเร็จ")
     }
 
     // ===== staff =====
 
     /// ฐานที่เจ้าหน้าที่คนนี้ประจำ
     func staffCheckpoints(token: String) async throws -> [StaffCheckpoint] {
+        if DemoMode.active { return DemoData.staffCheckpoints }
         guard let url = URL(string: "\(Config.apiBase)/staff/checkpoints") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
@@ -96,6 +101,9 @@ struct APIClient {
 
     /// เช็คอินผู้เข้าร่วมที่ฐาน (จาก qr หรือ bib)
     func staffCheckin(token: String, checkpointId: Int, qrToken: String?, bib: Int?) async throws -> CheckinResult {
+        // จอเจ้าหน้าที่ไปไม่ถึงในโหมดเดโม่ (role เป็น participant) — ถ้าถึงแปลว่ามีอะไรผิด
+        // ต้องไม่ปล่อยให้ยิงเช็คอินจริงด้วย token ปลอม
+        if DemoMode.active { throw AppError.message("โหมดตัวอย่างไม่รองรับการเช็คอิน") }
         guard let url = URL(string: "\(Config.apiBase)/staff/checkin") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
@@ -127,6 +135,7 @@ struct APIClient {
 
     /// อัปเดตรูปโปรไฟล์ตัวเอง (base64 data URL)
     func updatePhoto(token: String, photoUrl: String) async throws {
+        if DemoMode.active { return }
         guard let url = URL(string: "\(Config.apiBase)\(Config.mePath)") else { throw AppError.message("URL ไม่ถูกต้อง") }
         var req = URLRequest(url: url)
         req.httpMethod = "PATCH"
@@ -146,6 +155,7 @@ struct APIClient {
 
     /// รายการประกาศของฉัน (ตาม audience) + สถานะอ่าน
     func notifications(token: String) async throws -> [NotificationItem] {
+        if DemoMode.active { return DemoData.notifications }
         guard let url = URL(string: "\(Config.apiBase)/notifications") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
@@ -167,6 +177,7 @@ struct APIClient {
 
     /// ทำเครื่องหมายว่าอ่านแล้ว
     func markRead(token: String, id: String) async throws {
+        if DemoMode.active { return }
         guard let url = URL(string: "\(Config.apiBase)/notifications/\(id)/read") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
@@ -180,11 +191,13 @@ struct APIClient {
 
     /// ลงทะเบียน FCM token กับ backend
     func registerDevice(token: String, fcmToken: String, platform: String) async throws {
+        if DemoMode.active { return }
         try await deviceCall(path: "/devices/register", token: token, body: ["token": fcmToken, "platform": platform])
     }
 
     /// ถอน FCM token (ตอน logout)
     func unregisterDevice(token: String, fcmToken: String) async throws {
+        if DemoMode.active { return }
         try await deviceCall(path: "/devices/unregister", token: token, body: ["token": fcmToken])
     }
 
@@ -201,19 +214,23 @@ struct APIClient {
     // ===== กลุ่ม + แชท =====
 
     func groups(token: String) async throws -> [GroupSummary] {
-        try await getDecoded("/groups", token: token, [GroupSummary].self, error: "โหลดกลุ่มไม่สำเร็จ")
+        if DemoMode.active { return DemoData.groups }
+        return try await getDecoded("/groups", token: token, [GroupSummary].self, error: "โหลดกลุ่มไม่สำเร็จ")
     }
 
     func membersIndex(token: String) async throws -> [GroupMemberIndex] {
-        try await getDecoded("/groups/members/index", token: token, [GroupMemberIndex].self, error: "โหลดสมาชิกไม่สำเร็จ")
+        if DemoMode.active { return DemoData.membersIndex }
+        return try await getDecoded("/groups/members/index", token: token, [GroupMemberIndex].self, error: "โหลดสมาชิกไม่สำเร็จ")
     }
 
     func groupMembers(token: String, groupId: Int) async throws -> GroupMembersResponse {
-        try await getDecoded("/groups/\(groupId)/members", token: token, GroupMembersResponse.self, error: "โหลดสมาชิกไม่สำเร็จ")
+        if DemoMode.active { return DemoData.groupMembers }
+        return try await getDecoded("/groups/\(groupId)/members", token: token, GroupMembersResponse.self, error: "โหลดสมาชิกไม่สำเร็จ")
     }
 
     /// เข้ากลุ่ม — 409 = เต็ม → โยน AppError.groupFull
     func joinGroup(token: String, groupId: Int) async throws {
+        if DemoMode.active { return }
         guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/join") else { throw AppError.message("URL ไม่ถูกต้อง") }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -232,6 +249,7 @@ struct APIClient {
     /// ที่ล้มเหลวแล้วไม่มีอะไรให้ผู้ใช้ทำ) · ที่นี่ 409 "สิทธิ์ออกจากกลุ่มหมดแล้ว" คือคำตอบที่ผู้ใช้
     /// ต้องเห็น ไม่ใช่ความเงียบ
     func leaveGroup(token: String) async throws {
+        if DemoMode.active { return }
         guard let url = URL(string: "\(Config.apiBase)/groups/leave") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
@@ -251,6 +269,9 @@ struct APIClient {
 
     /// ส่งข้อความ — idempotent ด้วย clientId
     func sendMessage(token: String, groupId: Int, clientId: String, body: String, deviceTime: String) async throws -> MessageDTO {
+        if DemoMode.active {
+            return DemoData.echo(clientId: clientId, body: body, deviceTime: deviceTime, groupId: groupId)
+        }
         guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/messages") else { throw AppError.message("URL ไม่ถูกต้อง") }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -336,6 +357,7 @@ struct APIClient {
     /// WriteJSON เป็นแถวความเห็นเดิม (ตรึงไว้ด้วยเทสฝั่ง Go — TestSubmitFeedbackForbiddenBodyIsErrorEnvelope
     /// และ TestSubmitFeedbackConflictBodyIsFeedbackRow)
     func submitFeedback(token: String, draft: FeedbackDraft) async throws -> FeedbackSubmitOutcome {
+        if DemoMode.active { return .saved }
         guard let url = URL(string: "\(Config.apiBase)/me/feedback") else {
             throw AppError.message("URL ไม่ถูกต้อง")
         }
