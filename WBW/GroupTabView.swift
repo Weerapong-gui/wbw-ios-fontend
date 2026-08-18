@@ -25,6 +25,13 @@ struct GroupTabView: View {
                     GroupChatView(store: chat)
                 }
             }
+            .task {
+                #if DEBUG
+                // ถ่ายรูปหน้ากลุ่ม/กล่องยืนยันได้โดยไม่ต้องกดจอ — หน้านี้อยู่หลังการกดหัวจอแชท
+                // ซึ่งไม่มี launch arg ไหนไปถึงมาก่อน (ทรงเดียวกับ -uitestProfile ที่ HomeView)
+                if UserDefaults.standard.bool(forKey: "uitestGroupHome") { path = [.home] }
+                #endif
+            }
             .navigationDestination(for: GroupRoute.self) { route in
                 switch route {
                 case .home:
@@ -60,6 +67,8 @@ struct GroupHomeView: View {
                     Text("กลุ่มของฉัน").font(.system(size: 14)).foregroundStyle(.secondary)
                     Text("กลุ่ม \(groupNo)")
                         .font(.system(size: 34, weight: .heavy)).foregroundStyle(Color.wbwInk)
+                    QuotaHeartsRow(quota: quota, size: 22)
+                        .padding(.top, 2)
                     Text(GroupQuotaText.remaining(quota: quota))
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
@@ -93,11 +102,21 @@ struct GroupHomeView: View {
         }
         .navigationTitle("กลุ่ม \(groupNo)")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("ออกจากกลุ่ม \(groupNo)?", isPresented: $confirmLeave) {
-            Button("ยกเลิก", role: .cancel) {}
-            Button("ออกจากกลุ่ม", role: .destructive) { Task { await leave() } }
-        } message: {
-            Text(GroupQuotaText.leaveWarning(groupNumber: groupNo, quota: quota))
+        // วาดกล่องเอง ไม่ใช่ .alert — alert ของ SwiftUI ใส่ Image ไม่ได้ และจอนี้ต้องโชว์หัวใจ
+        // บอกสิทธิ์คงเหลือ (ดูคอมเมนต์หัว LeaveGroupDialog)
+        .overlay {
+            if confirmLeave {
+                LeaveGroupDialog(
+                    groupNumber: groupNo, quota: quota, busy: leaving,
+                    onCancel: { confirmLeave = false },
+                    onConfirm: { Task { await leave() } })
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: confirmLeave)
+        .task {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "uitestLeaveConfirm") { confirmLeave = true }
+            #endif
         }
     }
 
@@ -105,7 +124,9 @@ struct GroupHomeView: View {
         guard let t = session.token else { return }
         error = nil
         leaving = true
-        defer { leaving = false }
+        // ต้องปิดกล่องเองทุกทางออก — `.alert` เดิมปิดตัวเองตอนกดปุ่ม แต่ overlay ที่วาดเอง
+        // ผูกอยู่กับ confirmLeave ล้วน ๆ ลืมปิดแล้วกล่องจะค้างทับข้อความ error ที่อยู่ข้างหลัง
+        defer { leaving = false; confirmLeave = false }
         do {
             try await APIClient.shared.leaveGroup(token: t)
             await profile.load(token: t)   // group_id = nil → GroupTabView สลับไปหน้าจับกลุ่มเอง
