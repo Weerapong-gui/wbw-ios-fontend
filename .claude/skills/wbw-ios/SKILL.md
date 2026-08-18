@@ -21,10 +21,12 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion]
 SwiftUI · deployment target iOS 18.0 · Swift 5 · bundle `th.ac.mfu.wbwSwift` · team `NJL4K64JX5` ·
 dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน `project.yml`)
 
-- `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (37 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `Map3D/` (8
-  ไฟล์), `Chat/` (5 ไฟล์), `Feedback/` (4 ไฟล์), `Scene3D/` (7 ไฟล์ — ฉากป่า ปิดอยู่ตอนนี้แต่ไม่ได้ลบ),
-  `Resources/` (asset 3D `.usdz`/`.glb`)
-- `WBWTests/` — XCTest ล้วน 28 ไฟล์ วางแบนที่ราก
+- `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (39 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `Map3D/` (8
+  ไฟล์), `Chat/` (5 ไฟล์), `Conditions/` (4 ไฟล์ — อุณหภูมิ/AQI จาก Open-Meteo), `Feedback/` (4 ไฟล์),
+  `Bloom/` (3 ไฟล์ — ดอกไม้ halftone หน้า Home), `SURun/` (3 ไฟล์ — จับระยะเดิน/นับก้าว),
+  `Demo/` (2 ไฟล์ — โหมดเดโม่สำหรับ App Review), `Scene3D/` (7 ไฟล์ — ฉากป่า ปิดอยู่ตอนนี้แต่ไม่ได้ลบ),
+  `Resources/` (asset 3D `.usdz`/`.glb` + `route_wbw.json` เส้นทางเดินที่ bake มาจาก repo Android)
+- `WBWTests/` — XCTest ล้วน 35 ไฟล์ วางแบนที่ราก
 - `docs/` — เอกสารเสริม (spec/plan อยู่ `docs/superpowers/`)
 - `scripts/` — สคริปต์ Blender ทำ asset (`.usdz`) ไม่ใช่ขั้นตอน build ของแอป · กับ
   `check-skill-refs.sh` ที่ตรวจว่าไฟล์ skill 5 ใบนี้ยังตรงกับ repo ไหม (ดู `workflow.md`)
@@ -42,12 +44,16 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
    ไม่ล้างจะได้ 200 พร้อมลิสต์ว่างตลอด ไม่มี error ให้เห็นเลย
 5. **Liquid Glass ใช้ของ native เท่านั้น (`glassSurface`/`.glassEffect` + guard iOS 26)** — ห้ามปลอมด้วย
    `.blur()` เอง ผลลัพธ์ไม่เนียนเท่าของจริง ทั้งที่ fallback ที่ถูกต้องมีอยู่แล้ว
-6. **ห้าม `git add -A` / `git add .`** — repo นี้มักมีงานอื่นที่ยัง untracked วางอยู่ข้าง ๆ ใช้ `-A` แล้วจะ
+6. **โหมดเดโม่ต้องคอมไพล์ติดใน Release** — ปุ่ม "ดูตัวอย่างแอป (Demo)" ที่หน้าล็อกอินคือคำตอบของ
+   Guideline 2.1 (บัญชีเดโม่เดิมล็อกอินไม่ผ่าน และงานปิดรับสมัครที่ 2000/2000 ที่นั่งแล้ว สมัครใหม่
+   ไม่ได้อีก) ห้ามย้ายเข้า `#if DEBUG` เหมือน `-uitest*` · cache ของโหมดนี้ต้องต่อ `CacheScope.suffix`
+   ท้ายคีย์เสมอ (ดู `backend-and-config.md`)
+7. **ห้าม `git add -A` / `git add .`** — repo นี้มักมีงานอื่นที่ยัง untracked วางอยู่ข้าง ๆ ใช้ `-A` แล้วจะ
    ดึงเข้ามาด้วยโดยไม่ตั้งใจ
-7. **ห้ามเคลมว่างานเสร็จ/จอถูกโดยไม่ได้รันจริง** — ต้อง build ผ่านจริง test ผ่านจริง งานที่แตะ UI ต้องมี
+8. **ห้ามเคลมว่างานเสร็จ/จอถูกโดยไม่ได้รันจริง** — ต้อง build ผ่านจริง test ผ่านจริง งานที่แตะ UI ต้องมี
    สกรีนช็อตจาก simulator ประกอบเสมอ บั๊กที่โค้ดดูถูกแต่พังจริงตอนรันเคยหลุดผ่านมาแล้วจนมีคนรันจริงถึงจับได้
    (`docs/forest-3d-off-verification.md`, `docs/checkin-feedback-verification.md`)
-8. **เขียนเทสที่ fail ก่อนค่อยเขียนโค้ดให้ผ่าน (TDD) + คอมเมนต์/commit เป็นภาษาไทยบอก "ทำไม"** — โค้ดบอก
+9. **เขียนเทสที่ fail ก่อนค่อยเขียนโค้ดให้ผ่าน (TDD) + คอมเมนต์/commit เป็นภาษาไทยบอก "ทำไม"** — โค้ดบอก
    "ทำอะไร" เองอยู่แล้ว สิ่งที่ขาดคืออาการที่จะเจอถ้าทำผิดทาง
 
 ## คำสั่งเร็ว

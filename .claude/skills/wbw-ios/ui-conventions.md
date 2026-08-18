@@ -61,13 +61,13 @@
 วาดทะลุกรอบออกไปได้ `frame` คุมแค่พื้นที่ layout ไม่ได้คลิปการวาด (เคยพลาดมาแล้ว เส้นประพาด
 ออกนอกการ์ดไปจนสุดขอบจอ)
 
-`GlassRing` เป็น `private struct` (`ViewModifier`) อยู่ใน `WBW/HomeView.swift` (บรรทัด 108) — **ไม่ใช่ API
+`GlassRing` เป็น `private struct` (`ViewModifier`) อยู่ใน `WBW/HomeView.swift` (บรรทัด 190) — **ไม่ใช่ API
 กลาง** ใช้ได้เฉพาะภายในไฟล์นั้น (เรียกอยู่ 2 จุดในไฟล์เดียวกัน) จะเอาไปใช้ที่จออื่นต้องยกออกมาเป็นไฟล์
 กลางก่อน (ตามแพทเทิร์นเดียวกับที่ `glassSurface` ทำไปแล้ว) อย่าสมมติว่า import แล้วเรียกจากจอไหนก็ได้
 
 ทุกที่ที่แตะกระจกจริงต้อง guard `#available(iOS 26.0, *)` แล้ว fallback เป็น `.ultraThinMaterial` เพราะ
 deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_DEPLOYMENT_TARGET: "18.0"` ใน `project.yml`) — ตอนนี้มี
-3 จุดที่ guard ไว้แบบนี้: `WBW/HomeView.swift:110`, `WBW/GlassSurface.swift:8`, `WBW/WelcomeView.swift:60`
+3 จุดที่ guard ไว้แบบนี้: `WBW/HomeView.swift:192`, `WBW/GlassSurface.swift:12`, `WBW/WelcomeView.swift:60`
 เพิ่มจุดใหม่ก็ต้อง guard แบบเดียวกันเสมอ
 
 **ห้ามปลอมกระจกด้วย blur เอง** (เช่น `.blur()` + opacity ผสมมือ) — ผลลัพธ์ไม่เนียนเท่า `.glassEffect`
@@ -82,6 +82,12 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
   `Map3DScreen`, `Map3DSky`, `MapModelLoader`)
 - `WBW/Chat/` — 5 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`)
 - `WBW/Feedback/` — 4 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`)
+- `WBW/SURun/` — 3 ไฟล์ (`SURunMath`, `SURunTracker`, `TrailRoute`) · ตัวจอคือ `WBW/SURunView.swift`
+  ที่ราก
+- `WBW/Conditions/` — 4 ไฟล์ (`ConditionsModels`, `ConditionsStore`, `OpenMeteoClient`,
+  `TrailConditionsRow`)
+- `WBW/Bloom/` — 3 ไฟล์ (`BloomStages`, `BloomGeometry`, `BloomView`)
+- `WBW/Demo/` — 2 ไฟล์ (`DemoMode`, `DemoData`)
 - `WBW/Scene3D/` — 7 ไฟล์ (ฉากป่า — **ปิดอยู่ตอนนี้แต่ไม่ได้ลบ** ดู `Config.forest3D` ใน
   `backend-and-config.md`)
 - `WBW/Resources/` — asset สามมิติ (`.usdz`, `.glb` ใต้ `models/`) ไม่ใช่โค้ด Swift
@@ -104,18 +110,27 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
   ขอบจะไล่เป็นขั้น เห็นเป็นวงซ้อนหลายชั้น
 - ระนาบแบนที่กล้องอาจมองเฉียง ให้ใส่ `BillboardComponent` ไม่งั้นเห็นขอบสี่เหลี่ยมของแผ่น
 
-## จอที่ยังไม่มีของจริง
+## แท็บ SU RUN มีของจริงแล้ว
 
-SU RUN (`WBW/SURunView.swift`) เป็น **จอว่างสนิท** มีแต่พื้นหลัง ไม่มีตัวหนังสือสักตัว
+`WBW/SURunView.swift` เคยเป็น **จอว่างสนิท** (ก่อนหน้านั้นเป็นแดชบอร์ดที่ทุกตัวเลขมาจาก `SURunMock`)
+— **เปลี่ยนแล้วตั้งแต่ 2026-08-19 ห้ามถอยกลับ** ตอนนี้เป็นแผนที่ MapKit + เส้นทางจริง 8.36 กม.
+จาก `WBW/Resources/route_wbw.json` + HUD ระยะ/ก้าว/pace/เวลา ที่คำนวณจาก CoreLocation กับ
+CMPedometer จริง ไม่มี mock เหลืออยู่เลย
 
-เดิมเป็นแดชบอร์ดที่ทุกตัวเลขมาจาก `SURunMock` (ก้าว/ระยะทาง/เวลา/แคลอรี/อันดับ) พร้อมบล็อก MAP
-ปลอมกับปุ่ม "Start now!" ที่ไม่ทำอะไร — ล้างออกหมดแล้วเพราะยังไม่มี endpoint รองรับทั้งฝั่ง Go และ
-Node ปล่อยตัวเลขปลอมไว้เสี่ยงให้คนเข้าใจว่าระบบนับก้าวให้จริง (`SURunRankingView.swift` กับ
-`SURunMock.swift` ถูกลบไปแล้ว ดึงคืนจาก git ได้ถ้าจะรื้อฟื้น)
+เหตุผลที่ห้ามถอย: build 1.0 (7) โดน App Review ตีกลับด้วย Guideline 2.1 กับ 2.3.3 · reviewer กด
+ครบทุกแท็บเสมอ แท็บที่เปิดมาแล้วไม่มีอะไรคือใบตีกลับใบต่อไป (4.2 minimum functionality) ·
+ข้อความบนจอถูกตรึงด้วย `WBWTests/SURunCopyTests.swift`
 
-**ว่างสนิทตรงนี้เป็นข้อยกเว้นที่เจ้าของงานสั่ง ไม่ใช่ค่าปริยาย** — จอที่ปิดฟีเจอร์ชั่วคราวที่เหลือใช้
-แบบของ `WBW/Map3D/Map3DScreen.swift` คือเหลือไอคอน + ข้อความสั้น ๆ ("แผนที่ 3D ปิดชั่วคราว")
-เพื่อไม่ให้ดูเหมือนแอปพัง · จอใหม่ที่ยังไม่เสร็จให้ทำตามแบบหลัง ไม่ใช่แบบ SU RUN
+## แท็บถูกสร้างล่วงหน้าทุกใบ — ของที่ขอสิทธิ์ต้องหน่วงเอง
+
+`TabView` แบบ `Tab(value:)` ของ iOS 18+ **สร้างเนื้อของทุกแท็บตั้งแต่ตอน mount** ไม่ใช่ตอนกดแท็บ
+ยืนยันจากการถ่ายจริง: launch ด้วย `-uitestTab 4` แล้ว dialog ขอสิทธิ์ตำแหน่งยังเด้งทับจอ QR
+เพราะ `MapKit.Map` ของแท็บ SU RUN ขอสิทธิ์เองทันทีที่ถูกสร้าง (ไม่ใช่โค้ดเราเรียก — ใส่ NSLog ที่ทุกจุด
+ที่เรียก `requestWhenInUseAuthorization` แล้ว log ว่างเปล่า แต่ dialog ยังเด้ง)
+
+จอไหนที่แตะกล้อง/ตำแหน่ง/ไมค์ ต้องรับ `isActive` เข้ามาแล้วหน่วงการสร้างของจริงไว้จนกว่าแท็บนั้น
+จะถูกเลือกจริง — ของจริงที่ทำแบบนี้อยู่แล้วสองที่: `Map3DScreen(isActive:)` กับ `SURunView(isActive:)`
+(ทั้งคู่ถูกส่งค่ามาจาก `WBW/MainTabView.swift:51` และ `:52`)
 
 ## คอมเมนต์
 

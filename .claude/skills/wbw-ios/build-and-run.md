@@ -39,7 +39,7 @@ xcodebuild -scheme WBW -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
-รัน `WBWTests` ทั้งชุด (165 เทสตอนที่เขียนไฟล์นี้) ก่อน push/PR — รอบแรกที่รันเพื่อยืนยันไฟล์นี้เจอเทสตัว
+รัน `WBWTests` ทั้งชุด (260 เทสตอนที่เขียนไฟล์นี้) ก่อน push/PR — รอบแรกที่รันเพื่อยืนยันไฟล์นี้เจอเทสตัว
 หนึ่ง (`CheckinProgressStoreTests.testClearResetsPendingDiffState`) ที่ทำให้โฮสต์เทสแครช/timeout จน
 xcodebuild ต้อง restart runner กลางคัน (ปรากฏเป็น `** TEST FAILED **`) — รันซ้ำอีกรอบผ่านสะอาด
 (`** TEST SUCCEEDED **`, 165/165) ไม่มี error/log อื่นระหว่างนั้น สรุปว่าเป็นอาการแครชของตัว test host
@@ -70,6 +70,9 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 
 | คีย์ | ค่า | ผล | ต้องมาคู่กับ |
 |---|---|---|---|
+| `-uitestDemo` | flag | เข้าโหมดเดโม่ตอน launch (ข้อมูลจำลองครบทุกจอ ไม่ยิงเน็ตเลย ไม่ตั้งค่า Firebase) — ใช้ถ่ายสกรีนช็อต App Store | — |
+| `-uitestDemoNoGroup` | flag | โปรไฟล์เดโม่แบบยังไม่มีกลุ่ม → แท็บ 3 เป็นจอ "เข้ากลุ่ม" แทนแชท | `-uitestDemo` |
+| `-uitestRunStart` | flag | กด "เริ่มเดิน" ให้เอง — คู่กับ `xcrun simctl location <dev> start ...` ตัวเลขบน HUD จึงมาจากการคำนวณจริง | `-uitestTab 2` |
 | `-uitestToken <jwt>` | JWT string | ล็อกอินทันทีด้วย token นี้ (`Session.swift`) — ข้าม splash ด้วย | — |
 | `-uitestUser <username>` | string, default `tester` | คู่กับ `-uitestToken` เป็นชื่อผู้ใช้ | — |
 | `-uitestRole participant` | string, default `participant` | คู่กับ `-uitestToken` เป็น role | — |
@@ -77,6 +80,8 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestTab 0-4` | int | แท็บเริ่มต้นตอน launch เท่านั้น (ดูตาราง index ด้านล่าง) | — |
 | `-uitestTabSequence "<วิ>:<แท็บ>,..."` | string | สลับแท็บสดระหว่างแอปรันอยู่ เช่น `"6:4,12:0"` | — |
 | `-uitestChat` | flag | เปิดหน้าแชทกลุ่มตรงๆ | — |
+| `-uitestGroupHome` | flag | เปิดหน้า "กลุ่มของฉัน" ตรงๆ (ปกติอยู่หลังการกดหัวจอแชท) | `-uitestTab 3` + ต้องมีกลุ่มอยู่แล้ว |
+| `-uitestLeaveConfirm` | flag | เปิดกล่องยืนยันออกจากกลุ่มค้างไว้ให้ถ่ายรูป | `-uitestGroupHome` |
 | `-uitestChatCloseAfter <วินาที>` | double | ปิดแชทเองหลัง N วิ (แอปยัง foreground) | — |
 | `-uitestNotifications` | flag | เปิดหน้าแจ้งเตือนตรงๆ | — |
 | `-uitestFeedback <checkpointId>` | int > 0 | เปิดฟอร์มให้ความเห็นของฐานนั้นตรงๆ (id จริงเริ่มที่ 1) | — |
@@ -90,12 +95,12 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ | `-uitestTab 1` |
 
 **ทำไมบางคีย์ต้องมาคู่กัน:** `-uitestMedical`/`-uitestSettings` ถูกอ่านใน `.task` ของ `TicketView`
-(`WBW/TicketView.swift:38-41`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน
-`.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:101-103`) ซึ่งเปิดจาก
-`-uitestProfile` เท่านั้น (`WBW/HomeView.swift:98`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
+(`WBW/TicketView.swift:48-49`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน
+`.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:77-79`) ซึ่งเปิดจาก
+`-uitestProfile` เท่านั้น (`WBW/HomeView.swift:74`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
 เลย ส่วน `-uitestMapPin`/`-uitestMapHeading`/`-uitestMapPitch`/`-uitestMapDistance` ถูกอ่านใน
-`.onAppear` ของ `Map3DScreen` (`WBW/Map3D/Map3DScreen.swift:422-452`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen() }` ที่
-`WBW/MainTabView.swift:49`) — `TabView` โหลดเนื้อในแท็บแบบ lazy แท็บที่ยังไม่เคยถูกเลือกจะไม่ mount View
+`.onAppear` ของ `Map3DScreen` (`WBW/Map3D/Map3DScreen.swift:431-461`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen(isActive: tab == 1) }` ที่
+`WBW/MainTabView.swift:51`) — `TabView` โหลดเนื้อในแท็บแบบ lazy แท็บที่ยังไม่เคยถูกเลือกจะไม่ mount View
 เลยสักครั้ง แท็บเริ่มต้นคือ Home (index 0) เสมอถ้าไม่ส่ง `-uitestTab` มา จึงต้องสั่ง `-uitestTab 1` กำกับไป
 ด้วยทุกครั้ง
 
@@ -135,3 +140,21 @@ Release ไม่มี) commit `8dfa5d4` เคยลืมเติม `NSLoca
 กลับ" มาแล้ว จึงแยกเป็นคนละไฟล์ถาวรแทน (ดูคอมเมนต์หัวไฟล์ `WBW/Info-Debug.plist` และ `configs:` ใน
 `project.yml`) — เพิ่มคีย์อะไรต้องเพิ่มทั้งสองไฟล์ ไม่งั้น `AppStoreConfigTests` fail (โดยเฉพาะ
 `testDebugPlistDiffersFromReleaseOnlyByTheAllowedKeys` และ `testApsEnvironmentMatchesItsConfiguration`)
+
+## เก็บสกรีนช็อตชุด App Store
+
+`docs/appstore/screenshots/{6.5,6.9}/` มี 9 ใบต่อขนาด ถ่ายจาก **โหมดเดโม่** ทั้งหมด (ไม่มี splash
+ไม่มีหน้าล็อกอิน — Apple บอกตรง ๆ ในใบตีกลับ 2.3.3 ว่าสองอย่างนั้นไม่นับว่า "app in use")
+
+simulator ที่ต้องมี — สร้างเองถ้ายังไม่มี:
+
+```bash
+xcrun simctl create "iPhone 11 Pro Max" com.apple.CoreSimulator.SimDeviceType.iPhone-11-Pro-Max com.apple.CoreSimulator.SimRuntime.iOS-26-5   # 6.5" = 1242x2688
+xcrun simctl create "iPhone 17 Pro Max" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max com.apple.CoreSimulator.SimRuntime.iOS-26-5   # 6.9" = 1320x2868
+```
+
+**`xcrun simctl erase` ก่อนถ่ายทุกครั้ง** — dialog ขอสิทธิ์ที่ไม่มีใครกดตอบจะค้างอยู่ใน SpringBoard
+ข้ามการ uninstall/install ของแอปไปเรื่อย ๆ แล้วบังทุกใบที่ถ่ายหลังจากนั้น กว่าจะรู้คือไล่หา
+สาเหตุในโค้ดอยู่หลายรอบทั้งที่โค้ดไม่ได้ผิด
+
+ขั้นตอนเต็มอยู่ที่ `docs/appstore/README.md`
