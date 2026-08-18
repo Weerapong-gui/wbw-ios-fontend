@@ -71,6 +71,11 @@ final class AppStoreConfigTests: XCTestCase {
                            "\(path) ขาดคำอธิบายสิทธิ์ตำแหน่ง ทั้งที่ Map3DLocation ใช้ CoreLocation")
             XCTAssertNil(dict["NSPhotoLibraryUsageDescription"],
                          "\(path) ขอสิทธิ์คลังรูปทั้งที่ใช้ PhotosPicker ซึ่งไม่ต้องขอ")
+            // แท็บ SU RUN เรียก CMPedometer จริงตั้งแต่ 2026-08-19 — ไม่มีคีย์นี้แล้วแอปจะ
+            // แครชทันทีที่กด "เริ่มเดิน" บนเครื่องจริง (CoreMotion บังคับ ไม่ใช่แค่เตือน)
+            let motion = dict["NSMotionUsageDescription"] as? String
+            XCTAssertFalse((motion ?? "").isEmpty,
+                           "\(path) ขาดคำอธิบายสิทธิ์เซ็นเซอร์ความเคลื่อนไหว ทั้งที่ SURunTracker ใช้ CMPedometer")
         }
     }
 

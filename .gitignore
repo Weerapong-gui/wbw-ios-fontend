@@ -18,3 +18,7 @@ WBW/GoogleService-Info.plist
 
 # repo อื่นที่วางคร่อมอยู่ในโฟลเดอร์นี้ ไม่ใช่ของ repo นี้ — กันไม่ให้ `git add` เผลอดูดเข้ามา
 claude-code-server-side-swift-skills/
+
+# สกรีนช็อตชุด App Store — 35 MB ของ PNG ที่ใช้ครั้งเดียวแล้วอัปขึ้น ASC
+# ถ่ายใหม่ได้เสมอจากโหมดเดโม่ ขั้นตอนครบอยู่ที่ docs/appstore/README.md
+docs/appstore/screenshots/
