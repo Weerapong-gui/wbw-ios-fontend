@@ -48,8 +48,8 @@ struct MainTabView: View {
         ZStack {
             TabView(selection: $tab) {
                 Tab(value: 0) { HomeView(noti: noti) } label: { Image(systemName: "house.fill") }
-                Tab(value: 1) { Map3DScreen() } label: { Image(systemName: "map.fill") }
-                Tab(value: 2) { SURunView() } label: { Image(systemName: "figure.run") }
+                Tab(value: 1) { Map3DScreen(isActive: tab == 1) } label: { Image(systemName: "map.fill") }
+                Tab(value: 2) { SURunView(isActive: tab == 2) } label: { Image(systemName: "figure.run") }
                 Tab(value: 3) {
                     GroupTabView(chat: chat, path: $groupPath, onBack: { tab = 0 })
                 } label: {

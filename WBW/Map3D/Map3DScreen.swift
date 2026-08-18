@@ -6,6 +6,14 @@ import SwiftUI
 /// ไม่ใช้ ForestSceneHost: ฉากป่าต้องมี host เพราะ 4 จอใช้ฉากเดียวกันและฉากถูกวาดที่ RootView
 /// ซึ่งอยู่คนละ hosting context กับจอ — แผนที่อยู่จอเดียว RealityView เกิดและตายไปกับจอนี้ได้เลย
 struct Map3DScreen: View {
+    /// แท็บนี้ถูกเลือกอยู่จริงหรือเปล่า — **จำเป็น ไม่ใช่ของเผื่อ**
+    ///
+    /// `TabView` แบบ `Tab(value:)` ของ iOS 18+ สร้างเนื้อของทุกแท็บตั้งแต่ตอน mount (ยืนยันจาก
+    /// สกรีนช็อตจริง: launch ด้วย `-uitestTab 4` แล้ว dialog ขอสิทธิ์ตำแหน่งยังเด้งทับจอ QR)
+    /// ผูก `location.start()` ไว้กับ `.onAppear` เฉย ๆ จึงกลายเป็น "ขอสิทธิ์ตำแหน่งทันทีที่ล็อกอิน
+    /// เสร็จ โดยไม่มีบริบทอะไรเลย" ซึ่งเป็นสิ่งที่ App Review ตีกลับได้ตรง ๆ
+    var isActive: Bool = true
+
     /// โหลดโมเดลไม่สำเร็จ — โชว์ข้อความแทนจอเปล่า (ทรงเดียวกับ ForestSceneHost.loadFailed)
     @State private var loadFailed = false
     /// ยังโหลดโมเดลไม่เสร็จ — โมเดลนี้ใช้เวลาหลายวินาที ปล่อยจอเปล่าไว้ผู้ใช้อ่านว่าแอปค้าง ไม่ใช่กำลังโหลด
@@ -450,7 +458,10 @@ struct Map3DScreen: View {
                     Float(UserDefaults.standard.integer(forKey: "uitestMapDistance")) / 100)
             }
             #endif
-            location.start()
+            if isActive { location.start() }
+        }
+        .onChange(of: isActive) { _, nowActive in
+            nowActive ? location.start() : location.stop()
         }
         .onDisappear { location.stop() }
         .ignoresSafeArea()
