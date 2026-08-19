@@ -45,22 +45,26 @@ struct BloomView: View {
 
 // MARK: - แถบขั้น
 
-/// แถบขั้นการบาน 6 ช่อง กดได้ทุกช่อง
+/// รางความคืบหน้า 6 ช่อง กดได้ทุกช่องเพื่อพรีวิวขั้นนั้น
 ///
-/// ขั้นที่ยังไม่ถึงเป็นเงาจาง ๆ **แต่ยังเป็นรูปดอกไม้ขั้นนั้นจริง** ไม่ใช่จุดหรือตัวเลข — นั่นคือสิ่งเดียว
-/// ที่แถบนี้มีไว้ทำ: ให้เห็นรูปทรงที่กำลังปลูกไปหา · กดแล้วพรีวิวเฉย ๆ **ไม่บันทึก**
-/// ปล่อยมือแล้วกลับไปขั้นจริงเสมอ (ปุ่มที่เปลี่ยนความคืบหน้าจริงได้จะเป็นการโกงเช็คอิน)
+/// **เคยเป็นชิปรูปดอกไม้ 44pt ต่อขั้น — เปลี่ยนแล้ว 2026-08-20 ห้ามถอยกลับ** เจตนาเดิมของชิปคือ
+/// ให้เห็น "รูปทรงที่กำลังปลูกไปหา" แต่ที่ 44pt ตาราง halftone ย่อลงจนอ่านเป็นเม็ดฝุ่น ไม่ใช่ดอกไม้
+/// (ถ่ายจริงแล้วเห็นชัด) และขั้นที่ยังไม่ถึงซึ่งตั้ง alpha 0.28 ไว้ก็จมหายไปกับพื้นภาพป่าทั้งช่อง
+/// ตัวที่โชว์รูปทรงได้จริงคือดอกไม้ 300pt ที่อยู่เหนือแถบนี้ — แถบจึงเหลือหน้าที่เดียวคือ "เลือกขั้น"
+///
+/// กดแล้วพรีวิวเฉย ๆ **ไม่บันทึก** กดซ้ำหรือหมดเวลาแล้วกลับไปขั้นจริงเสมอ (ปุ่มที่ดันความคืบหน้า
+/// จริงได้จะเป็นการโกงเช็คอิน)
 struct BloomStageStrip: View {
     let currentStage: Int
     @Binding var previewStage: Int?
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             ForEach(0..<BloomStages.count, id: \.self) { s in
                 Button {
                     previewStage = (previewStage == s) ? nil : s
                 } label: {
-                    chip(s)
+                    segment(s)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(BloomStages.label(s)) ขั้นที่ \(s + 1) จาก \(BloomStages.count)")
@@ -68,34 +72,18 @@ struct BloomStageStrip: View {
         }
     }
 
-    private func chip(_ s: Int) -> some View {
+    /// รางหนา 6 pt แต่พื้นที่กดสูง 44 pt — ขนาดขั้นต่ำที่นิ้วกดโดนตาม HIG
+    /// ไม่ห่อแบบนี้ต้องเล็งให้ตรงเส้นบาง ๆ ซึ่งพลาดแทบทุกครั้ง
+    private func segment(_ s: Int) -> some View {
         let reached = s <= currentStage
         let selected = previewStage == s
-        return BloomChipCanvas(stage: s, ink: .white,
-                               alphaScale: reached ? 1 : 0.28)
-            .frame(width: 44, height: 44)
-            .padding(6)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(.white.opacity(selected ? 0.85 : 0.22), lineWidth: selected ? 2 : 1)
-                    .padding(6)
-            )
-    }
-}
-
-/// ดอกไม้ขั้นเดียวขนาดเล็กสำหรับชิป — ไม่มีก้าน ไม่มีใบ (ใบอยู่บนก้าน เอาหัวดอกมาอย่างเดียว
-/// แล้วยังเก็บใบไว้จะได้เส้นสองเส้นลอยอยู่ใต้ดอก กับกล่องที่สูงเกินไปครึ่งเท่า) และไม่หายใจ
-private struct BloomChipCanvas: View {
-    let stage: Int
-    let ink: Color
-    let alphaScale: Double
-
-    @State private var cache = BloomFieldCache()
-
-    var body: some View {
-        BloomCanvas(openness: Double(stage), breath: 0, kind: .head,
-                    gridPoints: 3, centreYFraction: 0.5,
-                    ink: ink, alphaScale: alphaScale, cache: cache)
+        return Capsule()
+            .fill(reached ? Color.wbwGold : Color.white.opacity(0.18))
+            .frame(maxWidth: .infinity)
+            .frame(height: 6)
+            .overlay(Capsule().stroke(.white, lineWidth: selected ? 1.5 : 0))
+            .frame(height: 44)
+            .contentShape(Rectangle())
     }
 }
 

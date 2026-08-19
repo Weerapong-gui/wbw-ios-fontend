@@ -60,13 +60,8 @@ struct HomeView: View {
             plantStep: stage,
             plantTotal: total)
         .task {
-            // เริ่มโหลด map.usdz ไว้เลยระหว่างที่ผู้ใช้ยังดูหน้าแรกอยู่ — โมเดลกินเวลาราว 7 วิ
-            // ปล่อยให้เริ่มตอนกดแท็บแผนที่แปลว่าต้องนั่งรอทุกครั้งที่เปิดแอปครั้งแรก (ดู MapModelLoader)
-            //
-            // ต้องอยู่ "ก่อน" await profile.load — วัดแล้วตอนวางไว้หลัง งานโหลดโมเดลเริ่มช้าไปตาม
-            // ความเร็วเน็ตของ profile.load แล้วกลายเป็นยังโหลดไม่เสร็จตอนผู้ใช้กดแท็บอยู่ดี
-            // preload() ไม่บล็อก (แค่ตั้ง Task) วางหน้าสุดจึงไม่ได้ทำให้โปรไฟล์มาช้าลง
-            MapModelLoader.shared.preload()
+            // โหลด map.usdz ย้ายไปเริ่มที่ RootView ตอนล็อกอินสำเร็จแล้ว (2026-08-20) —
+            // เร็วกว่าเดิมและไม่ผูกกับการที่ผู้ใช้ต้องมาถึงจอนี้ก่อน
             nudgeBreath()
             if profile.me == nil { await profile.load(token: session.token ?? "") }
             await conditions.refresh()
@@ -85,17 +80,22 @@ struct HomeView: View {
         // คำทักทายมุมซ้ายบน — avatar กรอบ liquid glass กดไป Profile
         HStack(spacing: 12) {
             Button { showProfile = true } label: {
-                ProfileAvatar(name: name, photoUrl: profile.photoUrl, size: 50)
+                // ringColor: .clear เพราะ GlassRing ล้อมอยู่แล้ว — ปล่อยค่าปริยายไว้จะได้วงขาว
+                // ของ avatar ซ้อนกับวงกระจกอีกวง เห็นเป็นสองวงซ้อนกัน (ทรงเดียวกับที่ TicketView ทำ)
+                ProfileAvatar(name: name, photoUrl: profile.photoUrl, size: 50,
+                              ringColor: .clear,
+                              fill: .white.opacity(0.16), initialColor: .white)
                     .padding(5)
                     .modifier(GlassRing())
             }
             .buttonStyle(.plain)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Hey!")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(.white)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.75))
                 Text(name)
-                    .font(.system(size: 21, weight: .heavy))
+                    .font(.title2)
+                    .fontWeight(.bold)
                     .foregroundStyle(.white)
                 // สภาพบนดอยตอนนี้ — วาดลงพื้นฉากตรง ๆ ไม่มีการ์ด · ยิงไม่ได้ = ซ่อนทั้งแถว
                 TrailConditionsRow(conditions: conditions.conditions)
@@ -106,14 +106,14 @@ struct HomeView: View {
                 NotificationCenter.default.post(name: .openNotificationsTab, object: nil)
             } label: {
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.title3)
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .modifier(GlassRing())
                     .overlay(alignment: .topTrailing) {
                         if noti.unreadCount > 0 {
                             Text("\(noti.unreadCount)")
-                                .font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                                .font(.caption2.weight(.bold)).foregroundStyle(.white)
                                 .padding(5).background(Color.red, in: Circle())
                                 .offset(x: 4, y: -4)
                         }
@@ -121,7 +121,7 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 22)
+        .padding(.horizontal, 20)
         .padding(.top, 8)
     }
 
@@ -133,24 +133,25 @@ struct HomeView: View {
         VStack(spacing: 12) {
             Spacer(minLength: 0)
 
-            // เงาใต้จุด **จำเป็น ไม่ใช่ของแต่ง** — พื้นหลังคือภาพป่าสว่าง (AppBackdrop ใส่ scrim
-            // เฉพาะหัวกับท้ายจอ กลางจอปล่อยสว่างเต็ม) จุดขาวล้วนบนเขียวอ่อนถ่ายจริงแล้วอ่านแทบไม่ออก
-            // — อาการเดียวกับที่ทำให้คำทักทายต้องมี scrim มาก่อนแล้ว
+            // เงาใต้จุดยังอยู่ **แต่เบาลงแล้ว** — ตั้งแต่ AppBackdrop คลุมทึบทั้งใบ (0.35) กลางจอ
+            // ไม่ใช่ช่องโหว่ที่ต้องให้ดอกไม้แบกเองอีกต่อไป เหลือไว้แค่พอแยกขอบดอกจากลำต้นที่อยู่หลัง
+            // ค่าเดิม 0.5/รัศมี 6 ที่จูนไว้ตอนพื้นยังโล่ง ตอนนี้กลายเป็นคราบดำวงใหญ่รอบดอกแทน
             // ตาราง halftone 4 pt ไม่ใช่ 6 — ที่ความสูง 300 pt ก้านหนาราว 5 pt ซึ่ง "บางกว่าหนึ่งช่อง"
             // ของตาราง 6 pt แล้วหลุดหายไปทั้งเส้น เหลือหัวดอกลอยอยู่เหนือใบ (ถ่ายจริงเจอมาแล้ว)
             BloomView(stage: bloomStage, breathing: breathing, gridPoints: 4)
                 .frame(maxWidth: .infinity)
                 .frame(height: 300)
-                .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
+                .shadow(color: .black.opacity(0.35), radius: 4, y: 2)
                 .accessibilityLabel("ดอกไม้ขั้น \(BloomStages.label(bloomStage))")
 
             VStack(spacing: 8) {
                 Text(BloomStages.label(bloomStage))
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.title3)
+                    .fontWeight(.semibold)
                     .foregroundStyle(.white)
                 if let progressText = CheckinProgressLabel.text(stage: stage, total: total) {
                     Text(progressText)
-                        .font(.system(size: 13))
+                        .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.85))
                 }
 
@@ -160,16 +161,17 @@ struct HomeView: View {
                                     set: { previewStage = $0; nudgeBreath() }))
 
                 Text("ดอกไม้บานขึ้นทุกครั้งที่เช็คอินเข้าฐานใหม่ · แตะดูขั้นถัดไปได้")
-                    .font(.system(size: 11))
+                    .font(.caption)
                     .foregroundStyle(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
             .glassSurface(RoundedRectangle(cornerRadius: 24, style: .continuous))
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 22)
+        .padding(.horizontal, 20)
         // แถบแท็บลอยทับพื้นที่ล่างของจอ — ไม่เว้นไว้แล้วแถบขั้นจะโดนบังครึ่งใบ
         .padding(.bottom, ForestSceneHost.tabBarClearance)
     }

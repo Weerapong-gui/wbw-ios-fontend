@@ -17,7 +17,7 @@ struct TrailConditionsRow: View {
                 if let weather = conditions.weather {
                     let sky = Sky.of(code: weather.code)
                     reading(symbol: sky.symbol,
-                            symbolColor: .wbwCream,
+                            symbolColor: .white.opacity(0.75),
                             lead: "\(weather.temperatureC)°",
                             trail: weather.feelsLikeC.map { "รู้สึก \($0)°" },
                             trailColor: .white.opacity(0.65),
@@ -26,7 +26,7 @@ struct TrailConditionsRow: View {
                 if let air = conditions.air {
                     let band = AqiBand.of(aqi: air.usAqi)
                     reading(symbol: "aqi.medium",
-                            symbolColor: band.isAlarming ? .orange : .wbwGreen,
+                            symbolColor: band.isAlarming ? .orange : .white.opacity(0.75),
                             lead: "AQI \(air.usAqi)",
                             trail: band.label,
                             trailColor: band.isAlarming ? .orange : .white.opacity(0.65),
@@ -40,15 +40,15 @@ struct TrailConditionsRow: View {
                          trail: String?, trailColor: Color, accessibility: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: symbol)
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundStyle(symbolColor)
                 .accessibilityLabel(accessibility)
             Text(lead)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(.white)
             if let trail {
                 Text(trail)
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .foregroundStyle(trailColor)
             }
         }

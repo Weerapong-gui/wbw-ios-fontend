@@ -56,6 +56,29 @@ final class SettingsBehaviorTests: XCTestCase {
 
     // MARK: - โหมดมืด
 
+    /// ค่าปริยายคือ "มืด" — พื้นหลังกลางของแอปเป็นภาพป่ากลางคืน (`AppBackdrop`) และ
+    /// `WBWApp` ส่งค่านี้ต่อไปเป็น `.preferredColorScheme` ซึ่งเป็นตัวที่กำหนดสีนาฬิกา/แบตด้วย
+    /// ตั้งเป็นสว่างไว้แปลว่า status bar เป็นตัวดำทับภาพมืดทั้ง 7 จอที่ใช้พื้นนี้ อ่านแทบไม่ออก
+    func testDefaultsToDarkWhenTheUserHasNeverTouchedTheSwitch() {
+        let key = AppSettings.darkModeKey
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer { UserDefaults.standard.set(saved, forKey: key) }
+
+        UserDefaults.standard.removeObject(forKey: key)
+        XCTAssertTrue(AppSettings.darkModePreference(),
+                      "ยังไม่เคยตั้งค่า = โหมดมืด ไม่งั้น status bar เป็นตัวดำบนภาพป่ากลางคืน")
+    }
+
+    /// คนที่เลือกโหมดสว่างไว้เองต้องได้โหมดสว่างเหมือนเดิม — ค่าปริยายใหม่ห้ามทับค่าที่ผู้ใช้ตั้ง
+    func testKeepsAnExplicitLightModeChoice() {
+        let key = AppSettings.darkModeKey
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer { UserDefaults.standard.set(saved, forKey: key) }
+
+        UserDefaults.standard.set(false, forKey: key)
+        XCTAssertFalse(AppSettings.darkModePreference())
+    }
+
     private func resolved(_ color: Color, _ style: UIUserInterfaceStyle) -> UIColor {
         UIColor(color).resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
     }

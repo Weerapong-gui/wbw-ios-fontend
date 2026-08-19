@@ -8,6 +8,15 @@ struct ProfileAvatar: View {
     /// จอตั๋วส่ง .clear มา เพราะช่องไฟระหว่าง avatar กับรอยเว้าของการ์ดทำหน้าที่วงแหวนอยู่แล้ว
     /// วงแหวนขาวซ้อนอีกชั้นจะกลายเป็นสองวง · ค่าปริยาย = ของเดิม จุดที่เรียกอยู่ไม่ต้องแก้
     var ringColor: Color = .white.opacity(0.85)
+    /// พื้นของ fallback ตัวอักษร — หน้า Home ส่งสีกลางมาแทนครีม
+    ///
+    /// ครีมเป็นสีแบรนด์โทนอุ่น พอไปนั่งบนภาพป่ากลางคืนที่เป็นโทนเขียว-ฟ้าเย็นแล้วมันกลายเป็น
+    /// จุดที่ดังที่สุดบนจอ ทั้งที่รูปโปรไฟล์ไม่ใช่ของที่ต้องดังที่สุด · แอปนี้เหลือ accent ตัวเดียว
+    /// คือทอง ครีมจึงเป็นได้แค่สีพื้นผิว/ตัวอักษร ไม่ใช่สีเน้น
+    ///
+    /// ค่าปริยาย = ของเดิม อีก 8 จุดที่เรียกอยู่ (ตั๋ว ตั้งค่า สมาชิกกลุ่ม แชท) ไม่ต้องแก้
+    var fill: Color = .wbwCream
+    var initialColor: Color = .wbwInk
 
     var body: some View {
         Group {
@@ -17,10 +26,10 @@ struct ProfileAvatar: View {
                     .scaledToFill()
             } else {
                 ZStack {
-                    Color.wbwCream
+                    fill
                     Text(initial)
                         .font(.system(size: size * 0.42, weight: .bold))
-                        .foregroundStyle(Color.wbwInk)
+                        .foregroundStyle(initialColor)
                 }
             }
         }

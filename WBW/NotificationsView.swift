@@ -38,7 +38,12 @@ final class NotiStore: ObservableObject {
     }
 }
 
-/// หน้าประกาศ/แจ้งเตือน (แท็บ newspaper) — participant เท่านั้น
+/// หน้าประกาศ/แจ้งเตือน — เปิดเป็นชีตจากกระดิ่งที่ Home (ดู MainTabView) · participant เท่านั้น
+///
+/// **2026-08-20: เขียนใหม่เป็น `List` ของระบบ** เดิมเป็น `LazyVStack` + การ์ดมือทำที่มีแถบสีซ้าย
+/// 5 pt กับกรอบ `stroke(.black.opacity(0.05))` — กรอบนั้นมองไม่เห็นเลยในโหมดมืด (ดำบนดำ) และ
+/// การ์ดขาวเรียงติดกันเต็มจอไม่มีอะไรบอกว่าอันไหนมาวันไหน · ตอนนี้ระดับความสำคัญอยู่ที่สีไอคอน
+/// และวันอยู่ที่หัวกลุ่ม (`NotificationGrouping`)
 struct NotificationsView: View {
     @ObservedObject var store: NotiStore
     let token: String
@@ -46,59 +51,73 @@ struct NotificationsView: View {
     /// ไม่เรียกตัวนี้เลย (feedbackCheckpointId เป็น nil)
     let onOpenFeedback: (Int) -> Void
 
+    @Environment(\.dismiss) private var dismiss
+    /// ตรึง "ตอนนี้" ไว้ตอนเปิดจอ ไม่ใช่เรียก `Date()` ระหว่างสร้าง body — ไม่งั้นแถวที่นั่งอยู่เฉย ๆ
+    /// จะกระโดดจากกลุ่ม "วันนี้" ไป "เมื่อวาน" เองตอนนาฬิกาข้ามเที่ยงคืน ทั้งที่ผู้ใช้ไม่ได้ทำอะไร
+    @State private var openedAt = Date()
+
+    private var sections: [NotificationGrouping.Section] {
+        NotificationGrouping.sections(store.items, now: openedAt)
+    }
+
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.wbwBg.ignoresSafeArea()
-                if store.loaded && store.items.isEmpty {
-                    emptyState
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(store.items) { item in
-                                // เฉพาะการ์ดขอความเห็นกดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
-                                if let checkpointId = item.feedbackCheckpointId {
-                                    Button { onOpenFeedback(checkpointId) } label: { NotiCard(item: item) }
-                                        .buttonStyle(.plain)
-                                } else {
-                                    NotiCard(item: item)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
+            List {
+                ForEach(sections) { section in
+                    Section(section.title) {
+                        ForEach(section.items) { row($0) }
                     }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(Color.wbwBg)
+            .overlay {
+                if store.loaded && store.items.isEmpty {
+                    ContentUnavailableView("ยังไม่มีประกาศ", systemImage: "bell.slash",
+                                           description: Text("ประกาศจากทีมงานจะขึ้นที่นี่"))
                 }
             }
             .navigationTitle("ประกาศ")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                // จอนี้เปิดเป็น .sheet — เดิมไม่มีปุ่มปิดเลย ปัดลงอย่างเดียว
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("เสร็จ") { dismiss() }
+                }
+            }
+            .refreshable { await store.load(token: token) }
         }
         .task {
             await store.load(token: token)
             await store.markAllRead(token: token)
         }
-        .refreshable { await store.load(token: token) }
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bell.slash")
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(.secondary)
-            Text("ยังไม่มีประกาศ")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+    /// เฉพาะการ์ดขอความเห็นกดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
+    @ViewBuilder
+    private func row(_ item: NotificationItem) -> some View {
+        if let checkpointId = item.feedbackCheckpointId {
+            Button { onOpenFeedback(checkpointId) } label: {
+                NotiRow(item: item, now: openedAt, showsChevron: true)
+            }
+            .buttonStyle(.plain)
+        } else {
+            NotiRow(item: item, now: openedAt, showsChevron: false)
         }
     }
 }
 
-/// การ์ดประกาศ 1 รายการ — แถบสีซ้ายตามระดับความสำคัญ
-/// การ์ดขอความเห็น (feedbackCheckpointId != nil) มีสี/ไอคอน/เชฟรอนของตัวเอง เช็คก่อน switch ตาม
-/// item.level เดิมเสมอ ไม่งั้นการ์ดประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย — เช็คจาก feedbackCheckpointId
-/// (ไม่ใช่ item.type ตรงๆ) ตัวเดียวกับที่ NotificationsView ใช้ตัดสินใจห่อ Button ด้านบน กันไม่ให้การ์ด
-/// ดูกดได้ (สีเขียว+เชฟรอน) ทั้งที่แตะแล้วไม่มีอะไรเกิดขึ้นจริง
-private struct NotiCard: View {
+/// ประกาศ 1 แถว — ไอคอนในวงกลมสีตามระดับความสำคัญ
+///
+/// การ์ดขอความเห็น (feedbackCheckpointId != nil) มีสี/ไอคอนของตัวเอง เช็คก่อน switch ตาม
+/// item.level เดิมเสมอ ไม่งั้นประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย
+private struct NotiRow: View {
     let item: NotificationItem
+    let now: Date
+    /// เชฟรอนบอกว่ากดได้ — ตัดสินจากฝั่งที่ห่อ Button จริง (ดู NotificationsView.row) ไม่ใช่เดาเอง
+    /// ในนี้ ไม่งั้นแถวที่แตะแล้วไม่มีอะไรเกิดขึ้นจะดูเหมือนกดได้
+    let showsChevron: Bool
 
     private var isFeedback: Bool { item.feedbackCheckpointId != nil }
 
@@ -120,46 +139,43 @@ private struct NotiCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            Rectangle().fill(accent).frame(width: 5)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(accent)
-                    Text(item.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.wbwInk)
-                    Spacer(minLength: 4)
-                    if item.isUnread {
-                        Circle().fill(accent).frame(width: 8, height: 8)
-                    }
-                }
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(accent)
+                .frame(width: 34, height: 34)
+                .background(accent.opacity(0.15), in: Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.headline)
+                    .foregroundStyle(Color.wbwInk)
                 if let b = item.body, !b.isEmpty {
                     Text(b)
-                        .font(.system(size: 14))
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if !item.timeText.isEmpty {
-                    Text(item.timeText)
-                        .font(.system(size: 12))
+                let time = NotificationGrouping.rowTime(item, now: now)
+                if !time.isEmpty {
+                    Text(time)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(14)
+
             Spacer(minLength: 0)
-            // เชฟรอนบอกว่ากดได้ — เฉพาะการ์ดขอความเห็น การ์ดประกาศทั่วไปไม่ได้ห่อ Button ไว้ (ดู
-            // NotificationsView) เชฟรอนเลยต้องไม่โผล่ให้เข้าใจผิดว่ากดได้
-            if isFeedback {
+
+            if item.isUnread {
+                Circle().fill(accent).frame(width: 8, height: 8).padding(.top, 12)
+            }
+            if showsChevron {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
-                    .padding(.trailing, 14)
+                    .padding(.top, 10)
             }
         }
-        .background(Color.wbwSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.05), lineWidth: 1))
+        .padding(.vertical, 4)
     }
 }

@@ -144,19 +144,6 @@ struct NotificationItem: Codable, Identifiable, Equatable {
         guard type == "checkin_feedback", let refId else { return nil }
         return Int(refId)
     }
-
-    /// เวลาแบบไทยสั้นๆ (16 ก.ค. 09:02)
-    var timeText: String {
-        guard let createdAt else { return "" }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let d = iso.date(from: createdAt) ?? ISO8601DateFormatter().date(from: createdAt)
-        guard let d else { return "" }
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "th_TH")
-        f.dateFormat = "d MMM HH:mm"
-        return f.string(from: d)
-    }
 }
 
 // ===== กลุ่ม + แชท =====
