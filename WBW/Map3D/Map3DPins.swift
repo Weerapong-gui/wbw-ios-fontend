@@ -6,22 +6,14 @@ import Foundation
 /// ลำดับในตารางข้างล่างจึงเป็นการจับคู่ที่ **ต้องยืนยันด้วยสกรีนช็อตกับ Park** ไม่ใช่ค่าที่พิสูจน์
 /// จากตัวไฟล์ได้ — จับผิดคู่แปลว่าคนเดินผิดฐานจริง
 enum Map3DPins {
-    /// เรียงตามลำดับฐาน 1-8 · ลำดับนี้คือสิ่งที่ต้องยืนยันด้วยตา
-    static let entityNames = [
-        "Cylinder",
-        "Cylinder_001",
-        "Cylinder_002",
-        "Cylinder_003",
-        "Cylinder_004",
-        "Cylinder_005",
-        "Cylinder_006",
-        "Cylinder_007",
-    ]
+    /// ชื่อ prim ของแท่งแดง เรียงตามลำดับฐาน — มาจาก `WBW/Resources/map_config.json`
+    ///
+    /// **ย้ายออกจากโค้ดเพราะโมเดลจะถูกเปลี่ยนใบ** ชื่อ prim ชุดใหม่จะไม่เหมือนชุดนี้แน่นอน
+    static var entityNames: [String] { Map3DConfig.current.pins.map(\.entityName) }
 
     /// prim นี้เป็นฐานลำดับที่เท่าไร — nil = ไม่ใช่หมุด (อาคาร ถนน ฯลฯ)
     static func sequence(forEntityNamed name: String) -> Int? {
-        guard let index = entityNames.firstIndex(of: name) else { return nil }
-        return index + 1
+        Map3DConfig.current.pins.first { $0.entityName == name }?.sequence
     }
 
     /// ข้อความบนการ์ดตอนแตะหมุด

@@ -1,5 +1,6 @@
 import RealityKit
 import Foundation
+import UIKit
 
 /// โหลด `map.usdz` ไว้ล่วงหน้า แล้วเก็บไว้ใช้ตลอดอายุแอป
 ///
@@ -18,20 +19,57 @@ final class MapModelLoader {
     /// เก็บไว้ที่นี่เพราะเป็น singleton ที่มีอายุเท่าแอปอยู่แล้ว ไม่ต้องสร้างที่เก็บสถานะใหม่
     var hasPlayedIntro = false
 
+    /// คำใบ้ "แตะหมุดสีแดงเพื่อดูฐาน" โผล่ไปแล้วหรือยัง — ครั้งเดียวต่อการเปิดแอป
+    /// เก็บที่เดียวกับ hasPlayedIntro ด้วยเหตุผลเดียวกัน (singleton ที่อายุเท่าแอปอยู่แล้ว)
+    var hasShownPinHint = false
+
+    /// มีจอไหนกำลังใช้โมเดลอยู่ไหม — `Map3DScreen` เขียนค่านี้ตาม `isActive` ของแท็บ
+    ///
+    /// จำเป็นเพราะการคืนหน่วยความจำเป็นเรื่องของ "จังหวะ" ล้วน ๆ: entity ตัวเดียวกันนี้แขวนอยู่ใน
+    /// ฉากที่ RealityView กำลังเรนเดอร์ ปล่อยตอนนั้นแผนที่จะหายไปเฉย ๆ ไม่มี error ให้เห็น
+    var isInUse = false
+
     private var loaded: Entity?
     private var loading: Task<Void, Never>?
 
-    private init() {}
+    private init() {
+        // คืนของ 10 MB ตอนระบบขอ ไม่ใช่ตอนออกจากแท็บ — ออกจากแท็บแล้วปล่อยทุกครั้งแปลว่า
+        // กลับเข้ามาทีไรก็รอโหลดใหม่ 7.5 วิทุกรอบ ซึ่งแย่กว่าการถือ 10 MB ไว้บนเครื่องยุคนี้
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil, queue: .main) { _ in
+                Task { @MainActor in MapModelLoader.shared.releaseIfPossible() }
+            }
+    }
+
+    /// ปล่อยได้ไหม — แยกเป็นฟังก์ชันบริสุทธิ์เพื่อให้เทสจับกฎนี้ได้โดยไม่ต้องแตะ Entity จริง
+    nonisolated static func shouldRelease(inUse: Bool) -> Bool { !inUse }
+
+    /// คืนโมเดลให้ระบบถ้าตอนนี้ไม่มีใครใช้ · รอบหน้าที่มีคนขอจะโหลดใหม่เอง (ดู `model()`)
+    func releaseIfPossible() {
+        guard Self.shouldRelease(inUse: isInUse) else {
+            NSLog("[Map3DScreen] ระบบเตือนความจำ แต่แท็บแผนที่เปิดอยู่ — ไม่ปล่อยโมเดล")
+            return
+        }
+        loading?.cancel()
+        loading = nil
+        loaded = nil
+        NSLog("[Map3DScreen] คืนโมเดลแผนที่ให้ระบบตอนความจำเหลือน้อย")
+    }
 
     /// เริ่มโหลดถ้ายังไม่เริ่ม · เรียกซ้ำได้ ไม่เริ่มงานซ้อน
     ///
-    /// เรียกจาก Home ไม่ใช่ตอนแอป launch — ระหว่าง launch แอปแย่งทรัพยากรกับฉากป่า/โหลดโปรไฟล์/
-    /// แชท sync อยู่แล้ว ยัดงานถอด 10 MB เข้าไปด้วยจะไปทำให้จอแรกช้าลงแทน
+    /// **เรียกจาก `RootView` ตอนล็อกอินสำเร็จ** (ย้ายมาจาก `HomeView.task` เมื่อ 2026-08-20)
+    /// ไม่ยิงตอนแอป launch เพราะช่วงนั้นยังมีสแปลช/ฉากป่า/ฟอร์มล็อกอินแย่งทรัพยากรกันอยู่
+    /// และคนที่ยังไม่ล็อกอินก็ไม่มีทางไปถึงแท็บแผนที่ · ยิงหลังล็อกอินได้เวลาเพิ่มหลายวินาที
+    /// ก่อนผู้ใช้จะกดแท็บแผนที่จริง โดยไม่กวนจอไหนเลย
+    ///
+    /// เจ้าหน้าที่ (`StaffScanView`) ไม่ถูกเรียกให้โหลด — เขาไม่มีแท็บแผนที่ให้เปิด
     func preload() {
         guard loaded == nil, loading == nil else { return }
         loading = Task { [weak self] in
             let started = CFAbsoluteTimeGetCurrent()
-            let entity = try? await Entity(named: "map")
+            let entity = try? await Entity(named: Map3DConfig.current.modelName)
             let elapsed = CFAbsoluteTimeGetCurrent() - started
             if entity == nil {
                 // NSLog ไม่ใช่ print — print() ไม่โผล่ใน unified log ของ simulator

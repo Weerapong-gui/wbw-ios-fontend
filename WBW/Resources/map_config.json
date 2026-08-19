@@ -1,0 +1,35 @@
+{
+  "modelName": "map",
+  "framingYawDegrees": 90,
+  "bounds": {
+    "south": 20.02371,
+    "west": 99.88272,
+    "north": 20.06727,
+    "east": 99.92288
+  },
+  "camera": {
+    "defaultPitchDegrees": 68,
+    "minPitchDegrees": 34,
+    "maxPitchDegrees": 75,
+    "minDistance": 0.8,
+    "maxDistance": 4.0,
+    "defaultDistance": 1.6,
+    "focusPitchDegrees": 34,
+    "focusDistance": 0.55,
+    "orbitDegreesPerSecond": 8
+  },
+  "sky": {
+    "domeRadius": 9.0,
+    "apronSpanMultiplier": 4.0
+  },
+  "pins": [
+    { "sequence": 1, "entityName": "Cylinder" },
+    { "sequence": 2, "entityName": "Cylinder_001" },
+    { "sequence": 3, "entityName": "Cylinder_002" },
+    { "sequence": 4, "entityName": "Cylinder_003" },
+    { "sequence": 5, "entityName": "Cylinder_004" },
+    { "sequence": 6, "entityName": "Cylinder_005" },
+    { "sequence": 7, "entityName": "Cylinder_006" },
+    { "sequence": 8, "entityName": "Cylinder_007" }
+  ]
+}

@@ -61,13 +61,13 @@
 วาดทะลุกรอบออกไปได้ `frame` คุมแค่พื้นที่ layout ไม่ได้คลิปการวาด (เคยพลาดมาแล้ว เส้นประพาด
 ออกนอกการ์ดไปจนสุดขอบจอ)
 
-`GlassRing` เป็น `private struct` (`ViewModifier`) อยู่ใน `WBW/HomeView.swift` (บรรทัด 190) — **ไม่ใช่ API
+`GlassRing` เป็น `private struct` (`ViewModifier`) อยู่ใน `WBW/HomeView.swift` (บรรทัด 192) — **ไม่ใช่ API
 กลาง** ใช้ได้เฉพาะภายในไฟล์นั้น (เรียกอยู่ 2 จุดในไฟล์เดียวกัน) จะเอาไปใช้ที่จออื่นต้องยกออกมาเป็นไฟล์
 กลางก่อน (ตามแพทเทิร์นเดียวกับที่ `glassSurface` ทำไปแล้ว) อย่าสมมติว่า import แล้วเรียกจากจอไหนก็ได้
 
 ทุกที่ที่แตะกระจกจริงต้อง guard `#available(iOS 26.0, *)` แล้ว fallback เป็น `.ultraThinMaterial` เพราะ
 deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_DEPLOYMENT_TARGET: "18.0"` ใน `project.yml`) — ตอนนี้มี
-3 จุดที่ guard ไว้แบบนี้: `WBW/HomeView.swift:192`, `WBW/GlassSurface.swift:12`, `WBW/WelcomeView.swift:60`
+3 จุดที่ guard ไว้แบบนี้: `WBW/HomeView.swift:194`, `WBW/GlassSurface.swift:12`, `WBW/WelcomeView.swift:60`
 เพิ่มจุดใหม่ก็ต้อง guard แบบเดียวกันเสมอ
 
 **ห้ามปลอมกระจกด้วย blur เอง** (เช่น `.blur()` + opacity ผสมมือ) — ผลลัพธ์ไม่เนียนเท่า `.glassEffect`
@@ -78,7 +78,7 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
 จอเดี่ยว ๆ วางแบน ๆ ที่ราก `WBW/` (เช่น `WBW/HomeView.swift`, `WBW/WelcomeView.swift`) แตกเป็นโฟลเดอร์
 ย่อยเมื่อฟีเจอร์เกิน ~3 ไฟล์ ของจริงที่มีอยู่ตอนนี้:
 
-- `WBW/Map3D/` — 8 ไฟล์ (`Map3DCamera`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
+- `WBW/Map3D/` — 10 ไฟล์ (`Map3DCamera`, `Map3DConfig`, `Map3DFocus`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
   `Map3DScreen`, `Map3DSky`, `MapModelLoader`)
 - `WBW/Chat/` — 5 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`)
 - `WBW/Feedback/` — 4 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`)
@@ -109,6 +109,19 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
 - ผิวที่มีบริเวณไล่เฉดกว้าง ๆ **ห้ามตั้ง `opacityThreshold`** — มันสั่งใช้ alpha test แทน alpha blend
   ขอบจะไล่เป็นขั้น เห็นเป็นวงซ้อนหลายชั้น
 - ระนาบแบนที่กล้องอาจมองเฉียง ให้ใส่ `BillboardComponent` ไม่งั้นเห็นขอบสี่เหลี่ยมของแผ่น
+
+## แผนที่ 3D ปรับผ่าน JSON ไม่ใช่แก้โค้ด
+
+ค่าทุกตัวที่ผูกกับไฟล์ `map.usdz` อยู่ที่ `WBW/Resources/map_config.json` ตัวเดียว (อ่านผ่าน
+`WBW/Map3D/Map3DConfig.swift`) — ชื่อไฟล์โมเดล, ชื่อ prim ของแท่งแดงแต่ละฐาน, กรอบ lat/lng,
+มุมหันพื้นที่งาน, ขอบเขตกล้อง (pitch/distance/ท่าโฟกัส/ความเร็วหมุนวน), รัศมีโดมกับชายพื้น
+
+**เหตุผล:** โมเดลจะถูกเปลี่ยนใบ ก่อนหน้านี้ค่าพวกนี้กระจายอยู่ 4 ไฟล์แล้วลืมที่ใดที่หนึ่งได้ง่ายมาก
+โดยไม่มีอะไรฟ้อง — อาการที่ได้คือหมุดกดไม่ติดหรือจุด GPS ไปโผล่ผิดที่ ซึ่งอ่านเหมือนบั๊กคนละเรื่อง
+
+`Map3DConfig.fallback` คือค่าเดียวกันที่ compile ไว้ ใช้ตอนไฟล์หาย/พัง · `decode` ปฏิเสธ config
+ที่ decode ผ่านแต่ใช้จริงไม่ได้ (หมุดว่าง, กรอบกลับด้าน, โดมเล็กกว่าระยะกล้องสูงสุด) —
+`WBWTests/Map3DConfigFileTests.swift` คุมไว้ว่าไฟล์จริงกับ fallback ต้องตรงกันเป๊ะ
 
 ## แท็บ SU RUN มีของจริงแล้ว
 

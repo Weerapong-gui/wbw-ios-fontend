@@ -23,13 +23,34 @@ final class Map3DCameraTests: XCTestCase {
         XCTAssertEqual(Map3DCamera.clampPitch(mid), mid, accuracy: 1e-6)
     }
 
-    func testYawIsLockedToARangeNotFreeSpinning() {
-        let beyond = Map3DCamera.defaultYaw + Map3DCamera.yawRange + 1
-        XCTAssertEqual(Map3DCamera.clampYaw(beyond),
-                       Map3DCamera.defaultYaw + Map3DCamera.yawRange, accuracy: 1e-6)
-        XCTAssertEqual(Map3DCamera.clampYaw(-beyond),
-                       Map3DCamera.defaultYaw - Map3DCamera.yawRange, accuracy: 1e-6)
-        XCTAssertLessThan(Map3DCamera.yawRange, .pi, "ห้ามกวาดได้รอบตัว")
+    /// **หมุนได้รอบตัวแล้ว** เดิมล็อกไว้ ±55° จากมุมเริ่มต้น — เจ้าของงานสั่งให้ปลดล็อก
+    ///
+    /// ต้อง wrap เข้าช่วง (-π, π] ไม่ใช่ปล่อยให้ค่าสะสมโตไปเรื่อย ๆ: yaw ตัวนี้ถูกใช้เป็นจุดตั้งต้น
+    /// ของท่าทางลากรอบถัดไป และเป็นปลายทางของแอนิเมชันบินเข้าหาหมุด ปล่อยให้เป็นหลักพันเรเดียน
+    /// แล้วเส้นโค้ง interpolate จะวิ่งวนหลายรอบก่อนถึงที่หมาย
+    func testYawWrapsAllTheWayAroundInsteadOfClamping() {
+        func degrees(_ radians: Float) -> Float { radians * 180 / .pi }
+        XCTAssertEqual(degrees(Map3DCamera.wrapYaw(370 * .pi / 180)), 10, accuracy: 1e-3)
+        XCTAssertEqual(degrees(Map3DCamera.wrapYaw(-190 * .pi / 180)), 170, accuracy: 1e-3)
+        XCTAssertEqual(degrees(Map3DCamera.wrapYaw(180 * .pi / 180)), 180, accuracy: 1e-3)
+        XCTAssertEqual(degrees(Map3DCamera.wrapYaw(-180 * .pi / 180)), 180, accuracy: 1e-3)
+    }
+
+    func testYawInsideTheCircleIsLeftAlone() {
+        for degrees in stride(from: -179.0, through: 180.0, by: 37.0) {
+            let radians = Float(degrees) * .pi / 180
+            XCTAssertEqual(Map3DCamera.wrapYaw(radians), radians, accuracy: 1e-5,
+                           "\(degrees)° อยู่ในรอบอยู่แล้ว ห้ามขยับ")
+        }
+    }
+
+    /// ค่าที่วนหลายรอบต้องยังชี้ทิศเดิมจริง ๆ ไม่ใช่แค่ตัวเลขสวย
+    func testWrappedYawPointsTheCameraTheSameWay() {
+        let target = SIMD3<Float>(0, 0, 0)
+        let spun = Map3DCamera.wrapYaw(3 * 2 * .pi + 0.7)
+        let plain = Map3DCamera.position(yaw: 0.7, pitch: 0.5, distance: 2, target: target)
+        let wrapped = Map3DCamera.position(yaw: spun, pitch: 0.5, distance: 2, target: target)
+        XCTAssertEqual(simd_distance(plain, wrapped), 0, accuracy: 1e-4)
     }
 
     func testDistanceClampsBothEnds() {
@@ -42,7 +63,7 @@ final class Map3DCameraTests: XCTestCase {
     func testDefaultsSitInsideTheirOwnLimits() {
         XCTAssertEqual(Map3DCamera.clampPitch(Map3DCamera.defaultPitch),
                        Map3DCamera.defaultPitch, accuracy: 1e-6)
-        XCTAssertEqual(Map3DCamera.clampYaw(Map3DCamera.defaultYaw),
+        XCTAssertEqual(Map3DCamera.wrapYaw(Map3DCamera.defaultYaw),
                        Map3DCamera.defaultYaw, accuracy: 1e-6)
         XCTAssertEqual(Map3DCamera.clampDistance(Map3DCamera.defaultDistance),
                        Map3DCamera.defaultDistance, accuracy: 1e-6)

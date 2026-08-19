@@ -21,12 +21,12 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion]
 SwiftUI · deployment target iOS 18.0 · Swift 5 · bundle `th.ac.mfu.wbwSwift` · team `NJL4K64JX5` ·
 dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน `project.yml`)
 
-- `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (39 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `Map3D/` (8
+- `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (40 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `Map3D/` (10
   ไฟล์), `Chat/` (5 ไฟล์), `Conditions/` (4 ไฟล์ — อุณหภูมิ/AQI จาก Open-Meteo), `Feedback/` (4 ไฟล์),
   `Bloom/` (3 ไฟล์ — ดอกไม้ halftone หน้า Home), `SURun/` (3 ไฟล์ — จับระยะเดิน/นับก้าว),
   `Demo/` (2 ไฟล์ — โหมดเดโม่สำหรับ App Review), `Scene3D/` (7 ไฟล์ — ฉากป่า ปิดอยู่ตอนนี้แต่ไม่ได้ลบ),
   `Resources/` (asset 3D `.usdz`/`.glb` + `route_wbw.json` เส้นทางเดินที่ bake มาจาก repo Android)
-- `WBWTests/` — XCTest ล้วน 35 ไฟล์ วางแบนที่ราก
+- `WBWTests/` — XCTest ล้วน 40 ไฟล์ วางแบนที่ราก
 - `docs/` — เอกสารเสริม (spec/plan อยู่ `docs/superpowers/`)
 - `scripts/` — สคริปต์ Blender ทำ asset (`.usdz`) ไม่ใช่ขั้นตอน build ของแอป · กับ
   `check-skill-refs.sh` ที่ตรวจว่าไฟล์ skill 5 ใบนี้ยังตรงกับ repo ไหม (ดู `workflow.md`)

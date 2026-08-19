@@ -17,9 +17,34 @@ enum Map3DSky {
     /// `Map3DIntro` ไม่งั้นกล้องไม่ได้ทะลุอะไรเลย (เทสคุมไว้)
     static let cloudLayerHeights: [Float] = [2.9, 2.2, 1.6]
 
-    /// รัศมีโดม — ต้องมากกว่า `Map3DCamera.maxDistance` (4.0) พอสมควรเพื่อไม่ให้กล้องทะลุออก
-    /// นอกโดมตอนซูมสุด และน้อยกว่า `camera.far` (100) ที่ Map3DScreen ตั้งไว้
-    static let domeRadius: Float = 20
+    /// รัศมีโดม — ต้องมากกว่า `Map3DCamera.maxDistance` พอสมควรเพื่อไม่ให้กล้องทะลุออกนอกโดม
+    /// ตอนซูมสุด และน้อยกว่า `camera.far` (100) ที่ Map3DScreen ตั้งไว้
+    ///
+    /// ลดจาก 20 เหลือ 9 (ค่าอยู่ที่ `map_config.json`) — โดมกว้างเกินทำให้เส้นขอบฟ้าอยู่ไกลจน
+    /// มีที่ว่างระหว่างขอบแผ่นกับขอบโดมให้เห็นเป็นช่องโล่ง · แคบลงแล้วฟ้าโอบเข้ามาใกล้ขอบแผ่นกว่าเดิม
+    static var domeRadius: Float { Map3DConfig.current.sky.domeRadius }
+
+    /// ตำแหน่งกับความกว้างของ "ชายพื้น" — ระนาบแนวนอนสีเดียวกับฟ้าที่ปูเลยขอบแผ่นออกไป
+    ///
+    /// **ม่านขอบแนวตั้งอย่างเดียวไม่พอ** ม่านนั้นสูงเท่าความหนาแผ่นและตั้งฉากกับพื้น มันบังสันตัด
+    /// ได้ดีตอนกล้องอยู่ต่ำ (pitch 12° ซึ่งเป็นมุมที่มันถูกจูนมา) แต่ตอนกล้องอยู่สูง (68° = ค่าเริ่มต้น)
+    /// เรามองลงมาเห็นม่านเกือบขอบ ๆ มันจึงบางจนบังอะไรไม่ได้ แล้วเห็นก้นแผ่นเป็นแถบเข้มพาดจอแทน
+    /// (ยืนยันจากสกรีนช็อตจริง 2026-08-20) · ชายพื้นสีฟ้าทำให้ "เลยขอบแผ่นออกไป = ท้องฟ้า" ทุกมุม
+    ///
+    /// แยกเป็นฟังก์ชันบริสุทธิ์เพราะเทสยูนิตสร้าง entity จริงไม่ได้ (ต้องมี RealityKit context —
+    /// เหตุผลเดียวกับที่เทสในไฟล์นี้ทดสอบแค่ตัววาดภาพ ไม่แตะ TextureResource)
+    static func apronPlacement(halfX: Float, halfZ: Float,
+                               slabDepth: Float) -> (y: Float, span: Float) {
+        let radius = max(halfX, halfZ)
+        // ต่ำกว่าก้นแผ่นลงไปอีก 4% ของความหนา — ระนาบเดียวกันเป๊ะจะ z-fight กับก้นแผ่น
+        // เห็นเป็นลายพร่าวิบวับเวลาหมุนกล้อง ซึ่งอ่านเหมือนบั๊กเรื่องแสงมากกว่าเรื่องตำแหน่ง
+        let y = -slabDepth / 2 - slabDepth * 0.04
+        // ต้องเลยขอบแผ่นออกไปจริง แต่ครึ่งความกว้างต้องไม่ถึงรัศมีโดม ไม่งั้นขอบชายพื้นโผล่
+        // เป็นเส้นตรงพาดท้องฟ้าแทนที่จะหายเข้าไปในโดม
+        let span = min(radius * 2 * Map3DConfig.current.sky.apronSpanMultiplier,
+                       domeRadius * 1.6)
+        return (y, span)
+    }
 
     /// สีฟ้าของโดม — ม่านขอบใช้สีเดียวกันเป๊ะ ส่วนที่ทึบของม่านจึงกลืนไปกับท้องฟ้าสนิท
     /// ต่างกันเมื่อไหร่ม่านจะกลายเป็นแถบสีพาดขวางแทนที่จะหายไป
@@ -106,6 +131,7 @@ enum Map3DSky {
     static let rootName = "Sky"
     /// ชั้นเมฆทั้งหมดอยู่ใต้ entity นี้ — ปิดทีเดียวจบตอน intro เล่นจบ
     static let cloudsName = "Clouds"
+    static let apronName = "EdgeApron"
 
     /// สร้างโดม + ม่านขอบ + ชั้นเมฆ · `halfX`/`halfZ` = ครึ่งความกว้างจริงของโมเดลหลังย่อสเกลแล้ว
     ///
@@ -140,7 +166,13 @@ enum Map3DSky {
             material.color = .init(tint: skyColor, texture: .init(texture))
             material.opacityThreshold = 0
             material.blending = .transparent(opacity: 1.0)
-            material.faceCulling = .none
+            // **cull หน้าที่หันออกนอกวง วาดเฉพาะด้านใน** — ไม่ใช่ .none
+            //
+            // ที่ pitch ต่ำ (12°) กล้องอยู่ห่างจากศูนย์กลางตามแนวราบ ~1.56 หน่วย ซึ่ง "นอกวง"
+            // ม่าน (รัศมี ~1.02) แผ่นฝั่งใกล้จึงมาขวางอยู่หน้าภูมิประเทศ เห็นเป็นแถบฟ้าจาง ๆ
+            // คลุมครึ่งล่างของจอ ทั้งที่หน้าที่ของม่านคือปิดสันตัด **ฝั่งไกล** (ถ่ายจริงเจอแล้ว)
+            // .front ทำให้เหลือเฉพาะแผ่นฝั่งไกลที่หันด้านในเข้าหากล้อง ซึ่งเป็นฝั่งที่ต้องปิดพอดี
+            material.faceCulling = .front
 
             let ring = Entity()
             ring.name = "EdgeCurtain"
@@ -170,6 +202,19 @@ enum Map3DSky {
             }
             sky.addChild(ring)
         }
+
+        // ชายพื้น — ระนาบแนวนอนสีเดียวกับโดม ปูใต้ก้นแผ่นแล้วเลยขอบออกไป (ดู apronPlacement
+        // ว่าทำไมม่านแนวตั้งอย่างเดียวบังไม่มิด) · UnlitMaterial สีเดียวกับโดมเป๊ะ ต่างกันเมื่อไหร่
+        // จะกลายเป็นแผ่นสีพาดขวางแทนที่จะกลืนหายไปกับฟ้า
+        let placement = apronPlacement(halfX: halfX, halfZ: halfZ, slabDepth: slabDepth)
+        var apronMaterial = UnlitMaterial(color: skyColor)
+        apronMaterial.faceCulling = .none
+        let apron = ModelEntity(
+            mesh: .generatePlane(width: placement.span, depth: placement.span),
+            materials: [apronMaterial])
+        apron.name = apronName
+        apron.position = SIMD3<Float>(0, placement.y, 0)
+        sky.addChild(apron)
 
         // ชั้นเมฆที่กล้องจะทะลุลงมา — เป็นของสำหรับ intro เท่านั้น ปิดทิ้งเมื่อเล่นจบ
         // ปล่อยเปิดไว้แล้วมุมกล้องต่ำ ๆ จะมองทะลุชั้นเมฆเห็นแผนที่เป็นสีจาง ๆ ทั้งจอ

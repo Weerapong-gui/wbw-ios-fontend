@@ -39,14 +39,15 @@ struct Map3DScreen: View {
     /// ที่ Map3DCamera กันไว้ไม่ให้ผู้ใช้ทำ — แกน Y ของโลกไม่ใช่แกนตั้งของโมเดล การหมุนรอบมัน
     /// จึงเป็นการ "พลิก" ไม่ใช่การ "หันทิศ"
     ///
-    /// ค่านี้ "ไม่ใช่" ทิศเหนือจริง อย่าตีความเป็นมุม compass/bearing ใด ๆ
+    /// ค่านี้ "ไม่ใช่" ทิศเหนือจริง อย่าตีความเป็นมุม compass/bearing ใด ๆ ·
+    /// ตัวเลขอยู่ที่ `WBW/Resources/map_config.json` เพราะต้องจูนใหม่ทุกครั้งที่เปลี่ยนโมเดล
     ///
     /// กติกาสำหรับใครมาต่อ: entity ที่วางตำแหน่งจากพิกัดจริง (lat/lng) เช่นจุด GPS ผู้ใช้
     /// ต้องเป็นลูกของ `map` ไม่ใช่ลูกของ `root` — ให้ transform hierarchy พาการหมุนนี้ไปเองอัตโนมัติ
     /// ถ้าจำเป็นต้องแยกไปเป็นลูกของ entity อื่น ต้องคูณการหมุนนี้เข้าไปเองด้วยมือ ไม่งั้นตำแหน่งจะเพี้ยน
     /// แบบเงียบ ๆ ไม่มี error ไม่มีเทสจับได้ (หมุดหาโหนดผ่าน findEntity(named:) บนโมเดลเองอยู่แล้ว
     /// จึงรับการหมุนนี้ไปฟรี ๆ โดยอัตโนมัติ ไม่ต้องแก้อะไร)
-    private static let cameraFramingYaw: Float = 90 * .pi / 180
+    private static var cameraFramingYaw: Float { Map3DConfig.current.framingYaw }
 
     /// มุมกวาด/เงย/ระยะของกล้องตอนนี้ — ผู้ใช้ลากและหุบนิ้วเพื่อเปลี่ยน ทุกค่าถูก clamp
     /// ด้วย Map3DCamera เสมอ โดยเฉพาะมุมเงยที่ห้ามต่ำกว่าเส้นขอบฟ้า (มองใต้โมเดลไม่ได้)
@@ -59,6 +60,21 @@ struct Map3DScreen: View {
     @State private var gestureStartDistance: Float?
     /// ทับค่า cameraFramingYaw ชั่วคราวตอนถ่ายเทียบมุม (ตั้งผ่าน -uitestMapHeading, DEBUG เท่านั้น)
     @State private var headingOverride: Float?
+
+    /// จุดที่กล้องจ้องอยู่ — `.zero` = กลางแผนที่ตามปกติ · ตำแหน่งหมุด = กำลังโฟกัสฐานนั้น
+    ///
+    /// เดิมกล้อง `look(at: .zero)` ตายตัว การหมุนวนรอบฐานจึงเป็นไปไม่ได้เลยไม่ว่าจะตั้ง yaw ยังไง
+    @State private var target = SIMD3<Float>.zero
+    /// งานบิน+หมุนวนที่กำลังเล่นอยู่ — ต้อง cancel ทุกทางออก ไม่งั้นมันหมุนต่อหลังออกจากแท็บไปแล้ว
+    @State private var focusTask: Task<Void, Never>?
+    /// ท่ากล้องก่อนกดหมุด — เก็บไว้คืนตอนปิดการ์ด ผู้ใช้จะได้กลับมาที่มุมที่ตัวเองจัดไว้
+    @State private var poseBeforeFocus: Map3DPose?
+    /// คำใบ้ "แตะหมุดเพื่อดูฐาน" ยังโชว์อยู่ไหม
+    @State private var showsHint = false
+
+    /// ปิดแอนิเมชันทั้งหมดเมื่อผู้ใช้เปิด Reduce Motion — กล้องกระโดดไปท่าปลายทางเลย
+    /// (จอนี้มีทั้ง intro บินทะลุเมฆและการหมุนวนรอบฐาน ซึ่งเป็นการเคลื่อนไหวแบบที่ตัวเลือกนี้หมายถึงตรง ๆ)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// เทสยูนิตรันในโปรเซสเดียวกับแอป (app target เป็น test host) — ทรงเดียวกับ
     /// ForestSceneHost.isRunningUnderXCTest ที่มีเหตุผลยาวเขียนไว้แล้ว
@@ -118,46 +134,228 @@ struct Map3DScreen: View {
                 }
             }
 
-            if shouldRender {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Text("Satlas · Allen AI · © OpenStreetMap contributors")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.white.opacity(0.55))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 12)
-                    // พ้นแท็บบาร์ลอย — ค่าเดียวกับที่ฉากป่าใช้ วัดจากเครื่องจริงสองรุ่นมาแล้ว
-                    .padding(.bottom, ForestSceneHost.tabBarClearance)
-                }
-                .allowsHitTesting(false)
-            }
-
-            if let tappedSequence {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Text(Map3DPins.label(sequence: tappedSequence,
-                                             checkedIn: progress.progress?.checkedIn ?? []))
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white)
-                        Spacer()
-                        Button {
-                            self.tappedSequence = nil
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.8))
-                        }
-                    }
-                    .padding(16)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, ForestSceneHost.tabBarClearance)
+            if shouldRender && !isLoading {
+                compass
+                credit
+                if let tappedSequence {
+                    baseCard(sequence: tappedSequence)
+                } else if showsHint {
+                    hint
                 }
             }
         }
+    }
+
+    // MARK: - ชั้นบนแผนที่
+
+    /// เข็มทิศมุมขวาบน — โผล่เฉพาะตอนกล้องไม่ได้อยู่ท่าเริ่มต้น (พฤติกรรมเดียวกับ Apple Maps)
+    /// โผล่ตลอดเวลาแปลว่าปุ่มที่กดแล้วไม่มีอะไรเกิดขึ้นนั่งอยู่บนจอถาวร
+    @ViewBuilder
+    private var compass: some View {
+        if isOffDefaultAngle {
+            VStack {
+                HStack {
+                    Spacer()
+                    Button { resetAngle() } label: {
+                        Image(systemName: "location.north.line.fill")
+                            .font(.title3)
+                            .foregroundStyle(.white)
+                            // หมุนตามมุมกวาดจริง — เข็มที่ไม่หมุนตามคือของประดับ ไม่ใช่เข็มทิศ
+                            .rotationEffect(.radians(Double(-yaw)))
+                            .frame(width: 44, height: 44)
+                            .glassSurface(Circle(), interactive: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("กลับไปมุมมองเริ่มต้น")
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .transition(.opacity)
+        }
+    }
+
+    private var credit: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Text("Satlas · Allen AI · © OpenStreetMap contributors")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.55))
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            // พ้นแท็บบาร์ลอย — ค่าเดียวกับที่ฉากป่าใช้ วัดจากเครื่องจริงสองรุ่นมาแล้ว
+            .padding(.bottom, ForestSceneHost.tabBarClearance)
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// บอกครั้งเดียวว่าแท่งแดงกดได้ — ไม่มีอะไรบนจอบอกเลยว่าโมเดลนี้โต้ตอบได้
+    private var hint: some View {
+        VStack {
+            Spacer()
+            Text("แตะหมุดสีแดงเพื่อดูฐาน")
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .glassSurface(Capsule())
+                .padding(.bottom, ForestSceneHost.tabBarClearance + 16)
+        }
+        .allowsHitTesting(false)
+        .transition(.opacity)
+    }
+
+    /// การ์ดฐาน — ชื่อ/ลำดับ/สถานะเช็คอิน
+    ///
+    /// ชื่อจริงมีให้เฉพาะฐานที่เช็คอินไปแล้ว (backend คืนแค่ checked_in) `Map3DPins.label` จึงคืน
+    /// "ฐานที่ N" สำหรับฐานที่ยังไม่ไป — **ห้ามเดาชื่อ** กติกาเดิมที่ต้องคงไว้
+    private func baseCard(sequence: Int) -> some View {
+        let checkedIn = progress.progress?.checkedIn ?? []
+        let visited = checkedIn.first { $0.sequence == sequence }
+        return VStack {
+            Spacer()
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(Map3DPins.label(sequence: sequence, checkedIn: checkedIn))
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    if let activity = visited?.activityName, !activity.isEmpty {
+                        Text(activity)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                    Label(visited == nil ? "ยังไม่ได้เช็คอิน" : "เช็คอินแล้ว",
+                          systemImage: visited == nil ? "circle.dashed" : "checkmark.circle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(visited == nil ? .white.opacity(0.7) : Color.wbwGold)
+                }
+                Spacer(minLength: 0)
+                Button { endFocus() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("ปิด")
+            }
+            .padding(20)
+            .glassSurface(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .padding(.horizontal, 20)
+            .padding(.bottom, ForestSceneHost.tabBarClearance)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    // MARK: - โฟกัสหมุด
+
+    /// คำใบ้โผล่ครั้งเดียวต่อการเปิดแอป แล้วจางไปเอง
+    ///
+    /// **ต้องผูกกับ `isActive` ไม่ใช่ `onAppear`** — `TabView` แบบ `Tab(value:)` ของ iOS 18+
+    /// สร้างเนื้อของทุกแท็บตั้งแต่ตอน mount `onAppear` จึงยิงตั้งแต่ผู้ใช้ยังอยู่หน้า Home
+    /// คำใบ้จะโชว์แล้วหมดเวลาไปก่อนที่ใครจะได้เห็น (ถ่ายจริงเจอแล้ว)
+    private func showHintOnce() {
+        guard !MapModelLoader.shared.hasShownPinHint else { return }
+        MapModelLoader.shared.hasShownPinHint = true
+        showsHint = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            showsHint = false
+        }
+    }
+
+    /// ระยะใกล้สุดที่ยอมให้ตอนนี้ — ตอนจ้องหมุดเข้าใกล้ได้กว่าปกติ (ดู Map3DCamera.clampDistance)
+    private var distanceFloor: Float {
+        tappedSequence == nil ? Map3DCamera.minDistance : Map3DCamera.focusDistance
+    }
+
+    /// กล้องอยู่ท่าอื่นที่ไม่ใช่ท่าเริ่มต้นหรือเปล่า — เกณฑ์หยาบ ๆ พอให้เข็มทิศโผล่ตอนที่ควรโผล่
+    private var isOffDefaultAngle: Bool {
+        abs(yaw - Map3DCamera.defaultYaw) > 0.05
+            || abs(pitch - Map3DCamera.defaultPitch) > 0.05
+            || tappedSequence != nil
+    }
+
+    private func resetAngle() {
+        focusTask?.cancel()
+        focusTask = nil
+        tappedSequence = nil
+        poseBeforeFocus = nil
+        animate(to: Map3DPose(yaw: Map3DCamera.defaultYaw, pitch: Map3DCamera.defaultPitch,
+                              distance: Map3DCamera.defaultDistance, target: .zero),
+                over: Map3DFocus.returnDuration)
+    }
+
+    /// บินเข้าไปหาหมุดแล้วหมุนวนรอบมันจนกว่าผู้ใช้จะสั่งหยุด
+    private func focus(on sequence: Int, at position: SIMD3<Float>) {
+        focusTask?.cancel()
+        showsHint = false
+        // เก็บท่าเดิมไว้ครั้งแรกเท่านั้น — กดสลับหมุดไปมาแล้วเก็บทับทุกครั้ง ปิดการ์ดจะได้กลับไป
+        // ท่า "จ้องหมุดอันก่อน" แทนที่จะเป็นมุมมองรวมที่ผู้ใช้จัดไว้ก่อนเริ่มกด
+        if poseBeforeFocus == nil {
+            poseBeforeFocus = Map3DPose(yaw: yaw, pitch: pitch, distance: distance, target: target)
+        }
+        tappedSequence = sequence
+        let destination = Map3DFocus.pose(forPinAt: position, currentYaw: yaw)
+        focusTask = Task { @MainActor in
+            await run(to: destination, over: Map3DFocus.flyDuration)
+            guard !Task.isCancelled, !reduceMotion else { return }
+            // หมุนวนต่อไปเรื่อย ๆ · base คือมุมตอนบินถึง ไม่ใช่ 0 ไม่งั้นภาพกระโดดตอนเริ่มหมุน
+            let base = yaw
+            let started = CFAbsoluteTimeGetCurrent()
+            while !Task.isCancelled {
+                yaw = Map3DFocus.orbitYaw(base: base, elapsed: CFAbsoluteTimeGetCurrent() - started)
+                try? await Task.sleep(nanoseconds: 16_000_000)
+            }
+        }
+    }
+
+    /// ปิดการ์ดแล้วคืนท่ากล้องเดิม
+    private func endFocus() {
+        focusTask?.cancel()
+        focusTask = nil
+        tappedSequence = nil
+        guard let previous = poseBeforeFocus else { return }
+        poseBeforeFocus = nil
+        animate(to: previous, over: Map3DFocus.returnDuration)
+    }
+
+    /// ผู้ใช้เข้ามาคุมกล้องเอง — หยุดหมุนวน แต่ยังจ้องฐานเดิมอยู่ (การ์ดยังเปิด)
+    /// ปิดการ์ดไปด้วยจะเป็นการลงโทษคนที่แค่อยากเอียงกล้องดูฐานนั้นเอง
+    private func stopOrbit() {
+        focusTask?.cancel()
+        focusTask = nil
+    }
+
+    private func animate(to pose: Map3DPose, over duration: TimeInterval) {
+        focusTask = Task { @MainActor in await run(to: pose, over: duration) }
+    }
+
+    /// เดินค่าเองทีละเฟรม ไม่ใช้ withAnimation — เหตุผลเดียวกับ `playIntroIfNeeded`:
+    /// ค่ากล้องถูกอ่านใน update closure ของ RealityView การพึ่งว่า SwiftUI จะ re-run closure นั้น
+    /// ครบทุกเฟรมตามค่า animated เป็นข้อสมมติที่พิสูจน์ไม่ได้จากโค้ด
+    @MainActor
+    private func run(to pose: Map3DPose, over duration: TimeInterval) async {
+        let from = Map3DPose(yaw: yaw, pitch: pitch, distance: distance, target: target)
+        guard !reduceMotion else { apply(pose); return }
+        let started = CFAbsoluteTimeGetCurrent()
+        while !Task.isCancelled {
+            let elapsed = CFAbsoluteTimeGetCurrent() - started
+            let frame = Map3DFocus.frame(at: Float(min(elapsed / duration, 1)), from: from, to: pose)
+            apply(frame)
+            if elapsed >= duration { return }
+            try? await Task.sleep(nanoseconds: 16_000_000)
+        }
+    }
+
+    private func apply(_ pose: Map3DPose) {
+        yaw = pose.yaw
+        pitch = pose.pitch
+        distance = pose.distance
+        target = pose.target
     }
 
     /// บินทะลุเมฆลงมา — ครั้งแรกต่อการเปิดแอปเท่านั้น
@@ -169,6 +367,14 @@ struct Map3DScreen: View {
     private func playIntroIfNeeded() {
         guard !MapModelLoader.shared.hasPlayedIntro else { return }
         MapModelLoader.shared.hasPlayedIntro = true
+        // เปิด Reduce Motion ไว้ = ข้ามการบินทะลุเมฆ ไปอยู่ท่าปลายทางเลย
+        guard !reduceMotion else {
+            let end = Map3DIntro.frame(at: 1)
+            pitch = end.pitch
+            distance = end.distance
+            introFinished = true
+            return
+        }
         Task {
             let started = CFAbsoluteTimeGetCurrent()
             while true {
@@ -245,7 +451,7 @@ struct Map3DScreen: View {
             //
             // ต้องอยู่ในสาย transform hierarchy เดียวกับโมเดล ไม่ใช่ของ `root` — ตามกติกาที่
             // คอมเมนต์ของ cameraFramingYaw เขียนไว้ ไม่งั้นจุดจะไม่หมุนตามโมเดลตอนที่ map ถูกหมุน
-            // cameraFramingYaw (45°)
+            // ตาม cameraFramingYaw (ค่าจาก map_config.json)
             //
             // ⚠️ พิสูจน์แล้วด้วยการทดลองจริง (ไม่ใช่แค่คาดเดา) ว่า `map.addChild(dot)` ตรงๆ ใช้
             // ไม่ได้ — entity ที่เป็นลูกโดยตรงของ `map` (ตัว wrapper ที่ Entity(named:) คืนมา)
@@ -337,8 +543,8 @@ struct Map3DScreen: View {
             // (log ยืนยันว่ากล้องถูกวางถูกตำแหน่งทุกครั้ง แต่ภาพไม่ขยับสักพิกเซล) ไม่ตั้งเลยคือถูกแล้ว
             if let camera = root.findEntity(named: "Camera") {
                 let eye = Map3DCamera.position(yaw: yaw, pitch: pitch,
-                                               distance: distance, target: .zero)
-                camera.look(at: .zero, from: eye, relativeTo: nil)
+                                               distance: distance, target: target)
+                camera.look(at: target, from: eye, relativeTo: nil)
             }
 
             guard let dot = map.findEntity(named: "UserDot") else { return }
@@ -388,12 +594,15 @@ struct Map3DScreen: View {
         .simultaneousGesture(
             DragGesture()
                 .onChanged { value in
+                    // ผู้ใช้เข้ามาคุมเอง — หยุดหมุนวนทันที ไม่งั้นกล้องสองแรงแย่งกันทุกเฟรม
+                    stopOrbit()
                     let startYaw = gestureStartYaw ?? yaw
                     let startPitch = gestureStartPitch ?? pitch
                     if gestureStartYaw == nil { gestureStartYaw = startYaw }
                     if gestureStartPitch == nil { gestureStartPitch = startPitch }
-                    // 0.004 เรเดียนต่อพอยต์ — กวาดสุดช่วง (110°) ใช้ระยะลากราวครึ่งจอครึ่ง
-                    yaw = Map3DCamera.clampYaw(startYaw - Float(value.translation.width) * 0.004)
+                    // 0.004 เรเดียนต่อพอยต์ — ลากเต็มความกว้างจอ (~390 pt) ได้ราว 90°
+                    // หมุนครบรอบใช้สี่ครั้ง ซึ่งพอดีกับการ "กวาดดูรอบ ๆ" ไม่ใช่ปั่นจนเวียนหัว
+                    yaw = Map3DCamera.wrapYaw(startYaw - Float(value.translation.width) * 0.004)
                     // ลากขึ้น = เงยขึ้นมองจากสูงลงมา (ทิศเดียวกับที่แอปแผนที่ทั่วไปทำ)
                     pitch = Map3DCamera.clampPitch(startPitch + Float(value.translation.height) * 0.004)
                 }
@@ -405,10 +614,15 @@ struct Map3DScreen: View {
         .simultaneousGesture(
             MagnifyGesture()
                 .onChanged { value in
+                    stopOrbit()
                     let start = gestureStartDistance ?? distance
                     if gestureStartDistance == nil { gestureStartDistance = start }
                     // หุบนิ้วออก (magnification > 1) = เข้าใกล้ ระยะจึงหารไม่ใช่คูณ
-                    distance = Map3DCamera.clampDistance(start / Float(value.magnification))
+                    //
+                    // ตอนโฟกัสหมุดอยู่ ปล่อยให้อยู่ใกล้ได้เท่าที่โค้ดพาเข้ามา — ใช้ minDistance ตรง ๆ
+                    // แล้วนิ้วแรกที่แตะจะดีดกล้องถอยออกทันที ทั้งที่ผู้ใช้แค่อยากเอียงดูฐานนั้น
+                    distance = Map3DCamera.clampDistance(start / Float(value.magnification),
+                                                         floor: distanceFloor)
                 }
                 .onEnded { _ in gestureStartDistance = nil }
         )
@@ -420,7 +634,9 @@ struct Map3DScreen: View {
                     var node: Entity? = value.entity
                     while let current = node {
                         if let sequence = Map3DPins.sequence(forEntityNamed: current.name) {
-                            tappedSequence = sequence
+                            // อ่านตำแหน่งหมุดใน scene space ตรงนี้เลย — เป็นสเปซเดียวกับที่กล้องใช้
+                            // (`camera.look(at:from:relativeTo: nil)`) ไม่ต้องแปลงอะไรอีก
+                            focus(on: sequence, at: current.position(relativeTo: nil))
                             return
                         }
                         node = current.parent
@@ -432,7 +648,7 @@ struct Map3DScreen: View {
             // เปิดการ์ดฐานตรงๆ โดยไม่ต้องแตะจริง — ทรงเดียวกับ uitestChat/uitestFeedback ที่
             // MainTabView.swift เป็นทางเดียวที่ถ่ายรูปการ์ดได้ในสภาพแวดล้อมที่ไม่มี tap tooling
             let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
-            if forced > 0 { tappedSequence = forced }
+            if forced > 0 { tappedSequence = forced; showsHint = false }
             // ลองมุมกล้องหลายค่าแล้วถ่ายเทียบกับภาพอ้างอิงโดยไม่ต้อง build ใหม่ทุกครั้ง
             // (หน่วยเป็นองศา · หมุนโมเดล ไม่ใช่หมุนกล้อง เพราะทิศของพื้นที่งานอบอยู่ในโมเดล)
             if UserDefaults.standard.object(forKey: "uitestMapHeading") != nil {
@@ -451,6 +667,13 @@ struct Map3DScreen: View {
             }
             // ระยะกล้องสำหรับถ่ายเทียบตอนซูมสุดสองทาง · หน่วยเป็น "ร้อยเท่า" เพราะ launch arg
             // ที่ simctl ส่งมาอ่านเป็น Int ได้อย่างเดียว (0.8 ส่งไม่ได้ ต้องส่ง 80)
+            // กวาดมุมรอบตัวเพื่อถ่ายเทียบว่าไม่มีทิศไหนเห็นขอบโมเดล (หน่วยองศา 0-359)
+            if UserDefaults.standard.object(forKey: "uitestMapYaw") != nil {
+                MapModelLoader.shared.hasPlayedIntro = true
+                introFinished = true
+                yaw = Map3DCamera.wrapYaw(
+                    Float(UserDefaults.standard.integer(forKey: "uitestMapYaw")) * .pi / 180)
+            }
             if UserDefaults.standard.object(forKey: "uitestMapDistance") != nil {
                 MapModelLoader.shared.hasPlayedIntro = true
                 introFinished = true
@@ -458,12 +681,24 @@ struct Map3DScreen: View {
                     Float(UserDefaults.standard.integer(forKey: "uitestMapDistance")) / 100)
             }
             #endif
-            if isActive { location.start() }
+            if isActive { location.start(); showHintOnce() }
+            // บอก loader ว่าโมเดลกำลังถูกใช้อยู่ — ตอนระบบเตือนความจำมันจะได้ไม่ปล่อย entity
+            // ที่แขวนอยู่ในฉากที่กำลังเรนเดอร์ทิ้ง (แผนที่จะหายไปเฉย ๆ ไม่มี error ให้เห็น)
+            MapModelLoader.shared.isInUse = isActive
         }
         .onChange(of: isActive) { _, nowActive in
             nowActive ? location.start() : location.stop()
+            MapModelLoader.shared.isInUse = nowActive
+            if nowActive { showHintOnce() }
         }
-        .onDisappear { location.stop() }
+        .onDisappear {
+            location.stop()
+            MapModelLoader.shared.isInUse = false
+            // ไม่ยกเลิกแล้วมันหมุนวนต่ออยู่เบื้องหลังหลังออกจากแท็บไปแล้ว — งานที่เขียน @State
+            // ทุก 16 มิลลิวินาทีตลอดกาล
+            focusTask?.cancel()
+            focusTask = nil
+        }
         .ignoresSafeArea()
     }
 }

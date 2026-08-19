@@ -63,6 +63,37 @@ final class Map3DSkyTests: XCTestCase {
         }
     }
 
+    // MARK: - เรขาคณิตที่กันไม่ให้เห็นขอบโมเดล
+
+    /// โดมต้องใหญ่กว่าระยะที่กล้องถอยได้ไกลสุด ไม่งั้นซูมออกสุดแล้วกล้องทะลุออกนอกโดม
+    /// เห็นพื้นดำรอบโมเดล ซึ่งเป็นอาการเดิมที่โดมถูกใส่เข้ามาแก้ตั้งแต่แรก
+    func testDomeIsBigEnoughToKeepTheCameraInside() {
+        XCTAssertGreaterThan(Map3DSky.domeRadius, Map3DCamera.maxDistance,
+                             "ซูมออกสุดแล้วกล้องจะหลุดออกนอกโดม")
+    }
+
+    /// ชายพื้นต้องอยู่ **ใต้** ก้นแผ่น ไม่ใช่ระนาบเดียวกันเป๊ะ
+    ///
+    /// ระนาบเดียวกันเป๊ะจะ z-fight กับก้นแผ่น เห็นเป็นลายพร่าวิบวับเวลาหมุนกล้อง —
+    /// ดูเหมือนบั๊กเรื่องแสง ไม่ใช่เรื่องตำแหน่ง จึงหาสาเหตุยาก
+    func testApronSitsBelowTheTerrainSlab() {
+        let slabDepth: Float = 0.26
+        let placement = Map3DSky.apronPlacement(halfX: 0.86, halfZ: 1.0, slabDepth: slabDepth)
+        XCTAssertLessThan(placement.y, -slabDepth / 2,
+                          "ชายพื้นต้องต่ำกว่าก้นแผ่น ไม่งั้น z-fight")
+    }
+
+    /// กว้างพอจะเลยขอบแผ่นออกไปจริง — แคบกว่าแผ่นเมื่อไหร่มันไม่ได้บังอะไรเลย
+    /// และต้องไม่กว้างจนล้นออกนอกโดม (ขอบชายพื้นจะโผล่เป็นเส้นตรงพาดท้องฟ้าแทน)
+    func testApronReachesPastTheSlabButStaysInsideTheDome() {
+        let halfX: Float = 0.86, halfZ: Float = 1.0
+        let placement = Map3DSky.apronPlacement(halfX: halfX, halfZ: halfZ, slabDepth: 0.26)
+        XCTAssertGreaterThan(placement.span, 2 * max(halfX, halfZ),
+                             "ชายพื้นแคบกว่าแผ่น = ไม่ได้บังอะไรเลย")
+        XCTAssertLessThan(placement.span / 2, Map3DSky.domeRadius,
+                          "ชายพื้นล้นออกนอกโดม ขอบจะโผล่เป็นเส้นพาดท้องฟ้า")
+    }
+
     /// ม่านขอบไล่จากทึบล่างไปโปร่งบน — กลับด้านเมื่อไหร่มันจะไปบังภูมิประเทศแทนที่จะบังสันตัด
     func testEdgeCurtainFadesFromOpaqueBottomToClearTop() throws {
         let image = try XCTUnwrap(Map3DSky.edgeCurtainImage(width: 8, height: 64))

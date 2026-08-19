@@ -1,0 +1,102 @@
+import XCTest
+@testable import WBW
+
+/// ค่าที่ผูกกับ `map.usdz` ทั้งหมดถูกย้ายมาอยู่ใน `WBW/Resources/map_config.json` ไฟล์เดียว
+/// เพราะโมเดลจะถูกเปลี่ยนใบ — เดิมค่าพวกนี้กระจายอยู่ 4 ไฟล์ (ชื่อ prim ของหมุด, กรอบ lat/lng,
+/// มุมหันพื้นที่งาน, ขอบเขตกล้อง) เปลี่ยนโมเดลทีต้องไล่แก้ทีละที่โดยไม่มีอะไรฟ้องว่าลืมที่ไหน
+///
+/// เทสชุดนี้คุมสองเรื่องที่ผิดแล้ว "แอปยังรันได้" จนกว่าจะมีคนเปิดแท็บแผนที่แล้วเจอเอง:
+/// ไฟล์ถูก bundle ไปจริงไหม และ JSON ที่พิมพ์ผิดถูกปฏิเสธจนตกไปใช้ค่า fallback ไหม
+final class Map3DConfigFileTests: XCTestCase {
+
+    // MARK: - ไฟล์จริงที่ไปกับแอป
+
+    /// ไฟล์ต้องอยู่ใน bundle จริง ไม่ใช่แค่มีอยู่ใน repo — XcodeGen เก็บของที่ไม่ใช่ `.swift`
+    /// ใน `WBW/` เป็น resource ให้เอง แต่ถ้าวันหลังมีคนย้ายไฟล์ออกนอกโฟลเดอร์นั้น
+    /// แอปจะเงียบ ๆ ตกไปใช้ fallback แทน ซึ่งอ่านจากจอไม่ออกเลยว่าเกิดอะไรขึ้น
+    func testShippedConfigIsInTheAppBundleAndDecodes() {
+        XCTAssertNotNil(Map3DConfig.bundled,
+                        "ไม่เจอ map_config.json ใน bundle — แอปจะใช้ fallback โดยไม่มีอะไรฟ้อง")
+    }
+
+    func testShippedConfigNamesPinsForEveryBaseInOrder() throws {
+        let config = try XCTUnwrap(Map3DConfig.bundled)
+        XCTAssertEqual(config.pins.map(\.sequence), Array(1...config.pins.count),
+                       "ลำดับฐานต้องเรียง 1…N ไม่ขาดไม่ซ้ำ — ซ้ำแล้วคนเดินผิดฐานจริง")
+        XCTAssertEqual(Set(config.pins.map(\.entityName)).count, config.pins.count,
+                       "ชื่อ prim ซ้ำกัน แปลว่าสองฐานชี้แท่งเดียวกัน")
+    }
+
+    /// ค่าที่ส่งไปกับแอปต้องเป็นค่าเดียวกับที่ fallback ถืออยู่ ไม่งั้นการทดสอบทั้งหมดที่รันโดยไม่มี
+    /// bundle (เช่นเทสอื่นที่เรียก Map3DCamera ตรง ๆ) จะวัดคนละชุดค่ากับที่ผู้ใช้เห็นจริง
+    func testShippedConfigMatchesTheCompiledFallback() throws {
+        XCTAssertEqual(try XCTUnwrap(Map3DConfig.bundled), Map3DConfig.fallback)
+    }
+
+    // MARK: - JSON ที่พิมพ์ผิดต้องถูกปฏิเสธ
+
+    private func decode(_ json: String) -> Map3DConfig? {
+        Map3DConfig.decode(Data(json.utf8))
+    }
+
+    private func valid(pins: String = #"[{"sequence":1,"entityName":"Cylinder"}]"#,
+                       bounds: String = #"{"south":20.0,"west":99.8,"north":20.1,"east":99.9}"#,
+                       domeRadius: String = "9.0",
+                       minPitch: String = "12",
+                       maxPitch: String = "75") -> String {
+        """
+        {"modelName":"map","framingYawDegrees":90,
+         "bounds":\(bounds),
+         "camera":{"defaultPitchDegrees":68,"minPitchDegrees":\(minPitch),"maxPitchDegrees":\(maxPitch),
+                   "minDistance":0.8,"maxDistance":4.0,"defaultDistance":1.6,
+                   "focusPitchDegrees":34,"focusDistance":0.55,"orbitDegreesPerSecond":8},
+         "sky":{"domeRadius":\(domeRadius),"apronSpanMultiplier":4.0},
+         "pins":\(pins)}
+        """
+    }
+
+    func testAcceptsAWellFormedConfig() {
+        XCTAssertNotNil(decode(valid()))
+    }
+
+    func testRejectsJunk() {
+        XCTAssertNil(decode("ไม่ใช่ JSON เลย"))
+        XCTAssertNil(decode(#"{"modelName":"map"}"#), "คีย์ไม่ครบต้องไม่ผ่าน")
+    }
+
+    /// หมุดว่าง = แท็บเปิดได้ โมเดลขึ้นครบ แต่แตะแท่งแดงแล้วไม่มีอะไรเกิดขึ้นสักอัน
+    /// เป็นความล้มเหลวที่เงียบที่สุดที่จะเกิดจากการพิมพ์ JSON ผิด
+    func testRejectsAnEmptyPinList() {
+        XCTAssertNil(decode(valid(pins: "[]")))
+    }
+
+    func testRejectsAnUpsideDownBoundingBox() {
+        XCTAssertNil(decode(valid(bounds: #"{"south":20.1,"west":99.8,"north":20.0,"east":99.9}"#)),
+                     "south ต้องน้อยกว่า north")
+        XCTAssertNil(decode(valid(bounds: #"{"south":20.0,"west":99.9,"north":20.1,"east":99.8}"#)),
+                     "west ต้องน้อยกว่า east")
+    }
+
+    func testRejectsAPitchRangeThatIsInverted() {
+        XCTAssertNil(decode(valid(minPitch: "80", maxPitch: "20")))
+    }
+
+    /// โดมเล็กกว่าระยะกล้องสูงสุด = ซูมออกสุดแล้วกล้องทะลุออกไปนอกโดม เห็นพื้นดำรอบโมเดล
+    /// (อาการเดิมที่โดมถูกใส่เข้ามาเพื่อแก้ตั้งแต่แรก)
+    func testRejectsADomeSmallerThanTheFarthestTheCameraCanGo() {
+        XCTAssertNil(decode(valid(domeRadius: "3.0")), "domeRadius ต้องมากกว่า maxDistance (4.0)")
+    }
+
+    // MARK: - ตัวที่ระบบใช้จริง
+
+    func testCurrentAlwaysHasUsablePinsEvenIfTheFileIsMissing() {
+        XCTAssertFalse(Map3DConfig.current.pins.isEmpty,
+                       "ไม่ว่าไฟล์จะหายหรือพัง ต้องยังมีหมุดให้กดเสมอ")
+        XCTAssertFalse(Map3DConfig.fallback.pins.isEmpty)
+    }
+
+    func testFramingYawIsExposedInRadians() {
+        XCTAssertEqual(Map3DConfig.fallback.framingYaw,
+                       Map3DConfig.fallback.framingYawDegrees * .pi / 180, accuracy: 1e-6)
+    }
+}
