@@ -20,4 +20,17 @@ final class MapModelLoaderTests: XCTestCase {
     func testReleasesWhenNobodyIsLookingAtTheMap() {
         XCTAssertTrue(MapModelLoader.shouldRelease(inUse: false))
     }
+
+    /// **เทสถดถอยของ crash จริง (2026-08-20)** — `preload()` เคยโหลด map.usdz ตอนรันเทสด้วย
+    /// พอเทสจบโปรเซส exit() ขณะที่คิว live-scene-update ของ RealityKit ยังไล่ USD stage อยู่
+    /// ได้ EXC_BAD_ACCESS ใน `TfToken` · โปรเซสตายหลังรายงานผลเทสไปแล้ว มันจึงไม่ทำให้เทสแดง
+    /// สักตัว เห็นได้จาก crash report อย่างเดียว
+    @MainActor
+    func testPreloadDoesNothingWhileUnitTestsAreRunning() {
+        XCTAssertTrue(Map3DScreen.isRunningUnderXCTest,
+                      "เทสชุดนี้ต้องมองเห็นตัวเองว่ารันอยู่ใต้ XCTest ไม่งั้นข้อล่างไม่ได้พิสูจน์อะไร")
+        MapModelLoader.shared.preload()
+        XCTAssertFalse(MapModelLoader.shared.isBusy,
+                       "preload() เริ่มโหลด usdz ระหว่างเทส — โปรเซสจะ segfault ตอน exit")
+    }
 }

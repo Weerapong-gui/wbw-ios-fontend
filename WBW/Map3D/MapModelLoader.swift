@@ -32,6 +32,10 @@ final class MapModelLoader {
     private var loaded: Entity?
     private var loading: Task<Void, Never>?
 
+    /// มีโมเดลอยู่ในมือหรือกำลังโหลดอยู่ไหม — เผยไว้ให้เทสพิสูจน์ได้ว่า `preload()` ไม่ได้เริ่ม
+    /// งานจริงตอนรันเทส (ดู MapModelLoaderTests)
+    var isBusy: Bool { loaded != nil || loading != nil }
+
     private init() {
         // คืนของ 10 MB ตอนระบบขอ ไม่ใช่ตอนออกจากแท็บ — ออกจากแท็บแล้วปล่อยทุกครั้งแปลว่า
         // กลับเข้ามาทีไรก็รอโหลดใหม่ 7.5 วิทุกรอบ ซึ่งแย่กว่าการถือ 10 MB ไว้บนเครื่องยุคนี้
@@ -66,6 +70,15 @@ final class MapModelLoader {
     ///
     /// เจ้าหน้าที่ (`StaffScanView`) ไม่ถูกเรียกให้โหลด — เขาไม่มีแท็บแผนที่ให้เปิด
     func preload() {
+        // **ห้ามโหลดตอนรันเทส** — เทสยูนิตรันในโปรเซสเดียวกับแอป พอเทสจบโปรเซส exit() ทันที
+        // ขณะที่คิว `com.apple.realityio.live-scene-update-queue` ของ RealityKit ยังไล่ USD stage
+        // ของ map.usdz อยู่ → EXC_BAD_ACCESS ใน `TfToken` (มี crash report จริง 2026-08-20)
+        //
+        // `Map3DScreen.shouldRender` guard ไว้แค่ "เรนเดอร์ไหม" ตัวโหลดเคยหลุดกฎนี้มาตลอด
+        // เพิ่งโผล่ตอนย้ายจุดเรียกไป RootView (ยิงทันทีที่ข้ามสแปลช) — เทสจบใน ~1 วิ
+        // แต่โมเดลใช้ 6-7 วิ ช่วงที่ทับกันเลยกลายเป็นเกือบทุกรอบแทนที่จะเป็นนาน ๆ ครั้ง
+        guard Map3DScreen.shouldRender(map3D: Config.map3D,
+                                       underTest: Map3DScreen.isRunningUnderXCTest) else { return }
         guard loaded == nil, loading == nil else { return }
         loading = Task { [weak self] in
             let started = CFAbsoluteTimeGetCurrent()
