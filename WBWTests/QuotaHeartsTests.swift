@@ -42,7 +42,7 @@ final class QuotaHeartsTests: XCTestCase {
             guard case let .hearts(n) = QuotaHearts.layout(quota: quota) else {
                 return XCTFail("quota \(quota) ควรวาดเป็นดวง")
             }
-            XCTAssertTrue(GroupQuotaText.remaining(quota: quota).contains("\(n) ครั้ง"),
+            XCTAssertTrue(GroupQuotaText.remaining(quota: quota).contains("\(n)"),
                           "จำนวนหัวใจ (\(n)) ไม่ตรงกับตัวเลขในประโยค: \(GroupQuotaText.remaining(quota: quota))")
         }
     }

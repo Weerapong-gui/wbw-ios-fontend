@@ -32,11 +32,11 @@ struct FeedbackView: View {
                     card.padding(.horizontal, 16).padding(.top, 12)
                 }
             }
-            .navigationTitle("ประเมินฐาน")
+            .navigationTitle(Text("feedback_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("ปิด", action: onClose).foregroundStyle(Color.wbwInk)
+                    Button("action_close", action: onClose).foregroundStyle(Color.wbwInk)
                 }
             }
         }
@@ -70,7 +70,7 @@ struct FeedbackView: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(item?.name ?? "ฐานกิจกรรม")
+            Text(item?.name ?? Loc.t("feedback_base_fallback"))
                 .font(.system(size: 19, weight: .bold))
                 .foregroundStyle(Color.wbwInk)
             if let activity = item?.activityName, !activity.isEmpty {
@@ -81,9 +81,9 @@ struct FeedbackView: View {
             }
 
             HStack(spacing: 10) {
-                faceButton(1, "hand.thumbsdown", "ไม่ชอบ")
-                faceButton(2, "minus.circle", "เฉยๆ")
-                faceButton(3, "hand.thumbsup", "ชอบ")
+                faceButton(1, "hand.thumbsdown", Loc.t("feedback_dislike"))
+                faceButton(2, "minus.circle", Loc.t("feedback_neutral"))
+                faceButton(3, "hand.thumbsup", Loc.t("feedback_like"))
             }
             .padding(.top, 16)
 
@@ -97,7 +97,7 @@ struct FeedbackView: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.wbwInk.opacity(0.12), lineWidth: 1))
                 .overlay(alignment: .topLeading) {
                     if comment.isEmpty {
-                        Text("เล่าให้ฟังหน่อย… (ไม่บังคับ)")
+                        Text("feedback_note_hint")
                             .font(.system(size: 14))
                             .foregroundStyle(Color.wbwInk.opacity(0.35))
                             .padding(.horizontal, 13).padding(.vertical, 16)
@@ -107,13 +107,13 @@ struct FeedbackView: View {
                 .disabled(answered)
                 .padding(.top, 14)
 
-            Text("ทีมงานเห็นชื่อผู้ตอบ")
+            Text("feedback_named")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.wbwInk.opacity(0.5))
                 .padding(.top, 8)
 
             if answered {
-                Label("ส่งความเห็นแล้ว ขอบคุณ", systemImage: "checkmark.circle.fill")
+                Label("feedback_thanks", systemImage: "checkmark.circle.fill")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.wbwGreen)
                     .padding(.top, 14)
@@ -161,7 +161,7 @@ struct FeedbackView: View {
         Button(action: send) {
             HStack(spacing: 6) {
                 Image(systemName: "paperplane").font(.system(size: 14, weight: .semibold))
-                Text("ส่งความเห็น").font(.system(size: 15, weight: .semibold))
+                Text("feedback_send").font(.system(size: 15, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity).frame(height: 44)
@@ -201,10 +201,10 @@ struct FeedbackView: View {
                 // ไม่ควรเกิดถ้า UI คุมถูก — เปิดฟอร์มนี้ได้ก็ต่อเมื่อเช็คอินฐานนี้แล้วเท่านั้น บอกตรงๆ
                 // แทนที่จะกลืนเงียบๆ ให้เห็นชัดว่ามีจุดที่ตรรกะพังอยู่ที่ไหนสักที่
                 sent = false
-                sendError = "ระบบแจ้งว่ายังไม่ได้เช็คอินฐานนี้ (ไม่ควรเกิดขึ้น) ลองปิดแล้วเปิดฟอร์มใหม่"
+                sendError = Loc.t("feedback_not_checked_in")
             case .failed:
                 sent = false
-                sendError = "ส่งไม่สำเร็จ ลองอีกครั้ง"
+                sendError = Loc.t("feedback_send_failed")
             }
             // ทริกเกอร์ที่สองของ outbox ตาม spec (อีกตัวคือ scenePhase == .active) — เพิ่งพิสูจน์ว่า
             // เน็ตเดินอยู่ ของค้างของ "ฐานอื่น" ที่คิวไว้ตอนสัญญาณหายจึงไปได้แล้ว ไม่ต้องรอผู้ใช้สลับ

@@ -227,9 +227,9 @@ enum AppError: LocalizedError {
         switch self {
         case let .message(m): return m
         case let .groupFull(m): return m
-        case .offline: return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้"
+        case .offline: return Loc.t("error_network_short")
         case let .retryable(m): return m
-        case .notInGroup: return "ไม่ได้อยู่ในกลุ่มนี้แล้ว"
+        case .notInGroup: return Loc.t("error_not_in_group")
         }
     }
 }

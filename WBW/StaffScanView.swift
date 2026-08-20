@@ -60,10 +60,10 @@ struct StaffScanView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("สแกนเช็คอิน")
+                Text("scan_title")
                     .font(.system(size: 22, weight: .heavy))
                     .foregroundStyle(.white)
-                Text(session.user?.username ?? "เจ้าหน้าที่")
+                Text(session.user?.username ?? Loc.t("scan_role_staff"))
                     .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.6))
             }
@@ -98,7 +98,7 @@ struct StaffScanView: View {
 
     private var bibEntry: some View {
         HStack(spacing: 10) {
-            TextField("", text: $bib, prompt: Text("กรอกหมายเลข BIB").foregroundStyle(.white.opacity(0.5)))
+            TextField("", text: $bib, prompt: Text("scan_bib_placeholder").foregroundStyle(.white.opacity(0.5)))
                 .keyboardType(.numberPad)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16).frame(height: 48)
@@ -106,7 +106,7 @@ struct StaffScanView: View {
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.2), lineWidth: 1))
                 .onChange(of: bib) { _, v in bib = String(v.filter(\.isNumber).prefix(5)) }
             Button { checkin(qr: nil, bib: Int(bib)) } label: {
-                Text("เช็คอิน")
+                Text("scan_action_checkin")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.wbwInk)
                     .frame(width: 96, height: 48)
@@ -152,7 +152,7 @@ struct StaffScanView: View {
                     if result?.bib == r.bib { result = nil }
                 }
             } catch {
-                self.error = (error as? LocalizedError)?.errorDescription ?? "เช็คอินไม่สำเร็จ"
+                self.error = (error as? LocalizedError)?.errorDescription ?? Loc.t("error_checkin_failed")
             }
             busy = false
         }
@@ -171,24 +171,24 @@ private struct ResultCard: View {
                 Image(systemName: result.alreadyCheckedIn ? "checkmark.circle" : "checkmark.circle.fill")
                     .font(.system(size: 44))
                     .foregroundStyle(result.alreadyCheckedIn ? Color.wbwCream : .green)
-                Text(result.fullName.isEmpty ? "ผู้เข้าร่วม" : result.fullName)
+                Text(result.fullName.isEmpty ? Loc.t("role_participant") : result.fullName)
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Color.wbwInk)
                 if let bib = result.bib {
                     Text("BIB #\(bib)").font(.system(size: 15)).foregroundStyle(Color(white: 0.4))
                 }
-                Text(result.alreadyCheckedIn ? "เช็คอินฐานนี้ไปแล้ว" : "เช็คอินสำเร็จ")
+                Text(result.alreadyCheckedIn ? "scan_already_checked_in" : "scan_checked_in")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(result.alreadyCheckedIn ? Color(red: 0.7, green: 0.5, blue: 0.1) : .green)
                 if result.hasMedicalFlag {
-                    Label("มีข้อมูลการแพทย์ โปรดระวัง", systemImage: "cross.case.fill")
+                    Label("scan_medical_warning", systemImage: "cross.case.fill")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.red)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(.red.opacity(0.1), in: Capsule())
                 }
                 Button(action: onClose) {
-                    Text("สแกนคนถัดไป")
+                    Text("scan_next")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity).frame(height: 46)

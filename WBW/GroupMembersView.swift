@@ -17,7 +17,7 @@ struct GroupMembersView: View {
                 if loading {
                     ProgressView().padding(.top, 40)
                 } else if members.isEmpty {
-                    Text("ยังไม่มีสมาชิก").foregroundStyle(.secondary).padding(.top, 40)
+                    Text("group_members_empty").foregroundStyle(.secondary).padding(.top, 40)
                 } else {
                     ForEach(members) { m in
                         Button { selected = m } label: { row(m) }.buttonStyle(.plain)
@@ -27,7 +27,7 @@ struct GroupMembersView: View {
             .padding(16)
         }
         .background(Color.wbwBg)
-        .navigationTitle("กลุ่ม \(groupNumber)")
+        .navigationTitle(String(format: Loc.t("group_number"), groupNumber))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             members = await groups.members(groupId: groupId, token: session.token ?? "")
@@ -66,7 +66,7 @@ private struct MemberProfileSheet: View {
             ProfileAvatar(name: member.firstName ?? "", photoUrl: member.photoUrl, size: 96).padding(.top, 6)
             Text(member.fullName).font(.system(size: 22, weight: .bold)).foregroundStyle(Color.wbwInk)
             VStack(spacing: 0) {
-                infoRow("สำนักวิชา", member.school)
+                infoRow(Loc.t("profile_row_school"), member.school)
                 Divider().padding(.leading, 16)
                 infoRow("BIB", member.bib.map(String.init))
             }

@@ -16,16 +16,16 @@ extension APIClient {
         }
         var path = "\(Config.apiBase)/groups/\(groupId)/chat/sync?wait=\(wait)"
         if after > 0 { path += "&after=\(after)" }
-        guard let url = URL(string: path) else { throw AppError.message("URL ไม่ถูกต้อง") }
+        guard let url = URL(string: path) else { throw AppError.message(Loc.t("error_bad_url")) }
         var req = URLRequest(url: url)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = TimeInterval(wait) + 10   // ต้องมากกว่า wait ไม่งั้น client ตัดเอง
         let (data, resp): (Data, URLResponse)
         do { (data, resp) = try await Self.send(req) }
         catch { throw AppError.offline }
-        guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message(Loc.t("error_unknown")) }
         if http.statusCode == 403 { throw AppError.notInGroup }
-        guard http.statusCode == 200 else { throw AppError.message("โหลดข้อความไม่สำเร็จ") }
+        guard http.statusCode == 200 else { throw AppError.message(Loc.t("error_load_messages")) }
         let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
         return try dec.decode(ChatSyncResponse.self, from: data)
     }

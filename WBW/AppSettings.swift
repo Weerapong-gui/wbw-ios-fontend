@@ -32,7 +32,11 @@ enum AppLanguage: String, CaseIterable {
 @MainActor
 final class AppSettings: ObservableObject {
     @Published var themeMode: ThemeMode { didSet { d.set(themeMode.rawValue, forKey: Self.themeModeKey) } }
-    @Published var language: AppLanguage { didSet { d.set(language.rawValue, forKey: Self.languageKey) } }
+    @Published var language: AppLanguage {
+        // `Loc` ต้องรู้ทันทีที่เปลี่ยน ไม่ใช่ตอนเปิดแอปรอบหน้า — ข้อความที่ไม่ได้อยู่ใน View
+        // (error จาก APIClient, ป้ายบนบัตร) อ่านภาษาจากที่นี่ที่เดียว
+        didSet { d.set(language.rawValue, forKey: Self.languageKey); Loc.use(language) }
+    }
     @Published var notiEnabled: Bool { didSet { d.set(notiEnabled, forKey: kNoti) } }
 
     // แจ้งเตือนรายหมวดตามที่ Android มี · **สามตัวล่างยังไม่ได้ต่อกับอะไร** — backend ส่งเฉพาะ
@@ -63,6 +67,13 @@ final class AppSettings: ObservableObject {
     }
 
     nonisolated static func languagePreference(_ d: UserDefaults = .standard) -> AppLanguage {
+        #if DEBUG
+        // ถ่ายจอยืนยันสองภาษาโดยไม่ต้องกดเข้าหน้าตั้งค่า — `-uitestLanguage th` / `en`
+        // (แก้ plist ในคอนเทนเนอร์ตรง ๆ ไม่ได้ผล cfprefsd แคชไว้แล้วเขียนทับตอนแอปปิด)
+        if let forced = d.string(forKey: "uitestLanguage"), let lang = AppLanguage(rawValue: forced) {
+            return lang
+        }
+        #endif
         guard let raw = d.string(forKey: languageKey), let lang = AppLanguage(rawValue: raw) else { return .system }
         return lang
     }
@@ -74,5 +85,7 @@ final class AppSettings: ObservableObject {
         notiNearby = d.object(forKey: "wbw.noti.nearby") == nil ? true : d.bool(forKey: "wbw.noti.nearby")
         notiChat = d.object(forKey: "wbw.noti.chat") == nil ? true : d.bool(forKey: "wbw.noti.chat")
         notiDaily = d.object(forKey: "wbw.noti.daily") == nil ? true : d.bool(forKey: "wbw.noti.daily")
+        // ตั้งภาษาให้ `Loc` ตั้งแต่ก่อนจอแรกวาด ไม่งั้นข้อความนอก View รอบแรกจะเป็นภาษาเครื่อง
+        Loc.use(language)
     }
 }

@@ -15,7 +15,7 @@ final class SURunCopyTests: XCTestCase {
     }
 
     func testTitleNamesTheTrail() {
-        XCTAssertEqual(SURunView.title, "เส้นทางเดินรอบดอย")
+        XCTAssertEqual(SURunView.title, Loc.t("walk_route_title"))
     }
 
     /// จอนี้ต้องมี "ของจริง" ให้ดูโดยไม่ต้องล็อกอินหรือรอ backend — เส้นทางมากับแอป ไม่ได้ยิงขอ

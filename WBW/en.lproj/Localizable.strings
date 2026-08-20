@@ -112,7 +112,7 @@
 "walk_stat_pace" = "Pace";
 "walk_unavailable" = "—";
 "walk_distance_km" = "%.2f km";
-"walk_distance_m" = "%d m";
+"walk_distance_m" = "%1$lld m";
 "walk_pace_min_km" = "%1$ld'%2$02d\" /km";
 "walk_channel_name" = "Walk tracking";
 "walk_notification_title" = "Recording your walk";
@@ -187,8 +187,116 @@
 
 /* คีย์ที่ iOS ต้องใช้เพิ่มจากชุดของ Android */
 "settings_version" = "Version";
+"settings_logout" = "Log out";
+"group_pick_cancel" = "Cancel";
 "settings_logout_confirm" = "Log out of WBW?";
 "settings_logout_cancel" = "Cancel";
 "home_greeting_thai" = "Hi, %1$@";
 "about_event_body" = "Walk Beyond the Wild is the MFU Student Union hiking-trail event. Walk the 8.36 km route around the doi, check in at every base, and grow your flower to full bloom.\n\nDate: 29 August 2026\nStart: Thong Chai Lawn";
 "help_contact_body" = "How do I sign in?\nUse the student ID and password you registered with.\n\nHow do I check in at a base?\nShow your pass QR to a marshal, or give them your bib number.\n\nSomething is wrong\nFind a marshal in an orange vest — every base has a first-aid kit.";
+
+
+/* ข้อผิดพลาดจาก APIClient — ขึ้นเป็นข้อความในกล่องเตือน ไม่ใช่ log */
+"error_bad_url" = "Invalid URL";
+"error_network_short" = "Can’t reach the server";
+"error_bad_response" = "The server’s reply was malformed";
+"error_login_failed" = "Sign-in failed";
+"error_load_profile" = "Couldn’t load your profile";
+"error_load_progress" = "Couldn’t load your progress";
+"error_load_bases" = "Couldn’t load the bases";
+"error_load_messages" = "Couldn’t load messages";
+"error_load_announcements" = "Couldn’t load announcements";
+"error_load_groups" = "Couldn’t load the groups";
+"error_load_members" = "Couldn’t load the members";
+"error_checkin_failed" = "Check-in failed";
+"error_photo_failed" = "Couldn’t update your photo";
+"error_join_failed" = "Couldn’t join the group";
+"error_leave_failed" = "Couldn’t leave the group";
+"error_send_failed" = "Message not sent";
+"error_feedback_failed" = "Couldn’t send your feedback";
+"error_server_busy" = "The server is busy — try again in a moment";
+"error_demo_no_checkin" = "Check-in isn’t available in demo mode";
+"error_not_in_group" = "You are no longer in this group";
+
+
+/* กลุ่ม แชท และวันที่ */
+"group_number" = "Group %1$lld";
+"group_number_str" = "Group %1$@";
+"group_none_found" = "No groups found";
+"group_join" = "Join";
+"group_full" = "Full";
+"group_join_confirm" = "Join group %1$lld?";
+"group_search_placeholder" = "Search a group or a friend";
+"group_people_found" = "People found";
+"group_members_empty" = "No members yet";
+"group_my_group" = "My group";
+"group_members_link" = "Group members";
+"group_leaving" = "Leaving…";
+"group_leave" = "Leave group";
+"group_leave_confirm" = "Leave group %1$lld?";
+"group_quota_join_left" = "Join group %1$lld and you will still have %2$lld group changes left";
+"group_quota_join_none" = "You have no group changes left — join group %1$lld and you cannot change again";
+"group_quota_leave_none" = "You have no group changes left — you cannot leave group %1$lld";
+"group_quota_leave_last" = "Leaving group %1$lld spends your last change — you may pick one more group, and then you stay in it";
+"group_quota_leave_left" = "After leaving group %1$lld you will have %2$lld group changes left";
+"group_quota_remaining" = "%1$lld group changes left";
+"group_quota_none" = "No group changes left";
+"chat_members_count" = "%1$lld in this group";
+"chat_offline_queued" = "Offline — messages will send when you are back in range";
+"chat_new_messages" = "New messages";
+"chat_new_messages_count" = "New messages %1$lld";
+"chat_message" = "Message";
+"chat_me" = "Me";
+"chat_sent" = "Sent";
+"chat_read_by" = "Read by %1$lld";
+"chat_read_by_all" = "Read by %1$lld · everyone";
+"date_today" = "Today";
+"date_yesterday" = "Yesterday";
+"date_unknown" = "No time given";
+
+
+/* หน้าที่เหลือ: ล็อกอิน · ประกาศ · เดิน · สแกน · แผนที่ · ความเห็น */
+"login_demo_title" = "Try the app (Demo)";
+"login_demo_desc" = "Walk through every screen with sample data — no account needed";
+"login_missing_fields" = "Enter your student ID and password";
+"notifications_empty_desc" = "Announcements from the trail team will appear here";
+"action_done" = "Done";
+"action_close" = "Close";
+"date_unknown_title" = "No date";
+"walk_route_title" = "The trail around the doi";
+"walk_stat_time" = "Time";
+"walk_pace_unit" = "min/km";
+"walk_no_location" = "Location access is off — you can see the route but distance will not be tracked";
+"walk_tracking" = "Tracking · counts only while the app is open";
+"scan_title" = "Check-in scanner";
+"scan_role_staff" = "Staff";
+"scan_bib_placeholder" = "Enter BIB number";
+"scan_action_checkin" = "Check in";
+"scan_already_checked_in" = "Already checked in at this base";
+"scan_checked_in" = "Checked in";
+"scan_medical_warning" = "Has medical information — take care";
+"scan_next" = "Scan the next person";
+"map_base_number" = "Base %1$lld";
+"map_disabled" = "The 3D map is off for now";
+"map_failed" = "Couldn’t open the map";
+"map_failed_hint" = "Try opening it again";
+"map_reset_camera" = "Back to the starting view";
+"map_tap_pin_hint" = "Tap a red pin to see the base";
+"map_not_checked_in" = "Not checked in";
+"bloom_chip_label" = "%1$@ — stage %2$lld of %3$lld";
+"checkin_toast_title" = "Checked in at %1$@";
+"checkin_toast_more" = "Tap to rate this base · %1$lld more bases to rate";
+"checkin_toast_rate" = "Tap to rate this base";
+"feedback_title" = "Rate this base";
+"feedback_base_fallback" = "Activity base";
+"feedback_dislike" = "Didn’t like it";
+"feedback_neutral" = "It was okay";
+"feedback_like" = "Liked it";
+"feedback_note_hint" = "Tell us about it… (optional)";
+"feedback_named" = "The team can see who answered";
+"feedback_thanks" = "Feedback sent — thank you";
+"feedback_send" = "Send feedback";
+"feedback_not_checked_in" = "The server says you have not checked in at this base (this should not happen) — close the form and open it again";
+"feedback_send_failed" = "Not sent — try again";
+"walk_distance_m_short" = "%1$lld m";
+"credits_3d_models" = "3D models: see WBW/Resources/models/CREDITS.md · CC BY";

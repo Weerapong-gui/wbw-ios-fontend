@@ -74,7 +74,7 @@ struct LoginView: View {
                 Button {
                     session.startDemo()
                 } label: {
-                    Text("ดูตัวอย่างแอป (Demo)")
+                    Text("login_demo_title")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 200, height: 42)
@@ -85,7 +85,7 @@ struct LoginView: View {
                 .padding(.top, 12)
                 .disabled(busy)
 
-                Text("เดินดูทุกหน้าจอด้วยข้อมูลตัวอย่าง ไม่ต้องมีบัญชี")
+                Text("login_demo_desc")
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.7))
                     .frame(maxWidth: .infinity)
@@ -121,7 +121,7 @@ struct LoginView: View {
                 .foregroundStyle(.white.opacity(0.8))
                 .font(.system(size: 16))
             TextField("", text: $studentId, prompt:
-                Text("รหัสนักศึกษา หรือ ชื่อผู้ใช้").foregroundStyle(.white.opacity(0.55)))
+                Text("login_field_username").foregroundStyle(.white.opacity(0.55)))
                 .foregroundStyle(.white)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -163,7 +163,7 @@ struct LoginView: View {
         error = nil
         let sid = studentId.trimmingCharacters(in: .whitespaces)
         guard !sid.isEmpty, !password.isEmpty else {
-            error = "กรุณากรอกรหัสนักศึกษาและรหัสผ่าน"
+            error = Loc.t("login_missing_fields")
             return
         }
         busy = true
@@ -172,7 +172,7 @@ struct LoginView: View {
                 let res = try await APIClient.shared.login(studentId: sid, password: password)
                 session.save(res)
             } catch {
-                self.error = (error as? LocalizedError)?.errorDescription ?? "เข้าสู่ระบบไม่สำเร็จ"
+                self.error = (error as? LocalizedError)?.errorDescription ?? Loc.t("error_login_failed")
             }
             busy = false
         }

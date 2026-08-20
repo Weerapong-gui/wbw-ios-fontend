@@ -30,7 +30,7 @@ struct GroupJoinView: View {
                             )
                         }
                         if groups.loaded && groups.filteredGroups.isEmpty && groups.matchedPeople.isEmpty {
-                            Text("ไม่พบกลุ่ม").foregroundStyle(.secondary).padding(.top, 40)
+                            Text("group_none_found").foregroundStyle(.secondary).padding(.top, 40)
                         }
                     }
                     .padding(16)
@@ -44,12 +44,12 @@ struct GroupJoinView: View {
         }
         .navigationBarHidden(true)
         .task { if !groups.loaded { await groups.load(token: session.token ?? "") } }
-        .alert("เข้ากลุ่ม \(pendingJoin?.groupNumber ?? 0)?",
+        .alert(Text(String(format: Loc.t("group_join_confirm"), pendingJoin?.groupNumber ?? 0)),
                isPresented: Binding(get: { pendingJoin != nil },
                                     set: { if !$0 { pendingJoin = nil } }),
                presenting: pendingJoin) { g in
-            Button("ยกเลิก", role: .cancel) { pendingJoin = nil }
-            Button("เข้ากลุ่ม") {
+            Button("group_pick_cancel", role: .cancel) { pendingJoin = nil }
+            Button("group_join") {
                 let target = g
                 pendingJoin = nil
                 Task { await join(target) }
@@ -72,7 +72,7 @@ struct GroupJoinView: View {
             }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("ค้นหากลุ่ม หรือ ชื่อเพื่อน", text: $groups.search)
+                TextField("group_search_placeholder", text: $groups.search)
                     .autocorrectionDisabled()
             }
             .padding(.horizontal, 14).frame(height: 40)
@@ -84,13 +84,13 @@ struct GroupJoinView: View {
     // ผลค้นหาคน
     private var peopleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("คนที่พบ").font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+            Text("group_people_found").font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
             ForEach(groups.matchedPeople) { p in
                 HStack(spacing: 10) {
                     ProfileAvatar(name: p.firstName ?? "", photoUrl: nil, size: 34)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(p.fullName).font(.system(size: 15, weight: .medium)).foregroundStyle(Color.wbwInk)
-                        Text("กลุ่ม \(p.groupNumber)").font(.system(size: 12)).foregroundStyle(.secondary)
+                        Text(String(format: Loc.t("group_number"), p.groupNumber)).font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
@@ -110,7 +110,7 @@ struct GroupJoinView: View {
         } catch {
             // 409 "ท่านอยู่ในกลุ่มอยู่แล้ว" = เข้ากลุ่มไปแล้วจากอีกเครื่อง · โหลดโปรไฟล์ใหม่
             // ให้แท็บสลับไปจอแชทเอง แทนที่จะค้างอยู่หน้าลิสต์พร้อม error ที่ผู้ใช้แก้ไม่ได้
-            self.error = (error as? LocalizedError)?.errorDescription ?? "เข้ากลุ่มไม่สำเร็จ"
+            self.error = (error as? LocalizedError)?.errorDescription ?? Loc.t("error_join_failed")
             await profile.load(token: t)
         }
     }
@@ -133,7 +133,7 @@ private struct GroupCard: View {
                         Text("\(group.groupNumber)").font(.system(size: 18, weight: .heavy)).foregroundStyle(Color.wbwGold)
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("กลุ่ม \(group.groupNumber)").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.wbwInk)
+                        Text(String(format: Loc.t("group_number"), group.groupNumber)).font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.wbwInk)
                         HStack(spacing: 6) {
                             avatarPreview
                             Text("\(group.memberCount)/\(group.capacity)")
@@ -149,7 +149,7 @@ private struct GroupCard: View {
             Button(action: onJoin) {
                 Group {
                     if joining { ProgressView().tint(.white) }
-                    else { Text(group.isFull ? "เต็ม" : "เข้ากลุ่ม").font(.system(size: 13, weight: .semibold)) }
+                    else { Text(group.isFull ? "group_full" : "group_join").font(.system(size: 13, weight: .semibold)) }
                 }
                 .foregroundStyle(.white)
                 .frame(width: 74, height: 34)

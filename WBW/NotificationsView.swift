@@ -74,16 +74,16 @@ struct NotificationsView: View {
             .background(Color.wbwBg)
             .overlay {
                 if store.loaded && store.items.isEmpty {
-                    ContentUnavailableView("ยังไม่มีประกาศ", systemImage: "bell.slash",
-                                           description: Text("ประกาศจากทีมงานจะขึ้นที่นี่"))
+                    ContentUnavailableView("notifications_empty", systemImage: "bell.slash",
+                                           description: Text("notifications_empty_desc"))
                 }
             }
-            .navigationTitle("ประกาศ")
+            .navigationTitle(Text("notifications_title"))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 // จอนี้เปิดเป็น .sheet — เดิมไม่มีปุ่มปิดเลย ปัดลงอย่างเดียว
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("เสร็จ") { dismiss() }
+                    Button("action_done") { dismiss() }
                 }
             }
             .refreshable { await store.load(token: token) }

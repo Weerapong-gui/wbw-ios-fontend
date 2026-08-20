@@ -37,7 +37,7 @@ struct GroupChatView: View {
                 Button { onBack() } label: {
                     Image(systemName: "chevron.left").font(.body.weight(.semibold))
                 }
-                .accessibilityLabel("กลับ")
+                .accessibilityLabel("action_back")
             }
             // หัวจอ = ทางเข้า**เดียว**ของหน้ากลุ่ม (ออกจากกลุ่ม/ดูสมาชิก/ดูสิทธิ์คงเหลือ)
             // ห้ามทำหายตอนไปแตะอย่างอื่น · แตะชื่อห้องแล้วเข้าหน้าข้อมูลกลุ่มเป็นท่าที่แอปแชท
@@ -49,7 +49,7 @@ struct GroupChatView: View {
                 NavigationLink(value: GroupRoute.home) {
                     VStack(spacing: 1) {
                         HStack(spacing: 4) {
-                            Text("กลุ่ม \(profile.me?.groupNumber.map(String.init) ?? "")")
+                            Text(String(format: Loc.t("group_number_str"), profile.me?.groupNumber.map(String.init) ?? ""))
                                 .font(.headline).foregroundStyle(Color.wbwInk)
                             Image(systemName: "chevron.right")
                                 .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
@@ -59,7 +59,7 @@ struct GroupChatView: View {
                         // ไม่กลับมาเลยตอนออฟไลน์ ทั้งที่ข้อความจากแคชขึ้นครบแล้ว · "0 คน"
                         // ในห้องที่มีคนคุยกันอยู่อ่านว่าแอปพัง (กติกาเดียวกับ TrailConditionsRow)
                         if store.memberCount > 0 {
-                            Text("\(store.memberCount) คน")
+                            Text(String(format: Loc.t("chat_members_count"), store.memberCount))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -102,7 +102,7 @@ struct GroupChatView: View {
     }
 
     private var offlineBanner: some View {
-        Text("ออฟไลน์ — ข้อความจะส่งเมื่อกลับมามีสัญญาณ")
+        Text("chat_offline_queued")
             .font(.footnote).foregroundStyle(.white)
             .frame(maxWidth: .infinity).padding(.vertical, 6)
             .background(Color.gray)
@@ -193,7 +193,7 @@ struct GroupChatView: View {
     private func newMessagePill(_ proxy: ScrollViewProxy) -> some View {
         if !atBottom && newBelow > 0 {
             Button { scrollToBottom(proxy) } label: {
-                Label("ข้อความใหม่ \(newBelow)", systemImage: "arrow.down")
+                Label(String(format: Loc.t("chat_new_messages_count"), newBelow), systemImage: "arrow.down")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14).padding(.vertical, 8)
@@ -209,7 +209,7 @@ struct GroupChatView: View {
         HStack(spacing: 10) {
             // สี่เหลี่ยมขอบมน ไม่ใช่ Capsule — ที่บรรทัดเดียวสองทรงนี้แยกกันแทบไม่ออก แต่พอ
             // lineLimit ขยายเป็น 4 บรรทัด แคปซูลกลายเป็นทรงยาปลายโค้งเกินจริง (เห็นจากสกรีนช็อต)
-            TextField("ข้อความ", text: $draft, axis: .vertical)
+            TextField("chat_message", text: $draft, axis: .vertical)
                 .font(.body)
                 .lineLimit(1...4)
                 .padding(.horizontal, 16).padding(.vertical, 10)
@@ -228,7 +228,7 @@ struct GroupChatView: View {
     }
 
     private func send() {
-        store.send(draft, senderName: profile.me?.displayName ?? "ฉัน")
+        store.send(draft, senderName: profile.me?.displayName ?? Loc.t("chat_me"))
         draft = ""
         sentTick += 1
     }

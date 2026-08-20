@@ -67,7 +67,7 @@ struct ForestOverlay: View {
                 // ยืนยันแล้วว่า MainTabView ทำให้พื้นหลังทึบขาวของ per-tab UIHostingController ทะลุมาบัง
                 // RootView ได้จริง (เรื่อง background color ไม่ใช่เรื่องตำแหน่ง) ส่วนที่ floor ของตำแหน่ง
                 // เครดิตน่าจะมาจากกลไกตระกูลเดียวกันหรือเปล่า ยังเป็นแค่ข้อสงสัย ไม่มีหลักฐานตรงยืนยัน
-                Text("โมเดล 3 มิติ: ดู WBW/Resources/models/CREDITS.md · CC BY")
+                Text("credits_3d_models")
                     .font(.system(size: 9))
                     .foregroundStyle(.white.opacity(0.40))
                     .padding(.leading, 16)

@@ -6,11 +6,13 @@ import XCTest
 final class CheckinProgressLabelTests: XCTestCase {
 
     func testShowsStageOverTotal() {
-        XCTAssertEqual(CheckinProgressLabel.text(stage: 3, total: 8), "เช็คอินแล้ว 3/8 ฐาน")
+        XCTAssertEqual(CheckinProgressLabel.text(stage: 3, total: 8),
+                       String(format: Loc.t("home_checked_in"), 3, 8))
     }
 
     func testShowsZeroStageWhenNothingCheckedInYet() {
-        XCTAssertEqual(CheckinProgressLabel.text(stage: 0, total: 8), "เช็คอินแล้ว 0/8 ฐาน")
+        XCTAssertEqual(CheckinProgressLabel.text(stage: 0, total: 8),
+                       String(format: Loc.t("home_checked_in"), 0, 8))
     }
 
     func testHidesWhenTotalUnknown() {

@@ -28,7 +28,7 @@ struct HomeView: View {
     @State private var breathing = true
     @State private var breathTimeout: Task<Void, Never>?
 
-    private var name: String { profile.me?.displayName ?? (session.user?.username ?? String(localized: "role_participant")) }
+    private var name: String { profile.me?.displayName ?? (session.user?.username ?? Loc.t("role_participant")) }
 
     private var stage: Int {
         #if DEBUG
@@ -57,12 +57,12 @@ struct HomeView: View {
             // ไม่มี header · ประกาศอยู่ซ้าย ตั้งค่าอยู่ขวา — มุมไกลสุดสองฝั่ง อันที่เรียกร้อง
             // ความสนใจได้อยู่ฝั่งที่ตาเริ่มอ่าน
             HStack {
-                cornerButton(systemImage: "bell", label: String(localized: "notifications_title"),
+                cornerButton(systemImage: "bell", label: Loc.t("notifications_title"),
                              badge: noti.unreadCount > 0) {
                     NotificationCenter.default.post(name: .openNotificationsTab, object: nil)
                 }
                 Spacer()
-                cornerButton(systemImage: "gearshape", label: String(localized: "settings_title"),
+                cornerButton(systemImage: "gearshape", label: Loc.t("settings_title"),
                              badge: false) {
                     showSettings = true
                 }
@@ -74,7 +74,7 @@ struct HomeView: View {
                 // น้ำหนักปกติ ไม่ใช่ตัวหนา — ต้นทางตั้ง `displaySmall` เป็น Sarabun Bold 34sp
                 // แต่ Bold ของ Sarabun บาง พอมาเทียบกับสกรีนช็อตจริงของ Android แล้วเส้นบางกว่า
                 // `.bold` ของ SF ชัดเจน · ตามที่ตาเห็นบนเครื่องจริง ไม่ใช่ตามชื่อ weight ในไฟล์
-                Text(String(format: String(localized: "home_greeting"), name))
+                Text(String(format: Loc.t("home_greeting"), name))
                     .font(.wbwDisplaySmall)
                     .foregroundStyle(Color.wbwOnBackdrop)
 
@@ -103,7 +103,7 @@ struct HomeView: View {
             // ตอนพรีวิวทั้งคู่เปลี่ยน — ขั้นที่กำลังดู กับคำเตือนว่านั่นไม่ใช่ที่ที่คุณอยู่จริง
             // จอจึงไม่มีทางโชว์ดอกไม้ที่มันอธิบายไม่ได้
             Text(previewStage == nil
-                 ? String(format: String(localized: "home_checked_in"), stage, total)
+                 ? String(format: Loc.t("home_checked_in"), stage, total)
                  : BloomStages.label(bloomStage))
                 .font(.wbwTitleMedium)
                 .kerning(0.4)
@@ -113,8 +113,8 @@ struct HomeView: View {
                 .padding(.top, 2)
 
             Text(previewStage == nil
-                 ? String(localized: "home_bloom_hint")
-                 : String(localized: "home_stage_preview_hint"))
+                 ? Loc.t("home_bloom_hint")
+                 : Loc.t("home_stage_preview_hint"))
                 .font(.wbwBodySmall)
                 .foregroundStyle(Color.wbwOnBackdropMuted)
                 .frame(maxWidth: .infinity)

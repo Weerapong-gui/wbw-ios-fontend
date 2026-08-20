@@ -78,7 +78,8 @@ struct BloomStageStrip: View {
                     // ที่กันไม่ให้กดโดนขั้นข้างเคียง
                     .contentShape(Rectangle())
                     .onTapGesture { previewStage = (s == currentStage) ? nil : s }
-                    .accessibilityLabel("\(BloomStages.label(s)) ขั้นที่ \(s + 1) จาก \(BloomStages.count)")
+                    .accessibilityLabel(String(format: Loc.t("bloom_chip_label"),
+                                               BloomStages.label(s), s + 1, BloomStages.count))
             }
         }
     }

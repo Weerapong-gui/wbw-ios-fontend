@@ -111,7 +111,7 @@
 "walk_stat_pace" = "เพซ";
 "walk_unavailable" = "—";
 "walk_distance_km" = "%.2f กม.";
-"walk_distance_m" = "%d ม.";
+"walk_distance_m" = "%1$lld ม.";
 "walk_pace_min_km" = "%1$ld'%2$02d\" /กม.";
 "walk_channel_name" = "การบันทึกการเดิน";
 "walk_notification_title" = "กำลังบันทึกการเดินของคุณ";
@@ -187,8 +187,116 @@
 
 /* คีย์ที่ iOS ต้องใช้เพิ่มจากชุดของ Android */
 "settings_version" = "เวอร์ชัน";
+"settings_logout" = "ออกจากระบบ";
+"group_pick_cancel" = "ยกเลิก";
 "settings_logout_confirm" = "ออกจากระบบ WBW ใช่ไหม";
 "settings_logout_cancel" = "ยกเลิก";
 "home_greeting_thai" = "สวัสดี %1$@";
 "about_event_body" = "Walk Beyond the Wild คืองานเดินเส้นทางธรรมชาติของสโมสรนักศึกษา มฟล. เดินรอบดอยระยะ 8.36 กม. เช็กอินให้ครบทุกฐาน แล้วปลูกดอกไม้ของคุณให้บานเต็มที่\n\nวันงาน: 29 สิงหาคม 2569\nจุดเริ่ม: ลานธงชัย";
 "help_contact_body" = "เข้าสู่ระบบอย่างไร\nใช้รหัสนักศึกษาและรหัสผ่านที่ลงทะเบียนไว้\n\nเช็กอินที่ฐานอย่างไร\nยื่น QR บนบัตรผู้เข้าร่วมให้เจ้าหน้าที่สแกน หรือแจ้งหมายเลขบิบ\n\nมีปัญหาระหว่างงาน\nแจ้งเจ้าหน้าที่เสื้อกั๊กสีส้มได้ทันที ทุกฐานมีชุดปฐมพยาบาล";
+
+
+/* ข้อผิดพลาดจาก APIClient — ขึ้นเป็นข้อความในกล่องเตือน ไม่ใช่ log */
+"error_bad_url" = "URL ไม่ถูกต้อง";
+"error_network_short" = "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้";
+"error_bad_response" = "การตอบกลับผิดพลาด";
+"error_login_failed" = "เข้าสู่ระบบไม่สำเร็จ";
+"error_load_profile" = "โหลดโปรไฟล์ไม่สำเร็จ";
+"error_load_progress" = "โหลดความคืบหน้าไม่สำเร็จ";
+"error_load_bases" = "โหลดฐานไม่สำเร็จ";
+"error_load_messages" = "โหลดข้อความไม่สำเร็จ";
+"error_load_announcements" = "โหลดประกาศไม่สำเร็จ";
+"error_load_groups" = "โหลดกลุ่มไม่สำเร็จ";
+"error_load_members" = "โหลดสมาชิกไม่สำเร็จ";
+"error_checkin_failed" = "เช็คอินไม่สำเร็จ";
+"error_photo_failed" = "อัปเดตรูปไม่สำเร็จ";
+"error_join_failed" = "เข้ากลุ่มไม่สำเร็จ";
+"error_leave_failed" = "ออกจากกลุ่มไม่สำเร็จ";
+"error_send_failed" = "ส่งข้อความไม่สำเร็จ";
+"error_feedback_failed" = "ส่งความเห็นไม่สำเร็จ";
+"error_server_busy" = "เซิร์ฟเวอร์ไม่พร้อมชั่วคราว";
+"error_demo_no_checkin" = "โหมดตัวอย่างไม่รองรับการเช็คอิน";
+"error_not_in_group" = "ไม่ได้อยู่ในกลุ่มนี้แล้ว";
+
+
+/* กลุ่ม แชท และวันที่ */
+"group_number" = "กลุ่ม %1$lld";
+"group_number_str" = "กลุ่ม %1$@";
+"group_none_found" = "ไม่พบกลุ่ม";
+"group_join" = "เข้ากลุ่ม";
+"group_full" = "เต็ม";
+"group_join_confirm" = "เข้ากลุ่ม %1$lld?";
+"group_search_placeholder" = "ค้นหากลุ่ม หรือ ชื่อเพื่อน";
+"group_people_found" = "คนที่พบ";
+"group_members_empty" = "ยังไม่มีสมาชิก";
+"group_my_group" = "กลุ่มของฉัน";
+"group_members_link" = "สมาชิกในกลุ่ม";
+"group_leaving" = "กำลังออก";
+"group_leave" = "ออกจากกลุ่ม";
+"group_leave_confirm" = "ออกจากกลุ่ม %1$lld?";
+"group_quota_join_left" = "หลังเข้ากลุ่ม %1$lld แล้ว ท่านเหลือสิทธิ์ออกจากกลุ่มอีก %2$lld ครั้ง";
+"group_quota_join_none" = "สิทธิ์ออกจากกลุ่มของท่านหมดแล้ว เข้ากลุ่ม %1$lld แล้วจะเปลี่ยนกลุ่มไม่ได้อีก";
+"group_quota_leave_none" = "สิทธิ์ออกจากกลุ่มของท่านหมดแล้ว ไม่สามารถออกจากกลุ่ม %1$lld ได้อีก";
+"group_quota_leave_last" = "ออกจากกลุ่ม %1$lld แล้วสิทธิ์จะหมด เลือกกลุ่มใหม่ได้อีกครั้งเดียว แล้วจะออกไม่ได้อีก";
+"group_quota_leave_left" = "หลังออกจากกลุ่ม %1$lld ท่านจะเหลือสิทธิ์ออกจากกลุ่มอีก %2$lld ครั้ง";
+"group_quota_remaining" = "สิทธิ์ออกจากกลุ่มคงเหลือ %1$lld ครั้ง";
+"group_quota_none" = "สิทธิ์ออกจากกลุ่มของท่านหมดแล้ว";
+"chat_members_count" = "สมาชิก %1$lld คน";
+"chat_offline_queued" = "ออฟไลน์ — ข้อความจะส่งเมื่อกลับมามีสัญญาณ";
+"chat_new_messages" = "ข้อความใหม่";
+"chat_new_messages_count" = "ข้อความใหม่ %1$lld";
+"chat_message" = "ข้อความ";
+"chat_me" = "ฉัน";
+"chat_sent" = "ส่งแล้ว";
+"chat_read_by" = "อ่านแล้ว %1$lld";
+"chat_read_by_all" = "อ่านแล้ว %1$lld · ทั้งกลุ่ม";
+"date_today" = "วันนี้";
+"date_yesterday" = "เมื่อวาน";
+"date_unknown" = "ไม่ระบุเวลา";
+
+
+/* หน้าที่เหลือ: ล็อกอิน · ประกาศ · เดิน · สแกน · แผนที่ · ความเห็น */
+"login_demo_title" = "ดูตัวอย่างแอป (Demo)";
+"login_demo_desc" = "เดินดูทุกหน้าจอด้วยข้อมูลตัวอย่าง ไม่ต้องมีบัญชี";
+"login_missing_fields" = "กรุณากรอกรหัสนักศึกษาและรหัสผ่าน";
+"notifications_empty_desc" = "ประกาศจากทีมงานจะขึ้นที่นี่";
+"action_done" = "เสร็จ";
+"action_close" = "ปิด";
+"date_unknown_title" = "ไม่ระบุเวลา";
+"walk_route_title" = "เส้นทางเดินรอบดอย";
+"walk_stat_time" = "เวลา";
+"walk_pace_unit" = "นาที/กม.";
+"walk_no_location" = "ยังไม่ได้ให้สิทธิ์ตำแหน่ง — ดูเส้นทางได้ แต่จับระยะไม่ได้";
+"walk_tracking" = "กำลังจับระยะ · นับเฉพาะตอนเปิดแอปอยู่";
+"scan_title" = "สแกนเช็คอิน";
+"scan_role_staff" = "เจ้าหน้าที่";
+"scan_bib_placeholder" = "กรอกหมายเลข BIB";
+"scan_action_checkin" = "เช็คอิน";
+"scan_already_checked_in" = "เช็คอินฐานนี้ไปแล้ว";
+"scan_checked_in" = "เช็คอินสำเร็จ";
+"scan_medical_warning" = "มีข้อมูลการแพทย์ โปรดระวัง";
+"scan_next" = "สแกนคนถัดไป";
+"map_base_number" = "ฐานที่ %1$lld";
+"map_disabled" = "แผนที่ 3D ปิดชั่วคราว";
+"map_failed" = "เปิดแผนที่ไม่ได้";
+"map_failed_hint" = "ลองเข้าใหม่อีกครั้ง";
+"map_reset_camera" = "กลับไปมุมมองเริ่มต้น";
+"map_tap_pin_hint" = "แตะหมุดสีแดงเพื่อดูฐาน";
+"map_not_checked_in" = "ยังไม่ได้เช็คอิน";
+"bloom_chip_label" = "%1$@ ขั้นที่ %2$lld จาก %3$lld";
+"checkin_toast_title" = "เช็คอิน %1$@ แล้ว";
+"checkin_toast_more" = "แตะให้คะแนนฐานนี้ · ยังมีอีก %1$lld ฐานรอประเมิน";
+"checkin_toast_rate" = "แตะเพื่อให้คะแนนฐานนี้";
+"feedback_title" = "ประเมินฐาน";
+"feedback_base_fallback" = "ฐานกิจกรรม";
+"feedback_dislike" = "ไม่ชอบ";
+"feedback_neutral" = "เฉยๆ";
+"feedback_like" = "ชอบ";
+"feedback_note_hint" = "เล่าให้ฟังหน่อย… (ไม่บังคับ)";
+"feedback_named" = "ทีมงานเห็นชื่อผู้ตอบ";
+"feedback_thanks" = "ส่งความเห็นแล้ว ขอบคุณ";
+"feedback_send" = "ส่งความเห็น";
+"feedback_not_checked_in" = "ระบบแจ้งว่ายังไม่ได้เช็คอินฐานนี้ (ไม่ควรเกิดขึ้น) ลองปิดแล้วเปิดฟอร์มใหม่";
+"feedback_send_failed" = "ส่งไม่สำเร็จ ลองอีกครั้ง";
+"walk_distance_m_short" = "%1$lld ม.";
+"credits_3d_models" = "โมเดล 3 มิติ: ดู WBW/Resources/models/CREDITS.md · CC BY";

@@ -27,12 +27,12 @@ enum BloomStages {
     /// ขึ้นจอจริง (บรรทัดใต้แถบขั้นตอนพรีวิว) และถูก VoiceOver อ่านทุกชิป จึงต้องแปล
     static func label(_ stage: Int) -> String {
         switch min(max(stage, 0), 5) {
-        case 0: return String(localized: "bloom_stage_0")
-        case 1: return String(localized: "bloom_stage_1")
-        case 2: return String(localized: "bloom_stage_2")
-        case 3: return String(localized: "bloom_stage_3")
-        case 4: return String(localized: "bloom_stage_4")
-        default: return String(localized: "bloom_stage_5")
+        case 0: return Loc.t("bloom_stage_0")
+        case 1: return Loc.t("bloom_stage_1")
+        case 2: return Loc.t("bloom_stage_2")
+        case 3: return Loc.t("bloom_stage_3")
+        case 4: return Loc.t("bloom_stage_4")
+        default: return Loc.t("bloom_stage_5")
         }
     }
 }

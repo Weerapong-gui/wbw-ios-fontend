@@ -102,16 +102,16 @@ struct Map3DScreen: View {
                     Image(systemName: "map")
                         .font(.system(size: 34))
                         .foregroundStyle(.white.opacity(0.8))
-                    Text("แผนที่ 3D ปิดชั่วคราว")
+                    Text("map_disabled")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             } else if loadFailed {
                 VStack(spacing: 12) {
-                    Text("เปิดแผนที่ไม่ได้")
+                    Text("map_failed")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
-                    Text("ลองเข้าใหม่อีกครั้ง")
+                    Text("map_failed_hint")
                         .font(.system(size: 13))
                         .foregroundStyle(.white.opacity(0.7))
                 }
@@ -125,7 +125,7 @@ struct Map3DScreen: View {
                         Color.wbwForestVoid.ignoresSafeArea()
                         VStack(spacing: 12) {
                             ProgressView().tint(.white)
-                            Text("กำลังโหลดแผนที่")
+                            Text("map_loading")
                                 .font(.system(size: 15, weight: .medium))
                                 .foregroundStyle(.white.opacity(0.85))
                         }
@@ -166,7 +166,7 @@ struct Map3DScreen: View {
                             .glassSurface(Circle(), interactive: true)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("กลับไปมุมมองเริ่มต้น")
+                    .accessibilityLabel("map_reset_camera")
                 }
                 Spacer()
             }
@@ -196,7 +196,7 @@ struct Map3DScreen: View {
     private var hint: some View {
         VStack {
             Spacer()
-            Text("แตะหมุดสีแดงเพื่อดูฐาน")
+            Text("map_tap_pin_hint")
                 .font(.subheadline)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
@@ -227,7 +227,7 @@ struct Map3DScreen: View {
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))
                     }
-                    Label(visited == nil ? "ยังไม่ได้เช็คอิน" : "เช็คอินแล้ว",
+                    Label(visited == nil ? "map_not_checked_in" : "profile_checked_in",
                           systemImage: visited == nil ? "circle.dashed" : "checkmark.circle.fill")
                         .font(.footnote)
                         .foregroundStyle(visited == nil ? .white.opacity(0.7) : Color.wbwGold)
@@ -240,7 +240,7 @@ struct Map3DScreen: View {
                         .foregroundStyle(.white.opacity(0.8))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("ปิด")
+                .accessibilityLabel("action_close")
             }
             .padding(20)
             .glassSurface(RoundedRectangle(cornerRadius: 24, style: .continuous))

@@ -34,7 +34,7 @@ struct LeaveGroupDialog: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
 
-                Text("ออกจากกลุ่ม \(groupNumber)?")
+                Text(String(format: Loc.t("group_leave_confirm"), groupNumber))
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(Color.wbwInk)
 
@@ -46,7 +46,7 @@ struct LeaveGroupDialog: View {
 
                 HStack(spacing: 10) {
                     Button(action: onCancel) {
-                        Text("ยกเลิก")
+                        Text("group_pick_cancel")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Color.wbwInk)
                             .frame(maxWidth: .infinity).frame(height: 46)
@@ -57,7 +57,7 @@ struct LeaveGroupDialog: View {
                             if busy {
                                 ProgressView().tint(.white)
                             } else {
-                                Text("ออกจากกลุ่ม")
+                                Text("group_leave")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(.white)
                             }

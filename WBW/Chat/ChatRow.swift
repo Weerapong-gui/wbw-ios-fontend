@@ -97,9 +97,9 @@ enum ChatFormat {
     }()
 
     static func dayLabel(for day: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
-        if calendar.isDate(day, inSameDayAs: now) { return "วันนี้" }
+        if calendar.isDate(day, inSameDayAs: now) { return Loc.t("date_today") }
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
-           calendar.isDate(day, inSameDayAs: yesterday) { return "เมื่อวาน" }
+           calendar.isDate(day, inSameDayAs: yesterday) { return Loc.t("date_yesterday") }
         let sameYear = calendar.component(.year, from: day) == calendar.component(.year, from: now)
         dayFormatter.timeZone = calendar.timeZone
         dayFormatter.dateFormat = sameYear ? "d MMM" : "d MMM yyyy"

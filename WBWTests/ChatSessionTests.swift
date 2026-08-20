@@ -92,12 +92,14 @@ final class ChatSessionTests: XCTestCase {
     }
 
     func testReadStatusText() {
-        XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 10), "ส่งแล้ว")
-        XCTAssertEqual(ChatReadStatus.text(readCount: 3, memberCount: 10), "อ่านแล้ว 3")
+        XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 10), Loc.t("chat_sent"))
+        XCTAssertEqual(ChatReadStatus.text(readCount: 3, memberCount: 10),
+                       String(format: Loc.t("chat_read_by"), 3))
         // ครบทุกคนที่ไม่ใช่เรา = member_count - 1
-        XCTAssertEqual(ChatReadStatus.text(readCount: 9, memberCount: 10), "อ่านแล้ว 9 · ทั้งกลุ่ม")
+        XCTAssertEqual(ChatReadStatus.text(readCount: 9, memberCount: 10),
+                       String(format: Loc.t("chat_read_by_all"), 9))
         // กลุ่มมีเราคนเดียว — ไม่มีใครให้อ่าน
-        XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 1), "ส่งแล้ว")
+        XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 1), Loc.t("chat_sent"))
     }
 
     // ===== สแนปเส้น "ข้อความใหม่" ต้องเกิดก่อน markRead() เสมอ =====

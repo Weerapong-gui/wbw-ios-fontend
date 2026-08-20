@@ -64,11 +64,13 @@ final class SURunMathTests: XCTestCase {
     }
 
     func testDistanceUnderOneKilometreIsMetres() {
-        XCTAssertEqual(SURunMath.distanceText(metres: 850), "850 ม.")
+        XCTAssertEqual(SURunMath.distanceText(metres: 850),
+                       String(format: Loc.t("walk_distance_m_short"), 850))
     }
 
     func testDistanceOverOneKilometreIsKilometres() {
-        XCTAssertEqual(SURunMath.distanceText(metres: 1240), "1.24 กม.",
+        XCTAssertEqual(SURunMath.distanceText(metres: 1240),
+                       String(format: Loc.t("walk_distance_km"), 1.24),
                        "ทศนิยม 2 ตำแหน่ง — 1 ตำแหน่งทำให้เลขนิ่งนานเกินไปจนดูเหมือนแอปค้าง")
     }
 

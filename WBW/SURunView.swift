@@ -18,7 +18,7 @@ import SwiftUI
 /// จอนี้จึงไม่โฆษณาว่าเก็บสถิติให้ — พูดแค่ว่ากำลังจับอยู่ตอนนี้
 struct SURunView: View {
     /// แยกเป็นค่าคงที่ให้เทสจับได้ — ตัว View ทั้งใบ render ในเทสไม่ได้
-    static let title = "เส้นทางเดินรอบดอย"
+    static var title: String { Loc.t("walk_route_title") }
 
     /// แท็บนี้ถูกเลือกอยู่จริงหรือเปล่า — **จำเป็น ไม่ใช่ของเผื่อ**
     ///
@@ -73,10 +73,10 @@ struct SURunView: View {
                     .stroke(Color.wbwGreen, style: .init(lineWidth: 5, lineCap: .round, lineJoin: .round))
 
                 if let start = route.start {
-                    Annotation("เริ่ม", coordinate: start) { endpoint(filled: true) }
+                    Annotation("map_route_start", coordinate: start) { endpoint(filled: true) }
                 }
                 if let finish = route.finish {
-                    Annotation("สิ้นสุด", coordinate: finish) { endpoint(filled: false) }
+                    Annotation("map_route_finish", coordinate: finish) { endpoint(filled: false) }
                 }
             }
             // รอยที่เดินมาจริงรอบนี้ วาดทับเส้นทางด้วยสีทองให้แยกออกจากกันได้ทันที
@@ -109,13 +109,13 @@ struct SURunView: View {
     private var hud: some View {
         VStack(spacing: 10) {
             HStack(spacing: 0) {
-                stat("ระยะ", SURunMath.distanceText(metres: tracker.distanceMetres))
+                stat(Loc.t("walk_stat_distance"), SURunMath.distanceText(metres: tracker.distanceMetres))
                 divider
-                stat("ก้าว", SURunMath.stepsText(tracker.steps))
+                stat(Loc.t("walk_stat_steps"), SURunMath.stepsText(tracker.steps))
                 divider
-                stat("นาที/กม.", SURunMath.paceText(metresPerSecond: tracker.smoothedSpeed))
+                stat(Loc.t("walk_pace_unit"), SURunMath.paceText(metresPerSecond: tracker.smoothedSpeed))
                 divider
-                stat("เวลา", SURunMath.elapsedText(seconds: tracker.elapsedSeconds))
+                stat(Loc.t("walk_stat_time"), SURunMath.elapsedText(seconds: tracker.elapsedSeconds))
             }
             Text(subtitle)
                 .font(.system(size: 11))
@@ -134,10 +134,10 @@ struct SURunView: View {
 
     private var subtitle: String {
         if tracker.locationDenied {
-            return "ยังไม่ได้ให้สิทธิ์ตำแหน่ง — ดูเส้นทางได้ แต่จับระยะไม่ได้"
+            return Loc.t("walk_no_location")
         }
         if tracker.isRunning {
-            return "กำลังจับระยะ · นับเฉพาะตอนเปิดแอปอยู่"
+            return Loc.t("walk_tracking")
         }
         guard let route else { return Self.title }
         return "\(Self.title) · \(SURunMath.distanceText(metres: Double(route.distanceMetres)))"
@@ -168,7 +168,7 @@ struct SURunView: View {
         Button {
             tracker.isRunning ? tracker.stop() : tracker.start()
         } label: {
-            Label(tracker.isRunning ? "หยุด" : "เริ่มเดิน",
+            Label(tracker.isRunning ? "walk_stop" : "walk_start",
                   systemImage: tracker.isRunning ? "stop.fill" : "figure.walk")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)

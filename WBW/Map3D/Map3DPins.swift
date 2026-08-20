@@ -24,6 +24,6 @@ enum Map3DPins {
         if let match = checkedIn.first(where: { $0.sequence == sequence }) {
             return match.name
         }
-        return "ฐานที่ \(sequence)"
+        return String(format: Loc.t("map_base_number"), sequence)
     }
 }

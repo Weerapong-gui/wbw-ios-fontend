@@ -27,13 +27,15 @@ final class Map3DPinsTests: XCTestCase {
 
     func testLabelFallsBackToNumberWhenNotCheckedInYet() {
         // ชื่อฐานที่ยังไม่เช็คอิน backend ไม่ได้ส่งมาให้ participant เลย — ห้ามเดาชื่อ
-        XCTAssertEqual(Map3DPins.label(sequence: 5, checkedIn: []), "ฐานที่ 5")
+        XCTAssertEqual(Map3DPins.label(sequence: 5, checkedIn: []),
+                       String(format: Loc.t("map_base_number"), 5))
     }
 
     func testLabelFallsBackWhenCheckedInRowHasNoSequence() {
         let item = CheckinProgressItem(checkpointId: 12, name: "ฐานผาหมี", activityName: nil,
                                        sequence: nil, at: "2026-08-07T01:00:00Z",
                                        answered: false, rating: nil, comment: nil)
-        XCTAssertEqual(Map3DPins.label(sequence: 3, checkedIn: [item]), "ฐานที่ 3")
+        XCTAssertEqual(Map3DPins.label(sequence: 3, checkedIn: [item]),
+                       String(format: Loc.t("map_base_number"), 3))
     }
 }

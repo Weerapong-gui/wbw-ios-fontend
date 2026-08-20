@@ -42,9 +42,9 @@ enum SURunMath {
 
     static func distanceText(metres: Double) -> String {
         guard metres.isFinite else { return "—" }
-        if metres < 1000 { return "\(Int(metres.rounded())) ม." }
+        if metres < 1000 { return String(format: Loc.t("walk_distance_m_short"), Int(metres.rounded())) }
         // ทศนิยม 2 ตำแหน่ง — ตำแหน่งเดียวทำให้เลขนิ่งอยู่นานถึง 100 ม. จนดูเหมือนแอปค้าง
-        return String(format: "%.2f กม.", metres / 1000)
+        return String(format: Loc.t("walk_distance_km"), metres / 1000)
     }
 
     static func elapsedText(seconds: Int) -> String {

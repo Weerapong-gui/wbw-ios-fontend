@@ -88,16 +88,16 @@ enum Sky: String, Equatable {
     /// เพราะ VoiceOver อ่านด้วยเสียงภาษาที่ผู้ใช้ตั้งไว้ คำไทยในโหมดอังกฤษจะออกมาเป็นเสียงมั่ว
     var label: String {
         switch self {
-        case .clear: return String(localized: "weather_clear")
-        case .mainlyClear: return String(localized: "weather_mainly_clear")
-        case .partlyCloudy: return String(localized: "weather_partly_cloudy")
-        case .overcast: return String(localized: "weather_overcast")
-        case .fog: return String(localized: "weather_fog")
-        case .drizzle: return String(localized: "weather_drizzle")
-        case .rain: return String(localized: "weather_rain")
-        case .showers: return String(localized: "weather_showers")
-        case .snow: return String(localized: "weather_snow")
-        case .thunderstorm: return String(localized: "weather_thunderstorm")
+        case .clear: return Loc.t("weather_clear")
+        case .mainlyClear: return Loc.t("weather_mainly_clear")
+        case .partlyCloudy: return Loc.t("weather_partly_cloudy")
+        case .overcast: return Loc.t("weather_overcast")
+        case .fog: return Loc.t("weather_fog")
+        case .drizzle: return Loc.t("weather_drizzle")
+        case .rain: return Loc.t("weather_rain")
+        case .showers: return Loc.t("weather_showers")
+        case .snow: return Loc.t("weather_snow")
+        case .thunderstorm: return Loc.t("weather_thunderstorm")
         }
     }
 }
@@ -125,12 +125,12 @@ enum AqiBand: String, Equatable {
 
     var label: String {
         switch self {
-        case .good: return String(localized: "aqi_good")
-        case .moderate: return String(localized: "aqi_moderate")
-        case .sensitiveGroups: return String(localized: "aqi_sensitive")
-        case .unhealthy: return String(localized: "aqi_unhealthy")
-        case .veryUnhealthy: return String(localized: "aqi_very_unhealthy")
-        case .hazardous: return String(localized: "aqi_hazardous")
+        case .good: return Loc.t("aqi_good")
+        case .moderate: return Loc.t("aqi_moderate")
+        case .sensitiveGroups: return Loc.t("aqi_sensitive")
+        case .unhealthy: return Loc.t("aqi_unhealthy")
+        case .veryUnhealthy: return Loc.t("aqi_very_unhealthy")
+        case .hazardous: return Loc.t("aqi_hazardous")
         }
     }
 

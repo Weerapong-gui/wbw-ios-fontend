@@ -23,12 +23,12 @@ struct CheckinToast: View {
                 .frame(width: 34, height: 34)
         } content: {
             VStack(alignment: .leading, spacing: 1) {
-                Text("เช็คอิน \(baseName) แล้ว")
+                Text(String(format: Loc.t("checkin_toast_title"), baseName))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.wbwInk)
                 Text(remaining > 0
-                     ? "แตะให้คะแนนฐานนี้ · ยังมีอีก \(remaining) ฐานรอประเมิน"
-                     : "แตะเพื่อให้คะแนนฐานนี้")
+                     ? String(format: Loc.t("checkin_toast_more"), remaining)
+                     : Loc.t("checkin_toast_rate"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

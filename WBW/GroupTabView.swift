@@ -57,8 +57,8 @@ struct GroupHomeView: View {
             Color.wbwBg.ignoresSafeArea()
             VStack(spacing: 20) {
                 VStack(spacing: 6) {
-                    Text("กลุ่มของฉัน").font(.system(size: 14)).foregroundStyle(.secondary)
-                    Text("กลุ่ม \(groupNo)")
+                    Text("group_my_group").font(.system(size: 14)).foregroundStyle(.secondary)
+                    Text(String(format: Loc.t("group_number"), groupNo))
                         .font(.system(size: 34, weight: .heavy)).foregroundStyle(Color.wbwInk)
                     QuotaHeartsRow(quota: quota, size: 22)
                         .padding(.top, 2)
@@ -69,7 +69,7 @@ struct GroupHomeView: View {
                 .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 20))
 
                 Button { path.append(.members) } label: {
-                    Label("สมาชิกในกลุ่ม", systemImage: "person.2.fill")
+                    Label("group_members_link", systemImage: "person.2.fill")
                         .font(.system(size: 16)).foregroundStyle(Color.wbwInk)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(16)
                         .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 16))
@@ -81,7 +81,7 @@ struct GroupHomeView: View {
                 // ปุ่มจาง ๆ ที่กดไม่ได้ชวนให้กดซ้ำแล้วสงสัยว่าแอปค้าง
                 if quota > 0 {
                     Button(role: .destructive) { confirmLeave = true } label: {
-                        Text(leaving ? "กำลังออก" : "ออกจากกลุ่ม")
+                        Text(leaving ? "group_leaving" : "group_leave")
                             .font(.system(size: 15)).foregroundStyle(.red)
                     }
                     .disabled(leaving)
@@ -93,7 +93,7 @@ struct GroupHomeView: View {
             }
             .padding(20).padding(.top, 8)
         }
-        .navigationTitle("กลุ่ม \(groupNo)")
+        .navigationTitle(String(format: Loc.t("group_number"), groupNo))
         .navigationBarTitleDisplayMode(.inline)
         // วาดกล่องเอง ไม่ใช่ .alert — alert ของ SwiftUI ใส่ Image ไม่ได้ และจอนี้ต้องโชว์หัวใจ
         // บอกสิทธิ์คงเหลือ (ดูคอมเมนต์หัว LeaveGroupDialog)
@@ -127,7 +127,7 @@ struct GroupHomeView: View {
         } catch {
             // 409 = admin ตัดสิทธิ์ระหว่างที่จอนี้เปิดค้าง หรือออกไปแล้วจากอีกเครื่อง
             // โหลดโปรไฟล์ใหม่ให้จอตรงกับความจริงทันที ไม่ใช่แค่โชว์ข้อความแล้วปล่อยค้าง
-            self.error = (error as? LocalizedError)?.errorDescription ?? "ออกจากกลุ่มไม่สำเร็จ"
+            self.error = (error as? LocalizedError)?.errorDescription ?? Loc.t("error_leave_failed")
             await profile.load(token: t)
         }
     }

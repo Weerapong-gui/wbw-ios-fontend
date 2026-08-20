@@ -167,12 +167,14 @@ final class ChatRowTests: XCTestCase {
 
     func testDayLabelToday() {
         let now = date("2026-07-31T18:00:00+07:00")
-        XCTAssertEqual(ChatFormat.dayLabel(for: date("2026-07-31T09:00:00+07:00"), now: now, calendar: cal), "วันนี้")
+        XCTAssertEqual(ChatFormat.dayLabel(for: date("2026-07-31T09:00:00+07:00"), now: now, calendar: cal),
+                       Loc.t("date_today"))
     }
 
     func testDayLabelYesterday() {
         let now = date("2026-07-31T18:00:00+07:00")
-        XCTAssertEqual(ChatFormat.dayLabel(for: date("2026-07-30T09:00:00+07:00"), now: now, calendar: cal), "เมื่อวาน")
+        XCTAssertEqual(ChatFormat.dayLabel(for: date("2026-07-30T09:00:00+07:00"), now: now, calendar: cal),
+                       Loc.t("date_yesterday"))
     }
 
     func testDayLabelOlderThisYearHasNoYear() {

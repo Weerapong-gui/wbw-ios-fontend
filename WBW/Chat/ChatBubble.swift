@@ -64,7 +64,7 @@ struct ChatUnreadDivider: View {
     var body: some View {
         HStack(spacing: 8) {
             Rectangle().fill(Color.red.opacity(0.25)).frame(height: 1)
-            Text("ข้อความใหม่")
+            Text("chat_new_messages")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Color.red.opacity(0.7))
             Rectangle().fill(Color.red.opacity(0.25)).frame(height: 1)
@@ -180,9 +180,9 @@ struct ChatBubble: View {
 /// ข้อความสถานะใต้ข้อความล่าสุดที่เราส่ง
 enum ChatReadStatus {
     static func text(readCount: Int, memberCount: Int) -> String {
-        guard readCount > 0 else { return "ส่งแล้ว" }
+        guard readCount > 0 else { return Loc.t("chat_sent") }
         let others = max(memberCount - 1, 0)   // ทุกคนยกเว้นเรา
-        return readCount >= others ? "อ่านแล้ว \(readCount) · ทั้งกลุ่ม" : "อ่านแล้ว \(readCount)"
+        return String(format: Loc.t(readCount >= others ? "chat_read_by_all" : "chat_read_by"), readCount)
     }
 }
 

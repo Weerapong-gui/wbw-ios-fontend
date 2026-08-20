@@ -23,7 +23,7 @@ struct TrailConditionsRow: View {
                     reading(symbol: sky.symbol,
                             iconTint: sky.tint,
                             lead: "\(weather.temperatureC)°",
-                            trail: weather.feelsLikeC.map { String(format: String(localized: "home_weather_feels"), $0) },
+                            trail: weather.feelsLikeC.map { String(format: Loc.t("home_weather_feels"), $0) },
                             trailTint: .wbwOnBackdropMuted,
                             accessibility: sky.label)
                 }
@@ -31,10 +31,10 @@ struct TrailConditionsRow: View {
                     let band = AqiBand.of(aqi: air.usAqi)
                     reading(symbol: "aqi.medium",
                             iconTint: band.iconTint,
-                            lead: String(format: String(localized: "home_air_aqi"), air.usAqi),
+                            lead: String(format: Loc.t("home_air_aqi"), air.usAqi),
                             trail: band.label,
                             trailTint: band.wordTint,
-                            accessibility: String(localized: "home_air_quality"))
+                            accessibility: Loc.t("home_air_quality"))
                 }
             }
         }

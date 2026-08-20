@@ -41,7 +41,8 @@ final class NotificationGroupingTests: XCTestCase {
         let sections = NotificationGrouping.sections(
             [july, yesterday, todayEarly, todayLate], now: now, calendar: calendar)
 
-        XCTAssertEqual(sections.map(\.title), ["วันนี้", "เมื่อวาน", "16 ก.ค."],
+        XCTAssertEqual(sections.map(\.title),
+                       [Loc.t("date_today"), Loc.t("date_yesterday"), "16 ก.ค."],
                        "วันนี้/เมื่อวานต้องเป็นคำ ไม่ใช่วันที่ · วันเก่ากว่านั้นถึงโชว์วันที่")
     }
 
@@ -67,7 +68,8 @@ final class NotificationGroupingTests: XCTestCase {
     func testKeepsUndatedItemsInATrailingGroup() {
         let sections = NotificationGrouping.sections([undated, todayLate], now: now, calendar: calendar)
 
-        XCTAssertEqual(sections.map(\.title), ["วันนี้", "ไม่ระบุเวลา"],
+        XCTAssertEqual(sections.map(\.title),
+                       [Loc.t("date_today"), Loc.t("date_unknown_title")],
                        "createdAt เป็น null ต้องยังเห็นแถวอยู่ ไม่ใช่หายจากจอ")
         XCTAssertEqual(sections.last?.items.map(\.id), ["5"])
     }
@@ -76,7 +78,7 @@ final class NotificationGroupingTests: XCTestCase {
         let broken = item("6", "เมื่อวานตอนบ่าย")
         let sections = NotificationGrouping.sections([broken], now: now, calendar: calendar)
 
-        XCTAssertEqual(sections.map(\.title), ["ไม่ระบุเวลา"])
+        XCTAssertEqual(sections.map(\.title), [Loc.t("date_unknown_title")])
     }
 
     func testSectionIdsAreUniqueSoForEachDoesNotDropRows() {

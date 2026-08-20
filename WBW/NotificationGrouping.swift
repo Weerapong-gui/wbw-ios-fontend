@@ -20,7 +20,7 @@ enum NotificationGrouping {
     ///
     /// backend ส่ง `createdAt` เป็น null ได้จริง (แถวที่ job สร้าง) ถ้าคัดแถวพวกนี้ออกจากลิสต์
     /// ผู้ใช้จะไม่เห็นประกาศนั้นเลยทั้งที่ badge นับให้แล้ว — เห็นเป็นเลขที่กดเข้าไปแล้วไม่มีอะไร
-    private static let undatedTitle = "ไม่ระบุเวลา"
+    private static var undatedTitle: String { Loc.t("date_unknown_title") }
 
     static func sections(_ items: [NotificationItem], now: Date,
                          calendar: Calendar = .current) -> [Section] {
@@ -66,8 +66,8 @@ enum NotificationGrouping {
     }
 
     private static func title(for day: Date, now: Date, calendar: Calendar) -> String {
-        if calendar.isDate(day, inSameDayAs: now) { return "วันนี้" }
-        if isYesterday(day, now: now, calendar: calendar) { return "เมื่อวาน" }
+        if calendar.isDate(day, inSameDayAs: now) { return Loc.t("date_today") }
+        if isYesterday(day, now: now, calendar: calendar) { return Loc.t("date_yesterday") }
         return formatted(day, format: "d MMM", calendar: calendar)
     }
 

@@ -6,6 +6,6 @@ enum CheckinProgressLabel {
     /// nil = ยังไม่มีข้อมูล (total 0) → ไม่ต้องโชว์อะไรเลย
     static func text(stage: Int, total: Int) -> String? {
         guard total > 0 else { return nil }
-        return "เช็คอินแล้ว \(stage)/\(total) ฐาน"
+        return String(format: Loc.t("home_checked_in"), stage, total)
     }
 }

@@ -35,9 +35,9 @@ struct ParticipantPassView: View {
             // อยู่นอก ScrollView โดยตั้งใจ: บัตรสูงกว่าจอ ปุ่มกลับที่เลื่อนหายไปคือปุ่มที่ต้องเลื่อนกลับ
             // ขึ้นไปหา
             HStack {
-                circleButton(systemImage: "arrow.left", label: "กลับ", action: onBack)
+                circleButton(systemImage: "arrow.left", label: Loc.t("action_back"), action: onBack)
                 Spacer()
-                circleButton(systemImage: "gearshape", label: "ตั้งค่า") { showSettings = true }
+                circleButton(systemImage: "gearshape", label: Loc.t("settings_title")) { showSettings = true }
             }
             .padding(.top, 6)
             .padding(.bottom, 14)
@@ -70,12 +70,12 @@ struct ParticipantPassView: View {
     private var pass: some View {
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                kicker("บัตรผู้เข้าร่วม")
+                kicker(Loc.t("profile_pass_title"))
 
                 // ทั้งแถวหายไปเมื่อไม่มีกลุ่ม ไม่ใช่เหลือกล่องเปล่า — มันมีไว้ใส่ป้าย ระยะห่างด้านบน
                 // ของมันจะกลายเป็นช่องว่างที่อ่านว่ามีของหายไป
                 if let group = me?.groupNumber {
-                    outlinePill("กลุ่ม \(group)")
+                    outlinePill(String(format: Loc.t("group_number"), group))
                         .padding(.top, 16)
                 }
 
@@ -136,7 +136,7 @@ struct ParticipantPassView: View {
                             .padding(8)
                             .frame(width: 116, height: 116)
                             .background(Color.passInk, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .accessibilityLabel("คิวอาร์โค้ดสำหรับเช็กอิน")
+                            .accessibilityLabel("profile_qr_label")
                     }
                 }
                 .padding(.top, 20)
@@ -147,14 +147,14 @@ struct ParticipantPassView: View {
                 // มันจึงได้ขนาดระดับ display เหมือนกัน
                 HStack(alignment: .bottom, spacing: 0) {
                     VStack(alignment: .leading, spacing: 0) {
-                        kicker("หมายเลขบิบ")
+                        kicker(Loc.t("profile_bib_number"))
                         Text(me?.bibNumber.map(String.init) ?? "—")
                             .font(.wbwNumeral(46, weight: .bold, relativeTo: .largeTitle))
                             .foregroundStyle(Color.passInk)
                             .padding(.top, 4)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    if stamped > 0 { filledPill("เช็คอินแล้ว") }
+                    if stamped > 0 { filledPill(Loc.t("profile_checked_in")) }
                 }
                 .padding(.top, 16)
 
@@ -163,7 +163,7 @@ struct ParticipantPassView: View {
                 // แสตมป์เส้นทาง: ช่องเท่าจำนวนฐาน ช่องที่ได้แล้วทึบ · ของเดิมวาดไอคอนต้นไม้ในทุกช่อง
                 // แล้วมีแถบความคืบหน้าอีกอันข้างล่าง — เลขเดียวกันอ่านสองรอบ ในดีไซน์ที่ไม่มีที่ให้
                 // ทั้งสองอย่าง
-                kicker("แสตมป์เส้นทาง")
+                kicker(Loc.t("profile_trail_stamps"))
                     .padding(.top, 16)
                 HStack(spacing: 6) {
                     ForEach(0..<totalStamps, id: \.self) { i in
@@ -177,10 +177,10 @@ struct ParticipantPassView: View {
                 rule.padding(.top, 20)
 
                 VStack(spacing: 0) {
-                    detailRow("เลือด", me?.bloodType ?? "—")
-                    detailRow("ส่วนสูง / น้ำหนัก", heightWeight)
-                    detailRow("เบอร์ติดต่อ", me?.contactPhone ?? "—")
-                    detailRow("ผู้ติดต่อฉุกเฉิน", emergency, last: true)
+                    detailRow(Loc.t("profile_label_blood"), me?.bloodType ?? "—")
+                    detailRow(Loc.t("profile_row_height_weight"), heightWeight)
+                    detailRow(Loc.t("profile_row_contact_phone"), me?.contactPhone ?? "—")
+                    detailRow(Loc.t("profile_section_emergency"), emergency, last: true)
                 }
                 .padding(.top, 6)
             }
@@ -201,7 +201,7 @@ struct ParticipantPassView: View {
         VStack(spacing: 16) {
             verticalLabel("WALK BEYOND THE WILD", color: .passMuted, height: 200)
             Rectangle().fill(Color.passHairline).frame(width: 1, height: 46)
-            verticalLabel("ทางการ", color: .passFaint, height: 60)
+            verticalLabel(Loc.t("profile_official"), color: .passFaint, height: 60)
         }
         .frame(width: 16)
     }
@@ -293,7 +293,7 @@ struct ParticipantPassView: View {
         let height = me?.heightCm?.value ?? nil
         let weight = me?.weightKg?.value ?? nil
         guard let h = height, let w = weight else { return "—" }
-        return "\(trim(h)) ซม. · \(trim(w)) กก."
+        return String(format: Loc.t("profile_hw_value"), trim(h), trim(w))
     }
 
     private var emergency: String {
