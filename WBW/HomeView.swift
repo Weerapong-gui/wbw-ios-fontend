@@ -69,8 +69,11 @@ struct HomeView: View {
 
             // ช่องว่างที่ชิปทักทายเดิมเคยกิน คืนกลับเป็นอากาศ ไม่ได้ยกให้อย่างอื่น
             VStack(alignment: .leading, spacing: 12) {
+                // น้ำหนักปกติ ไม่ใช่ตัวหนา — ต้นทางตั้ง `displaySmall` เป็น Sarabun Bold 34sp
+                // แต่ Bold ของ Sarabun บาง พอมาเทียบกับสกรีนช็อตจริงของ Android แล้วเส้นบางกว่า
+                // `.bold` ของ SF ชัดเจน · ตามที่ตาเห็นบนเครื่องจริง ไม่ใช่ตามชื่อ weight ในไฟล์
                 Text("สวัสดี \(name)")
-                    .font(.largeTitle).fontWeight(.bold)
+                    .font(.largeTitle)
                     .foregroundStyle(Color.wbwOnBackdrop)
 
                 // ใต้ชื่อและเหนือดอกไม้ เพราะอยู่ย่อหน้าเปิดเดียวกัน: คุณคือใคร แล้วข้างนอกเป็นยังไง

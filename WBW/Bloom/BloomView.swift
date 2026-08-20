@@ -106,6 +106,10 @@ struct BloomStageStrip: View {
                     .padding(d * 0.11)
             }
             .frame(width: d, height: d)
+            // ชิปที่กำลังโชว์ใหญ่ขึ้นเล็กน้อย — เห็นชัดจากสกรีนช็อตจริงของ Android ว่าชิปที่ถูกเลือก
+            // ยกตัวขึ้นมาจากแถว ไม่ได้ต่างแค่ความเข้ม · เป็นสิ่งเดียวที่บอกว่ากำลังพรีวิวอยู่
+            // หลังจากที่ขอบเบาลงเหลือ 0.34
+            .scaleEffect(selected ? 1.12 : 1)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
             .animation(.easeOut(duration: 0.22), value: shown)
         }

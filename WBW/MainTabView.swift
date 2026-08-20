@@ -55,15 +55,28 @@ struct MainTabView: View {
             TabView(selection: $tab) {
                 Tab(value: 0) { HomeView(noti: noti) } label: { Image(systemName: "house.fill") }
                 Tab(value: 1) { Map3DScreen(isActive: tab == 1) } label: { Image(systemName: "map.fill") }
-                Tab(value: 2) { SURunView(isActive: tab == 2) } label: { Image(systemName: "figure.run") }
-                Tab(value: 3) {
+                // ลำดับแท็บตาม `HomeScaffold.kt` ของ Android: home · map · chat · activities
+                // แล้วปุ่ม QR แยกออกมาข้างแถบ
+                //
+                // **SU RUN ออกจากแถบแท็บ** — Android ไม่มีแท็บนี้ แต่มีการ์ด "แข่งนับก้าว" ในจอ
+                // กิจกรรม ซึ่งคือของสิ่งเดียวกันเป๊ะ · SU RUN จึงย้ายไปอยู่หลังการ์ดใบนั้นแทนที่จะ
+                // ถูกลบทิ้ง (ดู ActivitiesTabView) — ฟีเจอร์ยังอยู่ครบ และตอบ Guideline 4.2 ได้
+                // เหมือนเดิมเพราะจอยังมีของจริงให้กด
+                Tab(value: 2) {
                     GroupTabView(chat: chat, path: $groupPath, onBack: { tab = 0 })
                 } label: {
                     Image(systemName: profile.me?.groupId == nil ? "sharedwithyou" : "message.fill")
                 }
                 .badge(chat.unreadCount)
-                // QR แยกเป็นปุ่มเดี่ยว (role .search) — My QR Code สำหรับเช็คอิน
-                Tab(value: 4, role: .search) { MyQRCodeView() } label: { Image(systemName: "qrcode") }
+                Tab(value: 3) { ActivitiesTabView() } label: { Image(systemName: "calendar") }
+                // QR แยกเป็นปุ่มเดี่ยว (role .search) — ปุ่มที่หน้าตาเป็น QR ควรผลิต QR ออกมา
+                // ไม่ใช่เปิดกล้องไปอ่านของคนอื่น · ปลายทางคือ **บัตรผู้เข้าร่วม** ซึ่งมี QR อยู่บนนั้น
+                // ตามที่ Android ทำ (`QrRoute = "profile"` ใน HomeScaffold.kt)
+                Tab(value: 4, role: .search) {
+                    ParticipantPassView(onBack: { tab = 0 })
+                } label: {
+                    Image(systemName: "qrcode")
+                }
             }
             .tint(Color.wbwGold)
             .task {
@@ -100,7 +113,7 @@ struct MainTabView: View {
                 // ซึ่งเป็นสภาพเดียวกับที่ทำให้มีของค้างตั้งแต่แรก ยิ่งชัด)
                 await feedback.flush(token: session.token ?? "")
                 #if DEBUG
-                if UserDefaults.standard.bool(forKey: "uitestChat") { tab = 3 }
+                if UserDefaults.standard.bool(forKey: "uitestChat") { tab = 2 }
                 // เปิดหน้าแจ้งเตือนตรงๆ โดยไม่ต้องพึ่งปุ่มกระดิ่งจริง — ทรงเดียวกับ uitestChat ด้านบน
                 // เป็นทางเดียวที่เข้าถึงหน้านี้ได้โดยไม่มี tap tooling ใช้ verify การ์ดขอความเห็น (Task 10)
                 if UserDefaults.standard.bool(forKey: "uitestNotifications") { showNotifications = true }
@@ -186,7 +199,7 @@ struct MainTabView: View {
                 // ไม่เช็ค profile.me?.groupId ตรงนี้ — cold launch: อาจถูกเรียกก่อน profile.load() (network
                 // round trip ใน .task) จะจบ เช็คแล้วจะเป็น false เสมอ ทำให้ push ถูกทิ้งไปเงียบๆ · ไม่เช็คก็
                 // ปลอดภัย ถ้าไม่มีกลุ่มจริงๆ GroupTabView เองก็แค่โชว์หน้าจับกลุ่มแทนจอแชทที่แท็บ 3 อยู่ดี
-                tab = 3
+                tab = 2
                 groupPath = []   // เด้งกลับรากเสมอ ไม่ว่าก่อนหน้านี้จะค้าง push อยู่ที่หน้ากลุ่ม/สมาชิกแค่ไหน
                 PendingPush.clear()   // รับสดแล้ว — เคลียร์กัน mount ถัดไปดึงไปเล่นซ้ำ (ดู PendingPush.clear())
             }
@@ -239,7 +252,7 @@ struct MainTabView: View {
             .onChange(of: chatVisible) { _, visible in chat.setScreenVisible(visible) }
 
             // แบนเนอร์ในแอป — เงื่อนไขต้องเป็น !chatVisible ไม่ใช่ tab != 3 — ตั้งแต่ Task 5 แท็บ 3 มี
-            // sub-navigation แล้ว (push ไปกลุ่มของฉัน/สมาชิกได้) tab == 3 ตอนนั้นไม่ได้แปลว่า "เห็นจอแชท
+            // sub-navigation แล้ว (push ไปกลุ่มของฉัน/สมาชิกได้) tab == 2 ตอนนั้นไม่ได้แปลว่า "เห็นจอแชท
             // อยู่" อีกต่อไป ถ้าใช้ tab != 3 ตอนอยู่หน้ากลุ่มของฉัน/สมาชิก (tab ยังเป็น 3, chatVisible
             // false) เงื่อนไขนี้จะเป็น false ทำให้ toast ไม่โผล่ — chat.incoming ที่ตั้งไว้ (ChatSession
             // เห็นว่าจอไม่ visible แล้ว) เลยไม่มี .task(id:) มาเคลียร์ให้ ค้างเป็น latch ไปเรื่อยๆ จนกว่าจะ
@@ -248,7 +261,7 @@ struct MainTabView: View {
                 VStack {
                     ChatToast(message: m, photoUrl: nil, onTap: {
                         chat.incoming = nil
-                        tab = 3
+                        tab = 2
                         groupPath = []
                     })
                     Spacer()
@@ -348,7 +361,7 @@ struct MainTabView: View {
     /// ไม่คุมตรงนี้ = heartbeat วิ่งค้างตอนผู้ใช้ไปแท็บอื่น server เข้าใจว่ายังจ้อจออยู่แล้วไม่ส่ง
     /// push ให้เลย (พังเงียบสนิท ไม่มี error ให้เห็น)
     private var chatVisible: Bool {
-        tab == 3 && profile.me?.groupId != nil && groupPath.isEmpty
+        tab == 2 && profile.me?.groupId != nil && groupPath.isEmpty
     }
 
     /// ฐานใน toastBases ที่ยัง "รอประเมิน" อยู่จริง ณ ตอนนี้ — toast อ่านตัวนี้ ไม่ใช่ toastBases ตรงๆ
@@ -375,7 +388,7 @@ struct MainTabView: View {
     /// พังด้วยนิพจน์แบบนี้มาแล้ว (ดูคอมเมนต์ยาวที่ .onChange(of: tab))
     ///
     /// ใช้ !chatVisible ไม่ใช่ tab != 3 — เหตุผลเดียวกับแบนเนอร์แชทด้านบน: ตั้งแต่มี sub-navigation ใน
-    /// แท็บ 3 (Task 5) ผู้ใช้ที่อยู่หน้ากลุ่มของฉัน/สมาชิก (tab == 3 แต่ chatVisible == false) ควรเห็น
+    /// แท็บกลุ่ม (Task 5) ผู้ใช้ที่อยู่หน้ากลุ่มของฉัน/สมาชิก (tab == 2 แต่ chatVisible == false) ควรเห็น
     /// toast เช็คอินได้ตามปกติ ไม่ใช่ถูกกันไว้เพราะบังเอิญ tab เท่ากับ 3
     private var canShowCheckinToast: Bool {
         !chatVisible && !showNotifications && feedbackCheckpoint == nil && chat.incoming == nil
