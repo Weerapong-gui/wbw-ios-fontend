@@ -56,27 +56,69 @@ final class SettingsBehaviorTests: XCTestCase {
 
     // MARK: - โหมดมืด
 
-    /// ค่าปริยายคือ "มืด" — พื้นหลังกลางของแอปเป็นภาพป่ากลางคืน (`AppBackdrop`) และ
-    /// `WBWApp` ส่งค่านี้ต่อไปเป็น `.preferredColorScheme` ซึ่งเป็นตัวที่กำหนดสีนาฬิกา/แบตด้วย
-    /// ตั้งเป็นสว่างไว้แปลว่า status bar เป็นตัวดำทับภาพมืดทั้ง 7 จอที่ใช้พื้นนี้ อ่านแทบไม่ออก
+    /// ค่าปริยายคือ **มืด** ไม่ใช่ `auto` — ต่างจาก `ThemeMode.AUTO` ของ Android โดยตั้งใจ
+    ///
+    /// `WBWApp` ส่งค่านี้ต่อเป็น `.preferredColorScheme` ซึ่งคุมสีนาฬิกา/แบตของ status bar ด้วย
+    /// `auto` บนเครื่องที่ตั้งโหมดสว่างจะได้ status bar ตัวดำทับพื้นภาพที่มืดอยู่ดี
     func testDefaultsToDarkWhenTheUserHasNeverTouchedTheSwitch() {
-        let key = AppSettings.darkModeKey
+        let keys = [AppSettings.themeModeKey, AppSettings.darkModeKey]
+        let saved = keys.map { UserDefaults.standard.object(forKey: $0) }
+        defer { for (k, v) in zip(keys, saved) { UserDefaults.standard.set(v, forKey: k) } }
+
+        keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+        XCTAssertEqual(AppSettings.themeModePreference(), .dark,
+                       "ยังไม่เคยตั้งค่า = โหมดมืด ไม่งั้น status bar เป็นตัวดำบนพื้นภาพที่มืด")
+    }
+
+    /// **ย้ายค่าของคนที่เคยตั้งสวิตช์สองสถานะไว้** — สวิตช์เดิมเป็น Bool ตัวเดียว (`wbw.darkmode`)
+    /// ตอนนี้เป็นสามสถานะคนละคีย์ · ไม่อ่านคีย์เก่าเลยแปลว่าคนที่เคยเลือกโหมดสว่างไว้เองจะถูก
+    /// ดีดกลับเป็นมืดเงียบ ๆ ตอนอัปเดตแอป
+    func testMigratesTheOldTwoStateDarkSwitch() {
+        let keys = [AppSettings.themeModeKey, AppSettings.darkModeKey]
+        let saved = keys.map { UserDefaults.standard.object(forKey: $0) }
+        defer { for (k, v) in zip(keys, saved) { UserDefaults.standard.set(v, forKey: k) } }
+
+        UserDefaults.standard.removeObject(forKey: AppSettings.themeModeKey)
+        UserDefaults.standard.set(false, forKey: AppSettings.darkModeKey)
+        XCTAssertEqual(AppSettings.themeModePreference(), .light,
+                       "เคยเลือกสว่างไว้ ต้องได้สว่าง ไม่ใช่ค่าปริยาย")
+
+        UserDefaults.standard.set(true, forKey: AppSettings.darkModeKey)
+        XCTAssertEqual(AppSettings.themeModePreference(), .dark)
+    }
+
+    /// คีย์ใหม่ชนะคีย์เก่าเสมอ — คนที่เข้าหน้าตั้งค่าแล้วเลือกใหม่ต้องไม่ถูกค่าเก่าดึงกลับ
+    func testTheNewKeyWinsOverTheMigratedOne() {
+        let keys = [AppSettings.themeModeKey, AppSettings.darkModeKey]
+        let saved = keys.map { UserDefaults.standard.object(forKey: $0) }
+        defer { for (k, v) in zip(keys, saved) { UserDefaults.standard.set(v, forKey: k) } }
+
+        UserDefaults.standard.set(true, forKey: AppSettings.darkModeKey)
+        UserDefaults.standard.set(ThemeMode.auto.rawValue, forKey: AppSettings.themeModeKey)
+        XCTAssertEqual(AppSettings.themeModePreference(), .auto)
+    }
+
+    /// ยังไม่เคยเลือกภาษา = เดินตามเครื่อง ไม่ใช่บังคับไทย
+    func testLanguageDefaultsToFollowingTheDevice() {
+        let key = AppSettings.languageKey
         let saved = UserDefaults.standard.object(forKey: key)
         defer { UserDefaults.standard.set(saved, forKey: key) }
 
         UserDefaults.standard.removeObject(forKey: key)
-        XCTAssertTrue(AppSettings.darkModePreference(),
-                      "ยังไม่เคยตั้งค่า = โหมดมืด ไม่งั้น status bar เป็นตัวดำบนภาพป่ากลางคืน")
+        XCTAssertEqual(AppSettings.languagePreference(), .system)
+
+        UserDefaults.standard.set("en", forKey: key)
+        XCTAssertEqual(AppSettings.languagePreference(), .en)
     }
 
-    /// คนที่เลือกโหมดสว่างไว้เองต้องได้โหมดสว่างเหมือนเดิม — ค่าปริยายใหม่ห้ามทับค่าที่ผู้ใช้ตั้ง
-    func testKeepsAnExplicitLightModeChoice() {
-        let key = AppSettings.darkModeKey
+    /// ค่าขยะใน UserDefaults ต้องไม่ทำให้แอปพัง — ตกกลับไปเดินตามเครื่อง
+    func testUnknownLanguageValueFallsBackToTheDevice() {
+        let key = AppSettings.languageKey
         let saved = UserDefaults.standard.object(forKey: key)
         defer { UserDefaults.standard.set(saved, forKey: key) }
 
-        UserDefaults.standard.set(false, forKey: key)
-        XCTAssertFalse(AppSettings.darkModePreference())
+        UserDefaults.standard.set("klingon", forKey: key)
+        XCTAssertEqual(AppSettings.languagePreference(), .system)
     }
 
     private func resolved(_ color: Color, _ style: UIUserInterfaceStyle) -> UIColor {

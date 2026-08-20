@@ -18,6 +18,11 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>th</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>th</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

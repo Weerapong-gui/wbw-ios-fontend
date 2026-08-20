@@ -25,7 +25,13 @@ struct WBWApp: App {
                 .environmentObject(groups)
                 .environmentObject(progress)
                 .environmentObject(forestHost)
-                .preferredColorScheme(settings.isDark ? .dark : .light)
+                // `auto` = ส่ง nil ปล่อยให้เดินตามระบบ (ThemeMode ของ Android)
+                .preferredColorScheme(settings.themeMode == .auto
+                                      ? nil
+                                      : (settings.themeMode == .dark ? .dark : .light))
+                // ตัวขับของ i18n ทั้งแอป — `Text("key")` ใน SwiftUI resolve ผ่าน locale ตัวนี้
+                // เปลี่ยนค่าแล้วทุกจอ re-render เป็นภาษาใหม่ทันที ไม่ต้องรีสตาร์ทแอป
+                .environment(\.locale, settings.language.locale ?? Locale.autoupdatingCurrent)
                 .modelContainer(for: ChatMessage.self)
         }
     }

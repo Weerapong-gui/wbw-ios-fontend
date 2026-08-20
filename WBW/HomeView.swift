@@ -131,13 +131,18 @@ struct HomeView: View {
             await conditions.refresh()
             #if DEBUG
             if UserDefaults.standard.bool(forKey: "uitestProfile") { showProfile = true }
+            // เปิดหน้าตั้งค่าตรง ๆ เพื่อถ่ายยืนยัน — เข้าได้ทางเดียวคือปุ่มมุมขวาบนซึ่งไม่มี
+            // launch arg ไหนไปถึงมาก่อน (ทรงเดียวกับ -uitestProfile)
+            if UserDefaults.standard.bool(forKey: "uitestSettings") { showSettings = true }
             #endif
         }
         .fullScreenCover(isPresented: $showProfile) {
             TicketView()
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView()
+            // ต้องมี NavigationStack ครอบ — SettingsView ใช้ทั้ง .toolbar และ NavigationLink
+            // ซึ่งทั้งคู่เงียบสนิทถ้าไม่มี stack ให้เกาะ (ปุ่มกลับหาย กดแถวแล้วไม่ไปไหน)
+            NavigationStack { SettingsView() }
         }
     }
 

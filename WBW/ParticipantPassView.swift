@@ -55,7 +55,11 @@ struct ParticipantPassView: View {
         // ใต้ทุกอย่างจึงมองไม่เห็นจากในแท็บ ต้องให้ forestBackground เจาะพื้นทึบนั้นทิ้งก่อน
         // (ดูคอมเมนต์ TabRootOpaqueBackgroundRemover) — ไม่ใส่แล้วบัตรลอยอยู่บนพื้นดำสนิท
         .forestBackground(day: ForestMath.dayStill)
-        .sheet(isPresented: $showSettings) { SettingsView() }
+        .sheet(isPresented: $showSettings) {
+            // ต้องมี NavigationStack ครอบ — SettingsView ใช้ทั้ง .toolbar และ NavigationLink
+            // ซึ่งทั้งคู่เงียบสนิทถ้าไม่มี stack ให้เกาะ (ปุ่มกลับหาย กดแถวแล้วไม่ไปไหน)
+            NavigationStack { SettingsView() }
+        }
         .task {
             if profile.me == nil { await profile.load(token: session.token ?? "") }
         }
