@@ -137,6 +137,32 @@ final class Map3DConfigFileTests: XCTestCase {
         XCTAssertEqual(p.y, -112.0, accuracy: 6)
     }
 
+    /// **สเกลละติจูดไม่ใช่ค่าอิสระ** — มันคือ `unitsPerDegreeLongitude / cos(originLatitude)`
+    /// ตามนิยามของ EPSG:3857 (ที่มาอยู่ในคอมเมนต์ของ `Map3DConfig.Anchor`) แต่ `decode` ตรวจแค่ว่า
+    /// ทั้งคู่เป็นบวก · คนที่มาผูก anchor ใหม่ให้โมเดลใบหน้าแล้วแก้ `originLatitude` โดยลืมคำนวณ
+    /// สเกลละติจูดใหม่จะได้แผนที่ที่ยืด/หดตามแนวเหนือ-ใต้แบบเงียบ ๆ อาการเดียวที่โผล่คือจุด GPS
+    /// เลื่อนออกจากตำแหน่งจริง ยิ่งห่างจากกลางแผนที่ยิ่งเลื่อนมาก ซึ่งอ่านเหมือน "GPS ไม่แม่น"
+    /// มากกว่าอ่านเหมือน config ผิด
+    ///
+    /// **ทำไมเช็คที่นี่ ไม่ใช่ใน `decode`:** `decode` ที่ปฏิเสธไฟล์ = แอปตกไปใช้ `fallback` ที่
+    /// คอมไพล์ไว้ ซึ่งถือ anchor **ชุดเดิม** อยู่ ผลคือการผูก anchor ใหม่ "ไม่มีผล" อย่างเงียบสนิท
+    /// แทนที่จะพังให้เห็น — แย่กว่าอาการที่พยายามกันเสียอีก · เทสแดงตอน build ดังกว่าและถึงมือคนแก้
+    /// ก่อนของจะไปถึงเครื่องใคร
+    ///
+    /// เผื่อไว้ 0.1% ทั้งที่คู่ที่ ship จริงตรงกันระดับ 0.02 ppm — กันแค่ "ลืมคำนวณใหม่" ไม่ใช่กัน
+    /// การปัดเศษ
+    func testAnchorLatitudeScaleFollowsItsOwnFormula() throws {
+        let anchors = [("ไฟล์ที่ ship", try XCTUnwrap(Map3DConfig.bundled).anchor),
+                       ("fallback", Map3DConfig.fallback.anchor)]
+        for (label, anchor) in anchors {
+            let derived = anchor.unitsPerDegreeLongitude
+                / cos(anchor.originLatitude * .pi / 180)
+            XCTAssertEqual(anchor.unitsPerDegreeLatitude, derived, accuracy: derived * 0.001,
+                           "\(label): unitsPerDegreeLatitude ต้องเท่ากับ "
+                           + "unitsPerDegreeLongitude / cos(originLatitude) — ได้ \(derived)")
+        }
+    }
+
     func testRejectsAPitchRangeThatIsInverted() {
         XCTAssertNil(decode(valid(minPitch: "80", maxPitch: "20")))
     }

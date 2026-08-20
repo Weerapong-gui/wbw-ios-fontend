@@ -43,7 +43,23 @@ final class Map3DGeoTests: XCTestCase {
     func testOutsideTheEventAreaReturnsNil() {
         XCTAssertNil(Map3DGeo.modelUnits(latitude: 13.7, longitude: 100.5, in: anchor),
                      "กรุงเทพอยู่นอกพื้นที่งาน — ต้องไม่มีจุดบนโมเดล")
-        // เลยขอบภูมิประเทศไปหนึ่งหน่วยพอดี (2231 > halfSpan 2230) — เนื้อแผ่นตอไม้ ไม่ใช่พื้นที่งาน
+        // เลยขอบภูมิประเทศไปนิดเดียว (x = 2230.95 เทียบ halfSpan 2230) — เนื้อแผ่นตอไม้
+        // ไม่ใช่พื้นที่งาน · จงใจให้เฉียดขอบ จะได้จับได้ถ้ามีใครเผลอเปลี่ยนเส้นแบ่งไปไกลกว่านี้
         XCTAssertNil(Map3DGeo.modelUnits(latitude: 20.04549, longitude: 99.922841, in: anchor))
+    }
+
+    /// ขอบพอดีเป๊ะต้องนับว่า "อยู่ใน" — เงื่อนไขเป็น `<=` ไม่ใช่ `<`
+    ///
+    /// ไม่มีอะไรบนจอฟ้องว่าเส้นแบ่งเป็นแบบไหน คนที่ยืนริมพื้นที่งานพอดีจะเห็นจุดตัวเองหายไปเฉย ๆ
+    /// ถ้าวันหลังมีคนแก้เป็น `<` · ตรึงค่าขอบ (halfSpan 2230.0) ไว้ด้วยเทส แทนที่จะปล่อยให้เป็น
+    /// ผลพลอยได้ของเครื่องหมายที่บังเอิญพิมพ์ไว้
+    func testTheExactHalfSpanBoundaryIsInside() throws {
+        let onTheEdge = anchor.originLongitude
+            + anchor.halfSpanUnitsEastWest / anchor.unitsPerDegreeLongitude
+        let p = try XCTUnwrap(
+            Map3DGeo.modelUnits(latitude: anchor.originLatitude, longitude: onTheEdge, in: anchor),
+            "ลองจิจูดที่ให้ x = halfSpan (2230.0) พอดีต้องยังอยู่ในพื้นที่งาน")
+        XCTAssertEqual(p.x, 2230, accuracy: 0.01)
+        XCTAssertEqual(p.y, 0, accuracy: 0.01)
     }
 }

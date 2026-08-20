@@ -21,6 +21,55 @@ final class MapModelLoaderTests: XCTestCase {
         XCTAssertTrue(MapModelLoader.shouldRelease(inUse: false))
     }
 
+    /// **ธงเมฆต้องถูกล้างพร้อมโมเดล** — `releaseIfPossible()` ทิ้ง entity ที่ถืออยู่ โมเดลรอบหน้า
+    /// จึงเป็น entity ใหม่ที่ยังไม่เคยถูกสั่ง `playAnimation` เลย ถ้าธงค้าง true ข้ามมา
+    /// `Map3DScreen` จะข้ามลูปสั่งแอนิเมชันไปตลอดกาล — เมฆแข็งค้างถาวรตั้งแต่ memory warning
+    /// ครั้งแรก โดยไม่มี error ไม่มี log ไม่มีอะไรฟ้องเลย · ทั้งกฎนี้แขวนอยู่กับโค้ดบรรทัดเดียว
+    /// ที่ใครมา refactor ก็ลบทิ้งได้โดยไม่มีอะไรแดง เทสตัวนี้คือสิ่งที่จะแดงแทน
+    ///
+    /// เรียก `releaseIfPossible()` ตรง ๆ ได้เพราะใต้ XCTest ทั้ง `loaded`/`loading` เป็น nil อยู่แล้ว
+    /// (`preload()` ไม่เคยเริ่มงานจริง ดูเทสข้างล่าง) จึงไม่มี `Entity` ตัวไหนถูกแตะ
+    @MainActor
+    func testReleasingTheModelClearsTheCloudAnimationFlag() {
+        let loader = MapModelLoader.shared
+        // singleton ตัวเดียวกับที่เทสอื่นในโปรเซสนี้ใช้ — คืนค่าทุกตัวที่แตะ ไม่งั้นลำดับการรัน
+        // เปลี่ยนเมื่อไหร่เทสอื่นพังตามแบบไล่ต้นเหตุไม่เจอ
+        let wasInUse = loader.isInUse
+        let hadStartedClouds = loader.hasStartedCloudAnimations
+        defer {
+            loader.isInUse = wasInUse
+            loader.hasStartedCloudAnimations = hadStartedClouds
+        }
+
+        loader.isInUse = false
+        loader.hasStartedCloudAnimations = true
+        loader.releaseIfPossible()
+
+        XCTAssertFalse(loader.hasStartedCloudAnimations,
+                       "โมเดลรอบหน้าเป็น entity ใหม่ — ธงค้าง true แปลว่าเมฆแข็งค้างถาวร")
+    }
+
+    /// อีกด้านของกฎเดียวกัน: ไม่ปล่อยโมเดล = ไม่ล้างธง · entity ตัวเดิมยังอยู่และแอนิเมชันยังเล่นอยู่
+    /// ล้างธงทั้งที่ไม่ได้ปล่อยจะทำให้รอบหน้าสั่ง `playAnimation` ทับของที่กำลังเล่น เมฆกระตุกกลับ
+    /// เฟรม 0 ซึ่งเป็นบั๊กที่ธงตัวนี้ถูกใส่มาเพื่อแก้ตั้งแต่แรก
+    @MainActor
+    func testKeepingTheModelKeepsTheCloudAnimationFlag() {
+        let loader = MapModelLoader.shared
+        let wasInUse = loader.isInUse
+        let hadStartedClouds = loader.hasStartedCloudAnimations
+        defer {
+            loader.isInUse = wasInUse
+            loader.hasStartedCloudAnimations = hadStartedClouds
+        }
+
+        loader.isInUse = true
+        loader.hasStartedCloudAnimations = true
+        loader.releaseIfPossible()
+
+        XCTAssertTrue(loader.hasStartedCloudAnimations,
+                      "ไม่ได้ปล่อยโมเดล แต่ล้างธง — รอบหน้าจะสั่งแอนิเมชันทับของที่กำลังเล่นอยู่")
+    }
+
     /// **เทสถดถอยของ crash จริง (2026-08-20)** — `preload()` เคยโหลด map.usdz ตอนรันเทสด้วย
     /// พอเทสจบโปรเซส exit() ขณะที่คิว live-scene-update ของ RealityKit ยังไล่ USD stage อยู่
     /// ได้ EXC_BAD_ACCESS ใน `TfToken` · โปรเซสตายหลังรายงานผลเทสไปแล้ว มันจึงไม่ทำให้เทสแดง

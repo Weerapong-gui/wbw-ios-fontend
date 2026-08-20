@@ -17,7 +17,7 @@ final class Map3DConfigTests: XCTestCase {
 
     func testDoesNotRenderUnderTestEvenWhenOn() {
         XCTAssertFalse(Map3DScreen.shouldRender(map3D: true, underTest: true),
-                       "เทสยูนิตรันในโปรเซสเดียวกับแอป โหลด usdz 11 MB แล้ว exit() ทันทีเสี่ยง segfault")
+                       "เทสยูนิตรันในโปรเซสเดียวกับแอป โหลด usdz 9.8 MB แล้ว exit() ทันทีเสี่ยง segfault")
     }
 
     func testDoesNotRenderWhenBothOff() {
