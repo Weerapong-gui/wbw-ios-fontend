@@ -639,9 +639,19 @@ struct Map3DScreen: View {
                     var node: Entity? = value.entity
                     while let current = node {
                         if let sequence = Map3DPins.sequence(forEntityNamed: current.name) {
+                            // โฟกัสที่ "แท่งหลัก" เสมอ ไม่ใช่ entity ที่นิ้วโดน — แตะเลขที่ปั้นลอย
+                            // อยู่เหนือแท่งแล้วกล้องจะไปจ้องกลางอากาศ ไม่ใช่ตัวฐาน
+                            //
+                            // ไต่ขึ้นไปหาโหนดบนสุดก่อนแล้วค่อย findEntity เพราะ `map` ไม่ได้อยู่ใน
+                            // สโคปของ gesture closure และ markerNum_N เป็นพี่น้องของ marker_N
+                            // ไม่ใช่ลูก — หาจาก parent ตรง ๆ ไม่เจอ
+                            var top = current
+                            while let parent = top.parent { top = parent }
+                            let anchorEntity = Map3DPins.primaryEntityName(for: sequence)
+                                .flatMap { top.findEntity(named: $0) } ?? current
                             // อ่านตำแหน่งหมุดใน scene space ตรงนี้เลย — เป็นสเปซเดียวกับที่กล้องใช้
                             // (`camera.look(at:from:relativeTo: nil)`) ไม่ต้องแปลงอะไรอีก
-                            focus(on: sequence, at: current.position(relativeTo: nil))
+                            focus(on: sequence, at: anchorEntity.position(relativeTo: nil))
                             return
                         }
                         node = current.parent

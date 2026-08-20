@@ -5,17 +5,29 @@ import XCTest
 final class Map3DPinsTests: XCTestCase {
 
     func testTableCoversEightPinsWithNoDuplicates() {
-        XCTAssertEqual(Map3DPins.entityNames.count, 8, "โมเดลมีแท่งแดง 8 แท่ง")
-        XCTAssertEqual(Set(Map3DPins.entityNames).count, 8, "ชื่อ prim ห้ามซ้ำ")
+        XCTAssertEqual(Map3DConfig.current.pins.count, 8, "งานมีแปดฐาน")
+        XCTAssertEqual(Map3DPins.entityNames.count, 16,
+                       "ฐานละสองชื่อ — ตัวแท่งกับเลขที่ปั้นติดหมุด")
+        XCTAssertEqual(Set(Map3DPins.entityNames).count, 16,
+                       "ชื่อซ้ำข้ามฐาน แปลว่าสองฐานชี้ prim เดียวกัน")
     }
 
-    func testSequenceLookupMatchesTableOrder() {
-        XCTAssertEqual(Map3DPins.sequence(forEntityNamed: Map3DPins.entityNames[0]), 1)
-        XCTAssertEqual(Map3DPins.sequence(forEntityNamed: Map3DPins.entityNames[7]), 8)
+    /// เลขที่ปั้นติดหมุดเป็น prim **พี่น้อง** ของแท่ง ไม่ใช่ลูก — ตัวไต่หาพ่อใน Map3DScreen
+    /// ไต่จากเลขแล้วจะไปสุดที่ root ไม่เจอฐาน คนแตะเลขที่เห็นชัดที่สุดบนจอแล้วเงียบสนิท
+    func testBothTheMarkerAndItsNumberResolveToTheSameBase() {
+        XCTAssertEqual(Map3DPins.sequence(forEntityNamed: "marker_5"), 5)
+        XCTAssertEqual(Map3DPins.sequence(forEntityNamed: "markerNum_5"), 5)
+    }
+
+    /// กล้องต้องบินไปจ้องตัวแท่ง ไม่ใช่เลขที่ลอยอยู่สูงกว่า ไม่งั้นเฟรมสุดท้ายเป็นภาพกลางอากาศ
+    func testPrimaryEntityIsTheMarkerNotTheNumber() {
+        XCTAssertEqual(Map3DPins.primaryEntityName(for: 5), "marker_5")
+        XCTAssertNil(Map3DPins.primaryEntityName(for: 99))
     }
 
     func testUnknownEntityHasNoSequence() {
         XCTAssertNil(Map3DPins.sequence(forEntityNamed: "Buildings"))
+        XCTAssertNil(Map3DPins.sequence(forEntityNamed: "stumpBase"))
     }
 
     func testLabelUsesRealNameWhenCheckedIn() {

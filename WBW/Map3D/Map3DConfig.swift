@@ -34,9 +34,13 @@ struct Map3DConfig: Decodable, Equatable {
 
     struct Pin: Decodable, Equatable {
         let sequence: Int
-        /// ชื่อ prim ในไฟล์โมเดล · โมเดลใบปัจจุบันตั้งชื่อว่า Cylinder, Cylinder_001 …
-        /// ซึ่งไม่ได้บอกว่าแท่งไหนคือฐานไหน การจับคู่นี้ **ต้องยืนยันด้วยสกรีนช็อต**
-        let entityName: String
+        /// ชื่อ prim ทุกตัวที่แตะแล้วต้องนับเป็นฐานนี้ · **ตัวแรกคือแท่งหลัก** ที่กล้องจะบินไปจ้อง
+        ///
+        /// ต้องเป็นลิสต์ไม่ใช่ชื่อเดี่ยว เพราะโมเดล Map2.0 ปั้นเลขฐานเป็น prim `markerNum_N`
+        /// ที่เป็น **พี่น้อง** ของ `marker_N` ใต้ root ไม่ใช่ลูกของมัน — ตัวไต่หาพ่อใน
+        /// `Map3DScreen` ไต่จากเลขแล้วไปสุดที่ root โดยไม่เจอฐาน ผลคือคนแตะเลขที่เห็นชัด
+        /// ที่สุดบนจอแล้วไม่มีอะไรเกิดขึ้นเลย
+        let entityNames: [String]
     }
 
     let modelName: String
@@ -58,6 +62,8 @@ struct Map3DConfig: Decodable, Equatable {
     static func decode(_ data: Data) -> Map3DConfig? {
         guard let config = try? JSONDecoder().decode(Map3DConfig.self, from: data) else { return nil }
         guard !config.pins.isEmpty,
+              config.pins.allSatisfy({ !$0.entityNames.isEmpty }),
+              Set(config.pins.flatMap(\.entityNames)).count == config.pins.flatMap(\.entityNames).count,
               config.bounds.south < config.bounds.north,
               config.bounds.west < config.bounds.east,
               config.camera.minPitchDegrees < config.camera.maxPitchDegrees,
@@ -86,7 +92,8 @@ struct Map3DConfig: Decodable, Equatable {
 
     /// ค่าเดียวกับไฟล์ JSON ที่ส่งไปกับแอป — ที่มาของแต่ละตัวเลขอยู่ในไฟล์ที่เคยถือมันไว้:
     /// มุมกล้องดู `Map3DCamera` · กรอบ lat/lng ดู `Map3DGeo.eventArea` เดิม (fit แบบ Procrustes
-    /// กับจุดสำรวจจริง 7 จุด) · ชื่อ prim ดู `Map3DPins`
+    /// กับจุดสำรวจจริง 7 จุด) · ชื่อ prim มาจากตัวโมเดลตรง ๆ (Map2.0 ปั้นเลขฐานติดหมุดมาแล้ว
+    /// ไม่ต้องเดาคู่เหมือนใบก่อน)
     static let fallback = Map3DConfig(
         modelName: "map",
         framingYawDegrees: 90,
@@ -96,8 +103,8 @@ struct Map3DConfig: Decodable, Equatable {
                        minDistance: 0.8, maxDistance: 4.0, defaultDistance: 1.6,
                        focusPitchDegrees: 34, focusDistance: 0.55, orbitDegreesPerSecond: 8),
         sky: Sky(domeRadius: 9.0, apronSpanMultiplier: 4.0),
-        pins: (0..<8).map { index in
-            Pin(sequence: index + 1,
-                entityName: index == 0 ? "Cylinder" : String(format: "Cylinder_%03d", index))
+        pins: (1...8).map { number in
+            Pin(sequence: number,
+                entityNames: ["marker_\(number)", "markerNum_\(number)"])
         })
 }

@@ -23,13 +23,13 @@
     "apronSpanMultiplier": 4.0
   },
   "pins": [
-    { "sequence": 1, "entityName": "Cylinder" },
-    { "sequence": 2, "entityName": "Cylinder_001" },
-    { "sequence": 3, "entityName": "Cylinder_002" },
-    { "sequence": 4, "entityName": "Cylinder_003" },
-    { "sequence": 5, "entityName": "Cylinder_004" },
-    { "sequence": 6, "entityName": "Cylinder_005" },
-    { "sequence": 7, "entityName": "Cylinder_006" },
-    { "sequence": 8, "entityName": "Cylinder_007" }
+    { "sequence": 1, "entityNames": ["marker_1", "markerNum_1"] },
+    { "sequence": 2, "entityNames": ["marker_2", "markerNum_2"] },
+    { "sequence": 3, "entityNames": ["marker_3", "markerNum_3"] },
+    { "sequence": 4, "entityNames": ["marker_4", "markerNum_4"] },
+    { "sequence": 5, "entityNames": ["marker_5", "markerNum_5"] },
+    { "sequence": 6, "entityNames": ["marker_6", "markerNum_6"] },
+    { "sequence": 7, "entityNames": ["marker_7", "markerNum_7"] },
+    { "sequence": 8, "entityNames": ["marker_8", "markerNum_8"] }
   ]
 }

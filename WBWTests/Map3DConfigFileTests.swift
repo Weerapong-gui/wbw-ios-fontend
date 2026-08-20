@@ -23,8 +23,22 @@ final class Map3DConfigFileTests: XCTestCase {
         let config = try XCTUnwrap(Map3DConfig.bundled)
         XCTAssertEqual(config.pins.map(\.sequence), Array(1...config.pins.count),
                        "ลำดับฐานต้องเรียง 1…N ไม่ขาดไม่ซ้ำ — ซ้ำแล้วคนเดินผิดฐานจริง")
-        XCTAssertEqual(Set(config.pins.map(\.entityName)).count, config.pins.count,
-                       "ชื่อ prim ซ้ำกัน แปลว่าสองฐานชี้แท่งเดียวกัน")
+        let names = config.pins.flatMap(\.entityNames)
+        XCTAssertEqual(Set(names).count, names.count,
+                       "ชื่อ prim ซ้ำกัน แปลว่าสองฐานชี้ prim เดียวกัน")
+    }
+
+    /// ชื่อ prim ต้องลงท้ายด้วยเลขเดียวกับ `sequence` — โมเดล Map2.0 ปั้นเลขฐานติดหมุดมาแล้ว
+    /// (`marker_5` คู่กับเลข 5 ที่คนเดินเห็นอยู่บนแผนที่) พิมพ์สลับตัวเดียวคือคนเดินผิดฐานจริง
+    /// และไม่มีอะไรฟ้องเลยนอกจากมีคนเปิดแท็บแล้วแตะเทียบทีละอัน
+    func testShippedConfigPinNamesEndWithTheirOwnSequence() throws {
+        let config = try XCTUnwrap(Map3DConfig.bundled)
+        for pin in config.pins {
+            for name in pin.entityNames {
+                XCTAssertTrue(name.hasSuffix("_\(pin.sequence)"),
+                              "\(name) อยู่ในฐานที่ \(pin.sequence) แต่ชื่อไม่ได้ลงท้ายด้วยเลขนั้น")
+            }
+        }
     }
 
     /// ค่าที่ส่งไปกับแอปต้องเป็นค่าเดียวกับที่ fallback ถืออยู่ ไม่งั้นการทดสอบทั้งหมดที่รันโดยไม่มี
@@ -39,7 +53,7 @@ final class Map3DConfigFileTests: XCTestCase {
         Map3DConfig.decode(Data(json.utf8))
     }
 
-    private func valid(pins: String = #"[{"sequence":1,"entityName":"Cylinder"}]"#,
+    private func valid(pins: String = #"[{"sequence":1,"entityNames":["marker_1"]}]"#,
                        bounds: String = #"{"south":20.0,"west":99.8,"north":20.1,"east":99.9}"#,
                        domeRadius: String = "9.0",
                        minPitch: String = "12",
@@ -68,6 +82,17 @@ final class Map3DConfigFileTests: XCTestCase {
     /// เป็นความล้มเหลวที่เงียบที่สุดที่จะเกิดจากการพิมพ์ JSON ผิด
     func testRejectsAnEmptyPinList() {
         XCTAssertNil(decode(valid(pins: "[]")))
+    }
+
+    /// ฐานที่ไม่มีชื่อ prim สักตัว = แท่งนั้นแตะไม่ติด แต่แท่งอื่นยังติด อ่านจากจอไม่ออกว่าพัง
+    func testRejectsAPinWithNoEntityNames() {
+        XCTAssertNil(decode(valid(pins: #"[{"sequence":1,"entityNames":[]}]"#)))
+    }
+
+    func testRejectsTheSameEntityNameOnTwoBases() {
+        XCTAssertNil(decode(valid(pins: #"""
+        [{"sequence":1,"entityNames":["marker_1"]},{"sequence":2,"entityNames":["marker_1"]}]
+        """#)))
     }
 
     func testRejectsAnUpsideDownBoundingBox() {

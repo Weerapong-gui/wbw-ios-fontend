@@ -1,19 +1,23 @@
 import Foundation
 
-/// หมุดฐานบนโมเดลแผนที่ — แท่งทรงกระบอกแดง 8 แท่งที่มากับ map.usdz อยู่แล้ว
+/// หมุดฐานบนโมเดลแผนที่ — `marker_1`…`marker_8` ที่มากับ Map2.0
 ///
-/// โมเดลตั้งชื่อ prim ว่า Cylinder, Cylinder_001 … Cylinder_007 ซึ่งไม่ได้บอกว่าแท่งไหนคือฐานไหน
-/// ลำดับในตารางข้างล่างจึงเป็นการจับคู่ที่ **ต้องยืนยันด้วยสกรีนช็อตกับ Park** ไม่ใช่ค่าที่พิสูจน์
-/// จากตัวไฟล์ได้ — จับผิดคู่แปลว่าคนเดินผิดฐานจริง
+/// ต่างจากใบก่อนตรงที่ **โมเดลบอกลำดับฐานเอง**: ชื่อ prim มีเลขอยู่ในตัว และมีเลขปั้นเป็น mesh
+/// (`markerNum_N`) ให้คนเดินเห็นบนแผนที่ตรงกัน · ใบเก่าชื่อ prim เป็น `Cylinder_00N` ที่ไม่ได้
+/// บอกอะไรเลย ต้องเดาคู่แล้วยืนยันด้วยสกรีนช็อต — และตอนเทียบกับใบใหม่พบว่าเดาผิด 6 จาก 8
 enum Map3DPins {
-    /// ชื่อ prim ของแท่งแดง เรียงตามลำดับฐาน — มาจาก `WBW/Resources/map_config.json`
-    ///
-    /// **ย้ายออกจากโค้ดเพราะโมเดลจะถูกเปลี่ยนใบ** ชื่อ prim ชุดใหม่จะไม่เหมือนชุดนี้แน่นอน
-    static var entityNames: [String] { Map3DConfig.current.pins.map(\.entityName) }
+    /// ชื่อ prim ทุกตัวที่ต้องติด collision ให้ — รวมทั้งแท่งและเลขที่ปั้นติดหมุด
+    static var entityNames: [String] { Map3DConfig.current.pins.flatMap(\.entityNames) }
 
-    /// prim นี้เป็นฐานลำดับที่เท่าไร — nil = ไม่ใช่หมุด (อาคาร ถนน ฯลฯ)
+    /// ชื่อแท่งหลักของฐานนั้น (ชื่อแรกในตาราง) — กล้องต้องบินไปจ้องแท่ง ไม่ใช่เลขที่ลอยสูงกว่า
+    /// ไม่งั้นเฟรมสุดท้ายของแอนิเมชันโฟกัสเป็นภาพกลางอากาศเหนือฐาน
+    static func primaryEntityName(for sequence: Int) -> String? {
+        Map3DConfig.current.pins.first { $0.sequence == sequence }?.entityNames.first
+    }
+
+    /// prim นี้เป็นฐานลำดับที่เท่าไร — nil = ไม่ใช่หมุด (อาคาร ถนน ต้นไม้ ฯลฯ)
     static func sequence(forEntityNamed name: String) -> Int? {
-        Map3DConfig.current.pins.first { $0.entityName == name }?.sequence
+        Map3DConfig.current.pins.first { $0.entityNames.contains(name) }?.sequence
     }
 
     /// ข้อความบนการ์ดตอนแตะหมุด
