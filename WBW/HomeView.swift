@@ -131,6 +131,9 @@ struct HomeView: View {
     /// ตอนนี้เป็นดอกไม้ที่บานตามจำนวนฐาน ซึ่งเป็นของที่หน้านี้ควรมีมาตั้งแต่แรก
     private var bloom: some View {
         VStack(spacing: 12) {
+            // Spacer ตัวเดียว **ตัวบน** — เดิมมีขนาบทั้งบนล่าง ของทั้งก้อนเลยถูกจัดกึ่งกลางพื้นที่
+            // ที่เหลือ เหลือช่องว่างเปล่าใต้การ์ดลงไปถึงแถบแท็บราวหนึ่งในห้าของจอ (เห็นจาก
+            // สกรีนช็อตจริง) · เหลือตัวบนตัวเดียวแล้วทุกอย่างถูกดันลงชิดล่างเอง
             Spacer(minLength: 0)
 
             // เงาใต้จุดยังอยู่ **แต่เบาลงแล้ว** — ตั้งแต่ AppBackdrop คลุมทึบทั้งใบ (0.35) กลางจอ
@@ -159,17 +162,10 @@ struct HomeView: View {
                                 previewStage: Binding(
                                     get: { previewStage },
                                     set: { previewStage = $0; nudgeBreath() }))
-
-                Text("ดอกไม้บานขึ้นทุกครั้งที่เช็คอินเข้าฐานใหม่ · แตะดูขั้นถัดไปได้")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
             .glassSurface(RoundedRectangle(cornerRadius: 24, style: .continuous))
-
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         // แถบแท็บลอยทับพื้นที่ล่างของจอ — ไม่เว้นไว้แล้วแถบขั้นจะโดนบังครึ่งใบ
