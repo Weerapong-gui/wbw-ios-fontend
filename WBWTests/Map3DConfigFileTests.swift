@@ -79,7 +79,7 @@ final class Map3DConfigFileTests: XCTestCase {
          "camera":{"defaultPitchDegrees":68,"minPitchDegrees":\(minPitch),"maxPitchDegrees":\(maxPitch),
                    "minDistance":0.8,"maxDistance":4.0,"defaultDistance":1.6,
                    "focusPitchDegrees":34,"focusDistance":0.55,"orbitDegreesPerSecond":8},
-         "sky":{"domeRadius":\(domeRadius),"apronSpanMultiplier":4.0},
+         "sky":{"domeRadius":\(domeRadius)},
          "pins":\(pins)}
         """
     }

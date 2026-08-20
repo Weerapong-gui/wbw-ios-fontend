@@ -424,18 +424,13 @@ struct Map3DScreen: View {
 
             root.addChild(map)
 
-            // โดมฟ้า + ม่านปิดขอบ + ชั้นเมฆ — แขวนใต้ root ไม่ใช่ใต้ map เพราะไม่ควรหมุนตาม
+            // โดมฟ้า + ชั้นเมฆ — แขวนใต้ root ไม่ใช่ใต้ map เพราะไม่ควรหมุนตาม
             // cameraFramingYaw ที่ใช้หันทิศพื้นที่งาน (ท้องฟ้าไม่มีทิศ)
             //
             // เช็คชื่อก่อนสร้าง: MapModelLoader คืน entity ตัวเดิมทุกครั้ง แต่ make closure อาจ
             // ถูกเรียกซ้ำได้ ถ้าไม่เช็คจะได้โดมซ้อนกันหลายใบ ซึ่งมองไม่ออกด้วยตาแต่กินหน่วยความจำ
             if root.findEntity(named: Map3DSky.rootName) == nil {
-                // ครึ่งความกว้างหลังย่อสเกลแล้ว — โมเดลถูกย่อให้ด้านกว้างสุดพอดีกรอบ 2 หน่วย
-                // สองแกนไม่เท่ากัน (พื้นที่งานเป็นสี่เหลี่ยมผืนผ้า) ต้องส่งแยกกัน ดู Map3DSky.build
-                let scaled = map.visualBounds(relativeTo: nil)
-                root.addChild(Map3DSky.build(halfX: scaled.extents.x / 2,
-                                             halfZ: scaled.extents.z / 2,
-                                             slabDepth: scaled.extents.y))
+                root.addChild(Map3DSky.build())
             }
 
             // ให้แท่งแดงแตะได้ — ต้องมีทั้งสองคอมโพเนนต์ ขาดตัวใดตัวหนึ่ง tap ไม่เข้า

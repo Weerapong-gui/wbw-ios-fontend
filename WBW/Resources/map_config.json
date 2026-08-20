@@ -22,8 +22,7 @@
     "orbitDegreesPerSecond": 8
   },
   "sky": {
-    "domeRadius": 9.0,
-    "apronSpanMultiplier": 4.0
+    "domeRadius": 9.0
   },
   "pins": [
     { "sequence": 1, "entityNames": ["marker_1", "markerNum_1"] },

@@ -28,8 +28,6 @@ struct Map3DConfig: Decodable, Equatable {
 
     struct Sky: Decodable, Equatable {
         let domeRadius: Float
-        /// ชายพื้นแนวนอนกว้างกี่เท่าของรัศมีแผนที่ — กันไม่ให้เห็นก้นแผ่นตอนกล้องอยู่สูง
-        let apronSpanMultiplier: Float
     }
 
     /// ที่ยึดระหว่างพิกัดจริงกับพิกัดในโมเดล — แทน `bounds` แบบกรอบสี่มุมของใบก่อน
@@ -133,7 +131,7 @@ struct Map3DConfig: Decodable, Equatable {
         camera: Camera(defaultPitchDegrees: 68, minPitchDegrees: 34, maxPitchDegrees: 75,
                        minDistance: 0.8, maxDistance: 4.0, defaultDistance: 1.6,
                        focusPitchDegrees: 34, focusDistance: 0.55, orbitDegreesPerSecond: 8),
-        sky: Sky(domeRadius: 9.0, apronSpanMultiplier: 4.0),
+        sky: Sky(domeRadius: 9.0),
         pins: (1...8).map { number in
             Pin(sequence: number,
                 entityNames: ["marker_\(number)", "markerNum_\(number)"])
