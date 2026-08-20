@@ -28,7 +28,15 @@ struct Map3DScreen: View {
     /// ตำแหน่งผู้ใช้จริงจาก CoreLocation — nil = ไม่ให้สิทธิ์/ยังไม่รู้ตำแหน่ง (ไม่วาดจุด)
     @StateObject private var location = Map3DLocation()
 
-    /// รัศมีจุดตำแหน่งผู้ใช้ วัดหลังโมเดลถูกย่อให้พอดีกรอบ 2 หน่วยแล้ว (โมเดลกว้าง 2 หน่วยเต็มจอ)
+    /// ด้านกว้างสุดของโมเดลหลังย่อสเกล — ทุกระยะบนจอนี้วัดเทียบเลขนี้ทั้งหมด (ระยะกล้องใน
+    /// `Map3DCamera`, รัศมีจุดผู้ใช้, และรัศมีโดมฟ้า/ชั้นเมฆที่ `Map3DSky` คำนวณต่อจากมัน)
+    ///
+    /// ต้องเป็นสัญลักษณ์ ไม่ใช่เลข 2 ฝังไว้ในบรรทัดที่ตั้ง `map.scale` เพราะข้อผูกข้ามไฟล์นี้เคย
+    /// ถูกแบกด้วยคอมเมนต์ในไฟล์อื่นล้วน ๆ — `Map3DSky` ฮาร์ดโค้ด `mapRadius = 1` ไว้บนสมมติฐานว่า
+    /// ที่นี่ย่อเป็น 2 เสมอ แก้เลขที่นี่แล้วไม่มีอะไรพาไปบอกที่นั่นและไม่มีเทสตัวไหนแดง
+    static let normalisedSpan: Float = 2
+
+    /// รัศมีจุดตำแหน่งผู้ใช้ วัดหลังโมเดลถูกย่อให้พอดีกรอบ `normalisedSpan` หน่วยแล้ว
     /// ตอนสร้าง entity ต้องหารด้วย map.scale กลับเป็นเมตรจริงของ local space เสมอ
     private static let dotRadiusOnScreen: Float = 0.02
 
@@ -410,11 +418,31 @@ struct Map3DScreen: View {
             map.removeFromParent()
             map.name = "Map"
 
-            // โมเดลเป็นเมตรจริง รัศมีราว 1.9 กม. — ย่อให้ทั้งก้อนพอดีกรอบ 2 หน่วย
+            // โมเดลเป็นเมตรจริง รัศมีราว 1.9 กม. — ย่อให้ทั้งก้อนพอดีกรอบ `normalisedSpan` หน่วย
             // ก่อนค่อยให้ camera controls จัดการระยะ ไม่งั้นกล้องเริ่มต้นจะอยู่ในเนื้อโมเดล
+            //
+            // ⚠️ ต้องล้าง scale/position ให้กลับสภาพเดิม "ก่อน" วัด — `make` ถูกเรียกซ้ำกับ entity
+            // ตัวเดิมได้จริง (ล็อกเอาต์แล้วล็อกอินใหม่ในโปรเซสเดียว ดูคอมเมนต์ของ MapModelLoader)
+            // และ `visualBounds(relativeTo: nil)` นับ transform ของตัว entity เองเข้าไปด้วย
+            // รอบสองจึงได้ extents ที่ย่อไปแล้ว (≈2) กลับมา widest กลายเป็น ≈2 แล้วสเกลถูกตั้งใหม่
+            // เป็น ≈1 — โมเดลโตขึ้น 2,584 เท่าในเฟรมเดียว กล้องไปจมอยู่ในเนื้อภูมิประเทศ ได้จอ
+            // สีน้ำตาลทึบทั้งจอโดยไม่มี error สักบรรทัด (พิสูจน์ด้วยการรันจริง ไม่ใช่การอ่านโค้ด:
+            // log รอบสองตอบ extents ≈ 2.00 × 0.57 × 2.00 — ดู docs/map-2-0-verification.md)
+            //
+            // ล้างแค่สองตัวนี้พอ เพราะเป็นสองตัวเดียวที่โค้ดก้อนนี้เขียนลง `map` · orientation
+            // ห้ามแตะ RealityKit ตั้งค่าแปลง Z-up→Y-up ไว้ให้ตั้งแต่ตอนโหลดแล้ว
+            map.scale = .one
+            map.position = .zero
+            // การหมุนหันทิศพื้นที่งานก็ค้างข้ามรอบเหมือนกัน — มันถูกตั้งไว้ที่ "โหนดเนื้อโมเดล"
+            // (ลูกตัวเดียวของ `map` ดูคอมเมนต์ยาวที่ `dotParent` ข้างล่าง) ตอนท้ายของ make
+            // ไม่ล้างก่อนวัด รอบสองจะได้ extents ที่แกน x/z สลับกัน `widest` เท่าเดิมก็จริง
+            // (แผ่นเกือบจัตุรัส) แต่ `bounds.center` สลับตาม จุดกึ่งกลางเลื่อนไปราว 11 px บนจอ
+            // — วัดจากภาพสองรอบแล้ว ไม่ใช่การคาดเดา
+            (map.children.first ?? map).orientation =
+                simd_quatf(angle: 0, axis: SIMD3<Float>(0, 0, 1))
             let bounds = map.visualBounds(relativeTo: nil)
             let widest = max(bounds.extents.x, max(bounds.extents.y, bounds.extents.z))
-            if widest > 0 { map.scale = SIMD3<Float>(repeating: 2 / widest) }
+            if widest > 0 { map.scale = SIMD3<Float>(repeating: Self.normalisedSpan / widest) }
             map.position = -bounds.center * map.scale.x
 
             // usdz นี้ประกาศ upAxis = "Z" จริง (ตรวจด้วย usdcat) แต่ Entity(named:) ของ
@@ -433,9 +461,13 @@ struct Map3DScreen: View {
             // แอนิเมชันเองมาแทน (ดู docs/superpowers/specs/2026-08-20-map-2-0-design.md §8)
             //
             // เช็คธงก่อนไล่ต้น: MapModelLoader คืน entity ตัวเดิมทุกครั้ง ไม่ clone แต่ make closure
-            // นี้ถูกเรียกซ้ำได้ทุกครั้งที่สลับแท็บออกแล้วกลับมา (view mount ใหม่) ถ้าไล่ต้นซ้ำจะสั่ง
-            // playAnimation ทับแอนิเมชันที่กำลังเล่นอยู่ ทำให้เมฆกระตุกกลับไปเฟรม 0 แล้วซ้อน
-            // playback controller ตัวใหม่ทับตัวเดิมที่ไม่มีใครหยุด (ดูธงที่ MapModelLoader)
+            // นี้ถูกเรียกซ้ำได้กับ entity ตัวเดิมนั้น — **ไม่ใช่ตอนสลับแท็บ** (TabView ของ iOS 18
+            // ถือ view ของทุกแท็บไว้ สลับไปกลับแล้ว make ไม่ถูกเรียกซ้ำ) แต่ตอน **ล็อกเอาต์แล้ว
+            // ล็อกอินใหม่ในโปรเซสเดียว**: RootView แขวน MainTabView ไว้เฉพาะตอน session อยู่ที่
+            // .home จอนี้จึงถูกทำลายและสร้างใหม่ ขณะที่ MapModelLoader.shared เป็น singleton
+            // อายุเท่าแอป ไม่มีอะไรในเส้นทาง logout ล้างมันเลย · ถ้าไล่ต้นซ้ำจะสั่ง playAnimation
+            // ทับแอนิเมชันที่กำลังเล่นอยู่ ทำให้เมฆกระตุกกลับไปเฟรม 0 แล้วซ้อน playback controller
+            // ตัวใหม่ทับตัวเดิมที่ไม่มีใครหยุด (ดูธงที่ MapModelLoader)
             if !MapModelLoader.shared.hasStartedCloudAnimations {
                 var pending = [map]
                 while let entity = pending.popLast() {
@@ -450,16 +482,28 @@ struct Map3DScreen: View {
             // โดมฟ้า + ชั้นเมฆ — แขวนใต้ root ไม่ใช่ใต้ map เพราะไม่ควรหมุนตาม
             // cameraFramingYaw ที่ใช้หันทิศพื้นที่งาน (ท้องฟ้าไม่มีทิศ)
             //
-            // เช็คชื่อก่อนสร้าง: MapModelLoader คืน entity ตัวเดิมทุกครั้ง แต่ make closure อาจ
-            // ถูกเรียกซ้ำได้ ถ้าไม่เช็คจะได้โดมซ้อนกันหลายใบ ซึ่งมองไม่ออกด้วยตาแต่กินหน่วยความจำ
-            if root.findEntity(named: Map3DSky.rootName) == nil {
-                root.addChild(Map3DSky.build())
-            }
+            // ไม่ต้องเช็คว่ามีโดมอยู่แล้วหรือยัง: `root` ถูก `Entity()` ขึ้นใหม่ที่หัวของ make ทุกรอบ
+            // ของซ้อนกันจึงเกิดไม่ได้ — เคยมี `if root.findEntity(named:) == nil` คร่อมอยู่ตรงนี้
+            // ซึ่งค้นบน root ที่เพิ่งสร้างเปล่า ๆ เลยตอบ nil เสมอ ไม่เคยกันอะไรได้เลยสักครั้ง
+            // ของที่ซ้อนได้จริงคือของที่แขวนใต้ `map` ต่างหาก เพราะ map เป็น entity ตัวเดิมที่ถูก
+            // ใช้ซ้ำข้ามรอบ (ดูจุดที่ลบ UserDot ตัวเก่าทิ้งก่อนสร้างใหม่)
+            root.addChild(Map3DSky.build())
 
-            // ให้แท่งแดงแตะได้ — ต้องมีทั้งสองคอมโพเนนต์ ขาดตัวใดตัวหนึ่ง tap ไม่เข้า
-            for name in Map3DPins.entityNames {
+            // ให้ทั้งแท่งหมุดและเลขที่ปั้นติดหมุดแตะได้ — ต้องมีทั้งสองคอมโพเนนต์ ขาดตัวใดตัวหนึ่ง
+            // tap ไม่เข้า
+            //
+            // สรุปเป็นบรรทัดเดียวว่า "ได้กี่จากกี่ชื่อ" แทนการ log เฉพาะชื่อที่หาย: รอบก่อนสรุปว่า
+            // ชื่อครบทั้ง 16 จากการที่ตัวกรอง log stream ไม่พิมพ์อะไรออกมาเลย ทั้งที่การรันรอบเดียวกัน
+            // นั้นพิสูจน์แล้วว่า unified log กลืนบรรทัดที่ยิงจริงไปแปดบรรทัด — "ไม่เห็นอะไร" ผ่าน
+            // เครื่องมือที่ทำหลุดเป็นปกติไม่ใช่หลักฐานว่าไม่มีอะไร แต่ "16 จาก 16" เป็นหลักฐาน
+            //
+            // และธงแดงจริงอยู่ที่ assertionFailure: ชื่อที่หายไปแปลว่าฐานนั้นแตะไม่ติดทั้งฐาน ซึ่ง
+            // อ่านจากจอไม่ออกเลยว่าพัง (หมุดยังขึ้นครบ แค่กดแล้วเงียบ) ต้องให้มันหยุดคนที่รัน Debug
+            let pinNames = Map3DPins.entityNames
+            var missingPinNames: [String] = []
+            for name in pinNames {
                 guard let pin = map.findEntity(named: name) else {
-                    NSLog("[Map3DScreen] ไม่พบหมุดชื่อ %@ ในโมเดล", name)
+                    missingPinNames.append(name)
                     continue
                 }
                 let bounds = pin.visualBounds(relativeTo: pin)
@@ -468,6 +512,13 @@ struct Map3DScreen: View {
                 ]))
                 pin.components.set(InputTargetComponent())
             }
+            NSLog("[Map3DScreen] ติดปุ่มแตะให้หมุดได้ %d จาก %d ชื่อ",
+                  pinNames.count - missingPinNames.count, pinNames.count)
+            #if DEBUG
+            if !missingPinNames.isEmpty {
+                assertionFailure("ไม่พบชื่อหมุดในโมเดล: \(missingPinNames.joined(separator: ", "))")
+            }
+            #endif
 
             // จุดตำแหน่งผู้ใช้ — สร้างไว้ก่อนแล้วซ่อน ค่อยย้ายตอนมีพิกัดจริง
             // (สร้างทีหลังใน update closure ไม่ได้ เพราะ closure นั้นถูกเรียกทุกเฟรม)
@@ -498,6 +549,11 @@ struct Map3DScreen: View {
             )
             dot.name = "UserDot"
             dot.isEnabled = false
+            // ลบตัวเก่าก่อนเสมอ — `dotParent` อยู่ใต้ `map` ซึ่งเป็น entity ตัวเดิมที่ถูกใช้ซ้ำข้าม
+            // การ mount จอใหม่ (ล็อกเอาต์แล้วล็อกอินใหม่) ไม่ลบทิ้งก็ได้จุดฟ้าเพิ่มขึ้นทีละลูกทุกรอบ
+            // และ `findEntity(named:)` ใน update closure ก็จับได้แค่ลูกเดียว ที่เหลือค้างอยู่กับที่
+            // ตำแหน่งเก่าโดยไม่มีใครขยับหรือปิดมันอีกเลย
+            dotParent.findEntity(named: "UserDot")?.removeFromParent()
             dotParent.addChild(dot)
 
             #if DEBUG
