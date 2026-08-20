@@ -2,12 +2,15 @@ import SwiftUI
 import SwiftData
 
 
-/// แชทกลุ่ม — เต็มจอ (navbar หายไป) + bubble + floating input · offline-first ผ่าน ChatSession
+/// แชทกลุ่ม — nav bar ของระบบ (ปุ่มกลับ + ชื่อห้องที่กดเข้าหน้ากลุ่มได้) ไม่มีแถบแท็บ
+/// + ฟองข้อความ + ช่องพิมพ์ลอยท้ายจอ · offline-first ผ่าน ChatSession
 struct GroupChatView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
     @EnvironmentObject var groups: GroupStore
     @ObservedObject var store: ChatSession
+    /// กลับไปแท็บ Home — `MainTabView` ส่ง `{ tab = 0 }` มาให้ (ผ่าน `GroupTabView`)
+    var onBack: () -> Void = {}
     @State private var draft = ""
     @State private var members: [String: GroupMember] = [:]   // senderId → member (avatar)
     @State private var atBottom = true
@@ -22,11 +25,48 @@ struct GroupChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
             if !store.connectivity.online { offlineBanner }
             messageList
         }
-        .navigationBarHidden(true)   // หัวจอเป็นของเราเอง (ปุ่ม NavigationLink ใน header) ไม่ใช่ของระบบ
+        // แถบแท็บลอยไม่ควรอยู่บนจอแชท — จอนี้เป็นจอที่คนอยู่ค้างแล้วพิมพ์ ไม่ใช่จอที่แวะดู
+        // ปุ่มกลับที่มุมซ้ายบนทำหน้าที่แทน
+        .toolbar(.hidden, for: .tabBar)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { onBack() } label: {
+                    Image(systemName: "chevron.left").font(.body.weight(.semibold))
+                }
+                .accessibilityLabel("กลับ")
+            }
+            // หัวจอ = ทางเข้า**เดียว**ของหน้ากลุ่ม (ออกจากกลุ่ม/ดูสมาชิก/ดูสิทธิ์คงเหลือ)
+            // ห้ามทำหายตอนไปแตะอย่างอื่น · แตะชื่อห้องแล้วเข้าหน้าข้อมูลกลุ่มเป็นท่าที่แอปแชท
+            // ทั่วไปใช้อยู่แล้ว ผู้ใช้จึงเดาถูกโดยไม่ต้องมีป้ายบอก
+            //
+            // ไม่ใช้ `.navigationTitle` เพราะต้องการสองบรรทัด — `.navigationSubtitle` เพิ่งมีใน
+            // iOS 26 แต่ deployment target ของโปรเจกต์คือ 18
+            ToolbarItem(placement: .principal) {
+                NavigationLink(value: GroupRoute.home) {
+                    VStack(spacing: 1) {
+                        HStack(spacing: 4) {
+                            Text("กลุ่ม \(profile.me?.groupNumber.map(String.init) ?? "")")
+                                .font(.headline).foregroundStyle(Color.wbwInk)
+                            Image(systemName: "chevron.right")
+                                .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                        }
+                        // ยังไม่รู้จำนวน = ไม่โชว์ ไม่ใช่โชว์ "0 คน" — memberCount มาจากผลลัพธ์
+                        // ของ sync (ChatSession:260) ซึ่งยังไม่กลับมาตอนเปิดจอครั้งแรก หรือ
+                        // ไม่กลับมาเลยตอนออฟไลน์ ทั้งที่ข้อความจากแคชขึ้นครบแล้ว · "0 คน"
+                        // ในห้องที่มีคนคุยกันอยู่อ่านว่าแอปพัง (กติกาเดียวกับ TrailConditionsRow)
+                        if store.memberCount > 0 {
+                            Text("\(store.memberCount) คน")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
         .background(Color.wbwBg.ignoresSafeArea())
         .sensoryFeedback(.impact(weight: .light), trigger: sentTick)
         // overload closure แทน .error ตรงๆ — ตัวเดิมสั่นทุกครั้งที่ค่าเปลี่ยนไม่ว่าทิศไหน แม้แต่ retry สำเร็จ
@@ -48,37 +88,22 @@ struct GroupChatView: View {
             // setScreenVisible ย้ายออกไปให้ MainTabView คุมแล้ว (Task 5) — TabView เก็บ view นี้ไว้ตอนสลับ
             // แท็บ ไม่เรียก onDisappear จริง ถ้ายังยิงจากที่นี่ heartbeat จะค้างวิ่งทั้งที่ผู้ใช้ไปแท็บอื่นแล้ว
             // (ดูคอมเมนต์ที่ MainTabView.chatVisible)
+            #if DEBUG
+            // เติมข้อความในช่องพิมพ์ตรง ๆ เพื่อถ่ายทรงช่องตอนหลายบรรทัด — ไม่มี tap tooling
+            // ในสภาพแวดล้อมนี้ พิมพ์เองไม่ได้ (ทรงเดียวกับ -uitestMapPin ที่ Map3DScreen)
+            if let prefill = UserDefaults.standard.string(forKey: "uitestChatDraft"), !prefill.isEmpty {
+                draft = prefill
+            }
+            #endif
             let gid = profile.me?.groupId ?? 0
             let ms = await groups.members(groupId: gid, token: session.token ?? "")
             members = Dictionary(uniqueKeysWithValues: ms.map { ($0.userId, $0) })
         }
     }
 
-    /// หัวจอ = ทางเข้าเดียวไปหน้ากลุ่ม (ไม่มีปุ่มปิดแล้ว — แชทเป็นแท็บ ไม่ใช่จอที่ลอยทับ)
-    private var header: some View {
-        NavigationLink(value: GroupRoute.home) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 4) {
-                        Text("กลุ่ม \(profile.me?.groupNumber.map(String.init) ?? "")")
-                            .font(.system(size: 17, weight: .bold)).foregroundStyle(Color.wbwInk)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
-                    }
-                    Text("\(store.memberCount) คน").font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            .contentShape(Rectangle())   // แตะได้ทั้งแถบ ไม่ใช่เฉพาะบนตัวอักษร
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 10)
-        .background(Color.wbwBg)
-    }
-
     private var offlineBanner: some View {
         Text("ออฟไลน์ — ข้อความจะส่งเมื่อกลับมามีสัญญาณ")
-            .font(.system(size: 12)).foregroundStyle(.white)
+            .font(.footnote).foregroundStyle(.white)
             .frame(maxWidth: .infinity).padding(.vertical, 6)
             .background(Color.gray)
     }
@@ -169,7 +194,7 @@ struct GroupChatView: View {
         if !atBottom && newBelow > 0 {
             Button { scrollToBottom(proxy) } label: {
                 Label("ข้อความใหม่ \(newBelow)", systemImage: "arrow.down")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(Color.wbwGold, in: Capsule())
@@ -182,13 +207,17 @@ struct GroupChatView: View {
 
     private var inputBar: some View {
         HStack(spacing: 10) {
+            // สี่เหลี่ยมขอบมน ไม่ใช่ Capsule — ที่บรรทัดเดียวสองทรงนี้แยกกันแทบไม่ออก แต่พอ
+            // lineLimit ขยายเป็น 4 บรรทัด แคปซูลกลายเป็นทรงยาปลายโค้งเกินจริง (เห็นจากสกรีนช็อต)
             TextField("ข้อความ", text: $draft, axis: .vertical)
+                .font(.body)
                 .lineLimit(1...4)
                 .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(Color.wbwSurface, in: Capsule())
+                .background(Color.wbwSurface,
+                            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             Button { send() } label: {
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                    .font(.body.weight(.semibold)).foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .background(draft.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray : Color.wbwGold, in: Circle())
             }

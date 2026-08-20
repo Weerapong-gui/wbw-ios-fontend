@@ -22,15 +22,8 @@ struct GroupTabView: View {
                 if profile.me?.groupId == nil {
                     GroupJoinView(onBack: onBack)
                 } else {
-                    GroupChatView(store: chat)
+                    GroupChatView(store: chat, onBack: onBack)
                 }
-            }
-            .task {
-                #if DEBUG
-                // ถ่ายรูปหน้ากลุ่ม/กล่องยืนยันได้โดยไม่ต้องกดจอ — หน้านี้อยู่หลังการกดหัวจอแชท
-                // ซึ่งไม่มี launch arg ไหนไปถึงมาก่อน (ทรงเดียวกับ -uitestProfile ที่ HomeView)
-                if UserDefaults.standard.bool(forKey: "uitestGroupHome") { path = [.home] }
-                #endif
             }
             .navigationDestination(for: GroupRoute.self) { route in
                 switch route {

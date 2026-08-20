@@ -94,6 +94,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestMapDistance <ร้อยเท่า>` | int | ทับระยะกล้อง — `80` = 0.8 (ซูมเข้าสุด), `400` = 4.0 (ออกสุด) | `-uitestTab 1` |
 | `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ | `-uitestTab 1` |
 | `-uitestMapYaw <องศา>` | 0-359 | มุมกวาดรอบตัว ใช้ถ่ายเทียบว่าไม่มีทิศไหนเห็นขอบโมเดล | `-uitestTab 1` |
+| `-uitestChatDraft <ข้อความ>` | string | เติมข้อความในช่องพิมพ์ของจอแชท ใช้ถ่ายทรงช่องตอนหลายบรรทัด | `-uitestChat YES` |
 
 **ทำไมบางคีย์ต้องมาคู่กัน:** `-uitestMedical`/`-uitestSettings` ถูกอ่านใน `.task` ของ `TicketView`
 (`WBW/TicketView.swift:48-49`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน

@@ -41,6 +41,12 @@ struct MainTabView: View {
     init() {
         #if DEBUG
         _tab = State(initialValue: UserDefaults.standard.integer(forKey: "uitestTab"))
+        // ตั้งเส้นทางของแท็บกลุ่มตั้งแต่ก่อนเรนเดอร์เฟรมแรก — เดิมตั้งใน `.task` ของ GroupTabView
+        // ซึ่งยิงตอน root ยังเป็นหน้าจับกลุ่มอยู่ (profile ยังโหลดไม่เสร็จ) พอ profile มาถึงแล้ว root
+        // สลับเป็นจอแชท NavigationStack ทิ้ง path ที่ push ไว้ ผลคือแฟลกไม่มีผลอะไรเลยแบบเงียบ ๆ
+        if UserDefaults.standard.bool(forKey: "uitestGroupHome") {
+            _groupPath = State(initialValue: [.home])
+        }
         #endif
     }
 
