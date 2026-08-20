@@ -27,6 +27,15 @@ final class MapModelLoader {
     /// เก็บที่เดียวกับ hasPlayedIntro ด้วยเหตุผลเดียวกัน (singleton ที่อายุเท่าแอปอยู่แล้ว)
     var hasShownPinHint = false
 
+    /// สั่ง `playAnimation` ให้ก้อนเมฆในโมเดลไปแล้วหรือยัง — ครั้งเดียวต่อโมเดลที่โหลดอยู่ในมือ
+    /// (ไม่ใช่ครั้งเดียวต่อการเปิดแอป เพราะโมเดลอาจถูกปล่อยแล้วโหลดใหม่กลางอายุแอป ดู
+    /// `releaseIfPossible()`) เก็บที่นี่ด้วยเหตุผลเดียวกับ `hasPlayedIntro`/`hasShownPinHint`:
+    /// `Map3DScreen.make` closure ถูกเรียกซ้ำได้ทุกครั้งที่ view mount ใหม่ (สลับแท็บไปแล้วกลับมา)
+    /// แต่ `model()` คืน entity ตัวเดิมที่ไม่ clone ทุกครั้ง ถ้าไม่กันไว้ การไล่ต้นแล้วสั่ง
+    /// `playAnimation` ซ้ำจะรีเซ็ตแอนิเมชันที่กำลังเล่นอยู่กลับไปเฟรม 0 (เมฆกระตุกเห็นชัด) และ
+    /// ซ้อน playback controller ตัวใหม่ทับตัวเดิมที่ไม่มีใครหยุด ยิ่งสลับแท็บบ่อยยิ่งซ้อนมากขึ้นเรื่อย ๆ
+    var hasStartedCloudAnimations = false
+
     /// มีจอไหนกำลังใช้โมเดลอยู่ไหม — `Map3DScreen` เขียนค่านี้ตาม `isActive` ของแท็บ
     ///
     /// จำเป็นเพราะการคืนหน่วยความจำเป็นเรื่องของ "จังหวะ" ล้วน ๆ: entity ตัวเดียวกันนี้แขวนอยู่ใน
@@ -62,6 +71,10 @@ final class MapModelLoader {
         loading?.cancel()
         loading = nil
         loaded = nil
+        // โมเดลรอบหน้าคือ entity ใหม่ที่ยังไม่เคยสั่งแอนิเมชันเลย ถ้าไม่รีเซ็ตตรงนี้ ธง
+        // จะค้าง true ข้ามไปจากโมเดลใบเก่า แล้ว Map3DScreen จะไม่สั่ง playAnimation ให้ใบใหม่
+        // เลยตลอดไป — เมฆแข็งค้างถาวรทันทีที่เจอ memory warning หนึ่งครั้ง โดยไม่มีอะไร log แจ้ง
+        hasStartedCloudAnimations = false
         NSLog("[Map3DScreen] คืนโมเดลแผนที่ให้ระบบตอนความจำเหลือน้อย")
     }
 

@@ -431,12 +431,20 @@ struct Map3DScreen: View {
             // ถ้า RealityKit ไม่แปลง timeSamples ให้เป็น availableAnimations ลูปนี้ก็ไม่ทำอะไรเลย
             // เมฆค้างนิ่ง แผนที่ยังใช้ได้ทุกอย่าง — เป็นข้อจำกัดที่ยอมรับไว้แล้ว ไม่ต้องเขียน
             // แอนิเมชันเองมาแทน (ดู docs/superpowers/specs/2026-08-20-map-2-0-design.md §8)
-            var pending = [map]
-            while let entity = pending.popLast() {
-                for animation in entity.availableAnimations {
-                    entity.playAnimation(animation.repeat())
+            //
+            // เช็คธงก่อนไล่ต้น: MapModelLoader คืน entity ตัวเดิมทุกครั้ง ไม่ clone แต่ make closure
+            // นี้ถูกเรียกซ้ำได้ทุกครั้งที่สลับแท็บออกแล้วกลับมา (view mount ใหม่) ถ้าไล่ต้นซ้ำจะสั่ง
+            // playAnimation ทับแอนิเมชันที่กำลังเล่นอยู่ ทำให้เมฆกระตุกกลับไปเฟรม 0 แล้วซ้อน
+            // playback controller ตัวใหม่ทับตัวเดิมที่ไม่มีใครหยุด (ดูธงที่ MapModelLoader)
+            if !MapModelLoader.shared.hasStartedCloudAnimations {
+                var pending = [map]
+                while let entity = pending.popLast() {
+                    for animation in entity.availableAnimations {
+                        entity.playAnimation(animation.repeat())
+                    }
+                    pending.append(contentsOf: entity.children)
                 }
-                pending.append(contentsOf: entity.children)
+                MapModelLoader.shared.hasStartedCloudAnimations = true
             }
 
             // โดมฟ้า + ชั้นเมฆ — แขวนใต้ root ไม่ใช่ใต้ map เพราะไม่ควรหมุนตาม
