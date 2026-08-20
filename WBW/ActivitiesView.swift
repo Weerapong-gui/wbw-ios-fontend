@@ -3,29 +3,28 @@ import SwiftUI
 /// อีเวนต์บนเส้นทางเดิน — **ยกมาจาก `ui/activities/ActivitiesScreen.kt` ของแอป Android**
 ///
 /// เนื้อหาเป็นข้อความตายตัวทั้งสองใบ ไม่มี backend หนุน — ต้นทางก็เป็นแบบเดียวกัน (อยู่ใน
-/// `strings.xml`) · ที่นี่ใช้ข้อความจาก `values-th/strings.xml` ของต้นทางตรง ๆ เพราะแอป iOS
-/// เป็นภาษาไทยทั้งตัว
+/// `strings.xml`) · ที่นี่ใช้ชุดคีย์ชื่อเดียวกับต้นทาง (`event_*`) ทั้งไทยและอังกฤษ
 struct ActivitiesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("กิจกรรม")
-                    .font(.title2).fontWeight(.bold)
+                Text("activities_title")
+                    .font(.wbwHeadlineSmall)
                     .foregroundStyle(Color.wbwOnBackdrop)
-                Text("อีเวนต์บนเส้นทางเดิน")
-                    .font(.footnote)
+                Text("activities_subtitle")
+                    .font(.wbwBodyMedium)
                     .foregroundStyle(Color.wbwOnBackdropMuted)
 
-                EventCard(title: "แข่งนับก้าว",
-                          date: "1–14 ส.ค. 2569",
-                          description: "สะสมก้าวให้ได้มากที่สุดในสองสัปดาห์ แล้วไต่อันดับกระดานผู้นำ ทุกก้าวบนเส้นทางมีความหมาย",
-                          status: "เร็ว ๆ นี้",
+                EventCard(title: "event_step_comp_title",
+                          date: "event_step_comp_date",
+                          description: "event_step_comp_desc",
+                          status: "event_status_upcoming",
                           systemImage: "figure.walk")
 
-                EventCard(title: "Walk Beyond the Wild",
-                          date: "16 ส.ค. 2569",
-                          description: "อีเวนต์หลักของเส้นทาง — ออกเดินสำรวจธรรมชาติ เช็กอินทุกฐาน แล้วปลูกต้นไม้ของคุณให้เติบโตเต็มที่",
-                          status: "เร็ว ๆ นี้",
+                EventCard(title: "event_wbw_title",
+                          date: "event_wbw_date",
+                          description: "event_wbw_desc",
+                          status: "event_status_upcoming",
                           systemImage: "tree")
             }
             .padding(.horizontal, 18)
@@ -33,6 +32,10 @@ struct ActivitiesView: View {
             .padding(.bottom, ForestSceneHost.tabBarClearance)
         }
         .scrollIndicators(.hidden)
+        // แท็บวาดพื้นทึบของตัวเองใต้ทุกอย่าง — จอที่ไม่เรียก `forestBackground` จะได้พื้นดำสนิท
+        // แทนพื้นภาพ (เจอมาแล้วกับบัตรผู้เข้าร่วม) · ตัวนี้เจาะพื้นทึบนั้นทิ้งแล้ววางฉากคืนให้
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .forestBackground(day: ForestMath.dayStill)
     }
 }
 
@@ -44,24 +47,24 @@ struct ActivitiesView: View {
 /// เหมือนกันหมด แล้วบังคับให้อ่านผ่านไปก่อนถึงจะรู้ว่ากำลังดูอีเวนต์ไหน · วันที่ย้ายไปท้าย
 /// ด้วยเหตุผลเดียวกัน — มันสำคัญตอนตัดสินใจแล้วว่าสนใจ ไม่ใช่ก่อนหน้านั้น
 private struct EventCard: View {
-    let title: String
-    let date: String
-    let description: String
-    let status: String
+    let title: LocalizedStringKey
+    let date: LocalizedStringKey
+    let description: LocalizedStringKey
+    let status: LocalizedStringKey
     let systemImage: String
 
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(title)
-                    .font(.title3).fontWeight(.bold)
+                    .font(.wbwTitleLarge)
                     .foregroundStyle(Color.wbwOnBackdrop)
 
                 // ไอคอนกับสถานะอยู่บรรทัดเดียวกันใต้ชื่อ: ทั้งคู่ตอบคำถาม "นี่คือของชนิดไหน"
                 // และไม่มีอันไหนคุ้มค่ากับบรรทัดของตัวเอง
                 Label {
                     Text(status)
-                        .font(.caption2).fontWeight(.semibold)
+                        .font(.wbwKicker)
                         .kerning(1.6)
                 } icon: {
                     Image(systemName: systemImage).font(.footnote)
@@ -70,7 +73,7 @@ private struct EventCard: View {
                 .padding(.top, 9)
 
                 Text(description)
-                    .font(.footnote)
+                    .font(.wbwBodyMedium)
                     .lineSpacing(5)
                     .foregroundStyle(Color.wbwOnBackdropMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -79,7 +82,7 @@ private struct EventCard: View {
                 // วันที่มาท้ายสุดและเป็น ink เต็ม — เป็นบรรทัดเดียวในนี้ที่ต่างกันทุกใบ
                 Label {
                     Text(date)
-                        .font(.caption2).fontWeight(.semibold)
+                        .font(.wbwLabelSmall)
                         .kerning(1.2)
                 } icon: {
                     Image(systemName: "calendar").font(.caption)
@@ -99,8 +102,8 @@ private struct EventCard: View {
                 .frame(height: 1)
 
             HStack {
-                Text("ดูรายละเอียด")
-                    .font(.caption2).fontWeight(.semibold)
+                Text("event_details")
+                    .font(.wbwLabelSmall)
                     .kerning(1.8)
                     .foregroundStyle(Color.wbwOnBackdrop)
                 Spacer()

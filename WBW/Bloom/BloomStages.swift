@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// ขั้นการบานของดอกไม้บนหน้า Home — 6 ขั้นตามจำนวนฐานที่เช็คอินแล้ว
 ///
@@ -21,14 +22,17 @@ enum BloomStages {
         }
     }
 
+    /// ชื่อขั้น — ผ่านชุดคีย์ `bloom_stage_0..5` ร่วมกับ Android
+    ///
+    /// ขึ้นจอจริง (บรรทัดใต้แถบขั้นตอนพรีวิว) และถูก VoiceOver อ่านทุกชิป จึงต้องแปล
     static func label(_ stage: Int) -> String {
         switch min(max(stage, 0), 5) {
-        case 0: return "เมล็ด"
-        case 1: return "ตูม"
-        case 2: return "เริ่มบาน"
-        case 3: return "บานครึ่ง"
-        case 4: return "ใกล้บานเต็ม"
-        default: return "บานเต็มที่"
+        case 0: return String(localized: "bloom_stage_0")
+        case 1: return String(localized: "bloom_stage_1")
+        case 2: return String(localized: "bloom_stage_2")
+        case 3: return String(localized: "bloom_stage_3")
+        case 4: return String(localized: "bloom_stage_4")
+        default: return String(localized: "bloom_stage_5")
         }
     }
 }

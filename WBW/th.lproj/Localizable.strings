@@ -71,6 +71,7 @@
 "home_greeting" = "สวัสดี, %1$@";
 "home_weather_feels" = "รู้สึก %1$ld°";
 "home_air_aqi" = "AQI %1$ld";
+"role_participant" = "ผู้เข้าร่วม";
 "home_air_quality" = "คุณภาพอากาศ";
 "weather_clear" = "ท้องฟ้าแจ่มใส";
 "weather_mainly_clear" = "ท้องฟ้าโปร่ง";

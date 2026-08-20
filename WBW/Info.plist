@@ -15,6 +15,15 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>th</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Sarabun-Regular.ttf</string>
+		<string>Sarabun-SemiBold.ttf</string>
+		<string>Sarabun-Bold.ttf</string>
+		<string>Kanit-Medium.ttf</string>
+		<string>Kanit-SemiBold.ttf</string>
+		<string>Kanit-Bold.ttf</string>
+	</array>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>th</string>

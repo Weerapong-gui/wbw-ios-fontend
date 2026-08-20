@@ -28,7 +28,7 @@ struct HomeView: View {
     @State private var breathing = true
     @State private var breathTimeout: Task<Void, Never>?
 
-    private var name: String { profile.me?.displayName ?? (session.user?.username ?? "ผู้เข้าร่วม") }
+    private var name: String { profile.me?.displayName ?? (session.user?.username ?? String(localized: "role_participant")) }
 
     private var stage: Int {
         #if DEBUG
@@ -57,11 +57,13 @@ struct HomeView: View {
             // ไม่มี header · ประกาศอยู่ซ้าย ตั้งค่าอยู่ขวา — มุมไกลสุดสองฝั่ง อันที่เรียกร้อง
             // ความสนใจได้อยู่ฝั่งที่ตาเริ่มอ่าน
             HStack {
-                cornerButton(systemImage: "bell", label: "ประกาศ", badge: noti.unreadCount > 0) {
+                cornerButton(systemImage: "bell", label: String(localized: "notifications_title"),
+                             badge: noti.unreadCount > 0) {
                     NotificationCenter.default.post(name: .openNotificationsTab, object: nil)
                 }
                 Spacer()
-                cornerButton(systemImage: "gearshape", label: "ตั้งค่า", badge: false) {
+                cornerButton(systemImage: "gearshape", label: String(localized: "settings_title"),
+                             badge: false) {
                     showSettings = true
                 }
             }
@@ -72,8 +74,8 @@ struct HomeView: View {
                 // น้ำหนักปกติ ไม่ใช่ตัวหนา — ต้นทางตั้ง `displaySmall` เป็น Sarabun Bold 34sp
                 // แต่ Bold ของ Sarabun บาง พอมาเทียบกับสกรีนช็อตจริงของ Android แล้วเส้นบางกว่า
                 // `.bold` ของ SF ชัดเจน · ตามที่ตาเห็นบนเครื่องจริง ไม่ใช่ตามชื่อ weight ในไฟล์
-                Text("สวัสดี \(name)")
-                    .font(.largeTitle)
+                Text(String(format: String(localized: "home_greeting"), name))
+                    .font(.wbwDisplaySmall)
                     .foregroundStyle(Color.wbwOnBackdrop)
 
                 // ใต้ชื่อและเหนือดอกไม้ เพราะอยู่ย่อหน้าเปิดเดียวกัน: คุณคือใคร แล้วข้างนอกเป็นยังไง
@@ -84,10 +86,12 @@ struct HomeView: View {
 
             // ดอกไม้คือเหตุผลที่จอนี้มีอยู่ — ของชิ้นเดียวบนจอที่เปลี่ยนไปตามการเดิน
             // กินที่ที่เหลือทั้งหมด ไม่ใช่ความสูงตายตัว
+            // ดอกไม้กินที่ที่เหลือทั้งหมด — ยิ่งเบียดของข้างล่างลงไปใกล้แถบแท็บได้เท่าไหร่
+            // ดอกไม้ก็ยิ่งใหญ่ขึ้นเท่านั้น (เทียบสัดส่วนจากสกรีนช็อตจริงของ Android)
             BloomView(stage: bloomStage, breathing: breathing, gridPoints: 4)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.top, 12)
-                .accessibilityLabel("ดอกไม้ขั้น \(BloomStages.label(bloomStage))")
+                .accessibilityLabel(BloomStages.label(bloomStage))
 
             BloomStageStrip(currentStage: BloomStages.stage(checkedIn: stage, total: total),
                             previewStage: Binding(
@@ -99,9 +103,9 @@ struct HomeView: View {
             // ตอนพรีวิวทั้งคู่เปลี่ยน — ขั้นที่กำลังดู กับคำเตือนว่านั่นไม่ใช่ที่ที่คุณอยู่จริง
             // จอจึงไม่มีทางโชว์ดอกไม้ที่มันอธิบายไม่ได้
             Text(previewStage == nil
-                 ? (CheckinProgressLabel.text(stage: stage, total: total) ?? "")
+                 ? String(format: String(localized: "home_checked_in"), stage, total)
                  : BloomStages.label(bloomStage))
-                .font(.subheadline).fontWeight(.semibold)
+                .font(.wbwTitleMedium)
                 .kerning(0.4)
                 .foregroundStyle(Color.wbwOnBackdrop)
                 .frame(maxWidth: .infinity)
@@ -109,17 +113,20 @@ struct HomeView: View {
                 .padding(.top, 2)
 
             Text(previewStage == nil
-                 ? "ดอกไม้บานขึ้นอีกนิดทุกครั้งที่เช็คอินเข้าฐานใหม่"
-                 : "นี่คือขั้นข้างหน้า — แตะขั้นของตัวเองเพื่อกลับ")
-                .font(.caption)
+                 ? String(localized: "home_bloom_hint")
+                 : String(localized: "home_stage_preview_hint"))
+                .font(.wbwBodySmall)
                 .foregroundStyle(Color.wbwOnBackdropMuted)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.horizontal, 18)
-        // แถบแท็บลอยทับพื้นที่ล่างของจอ
-        .padding(.bottom, ForestSceneHost.tabBarClearance)
+        // เว้นแค่พอพ้นแถบแท็บลอย ไม่ใช่ `tabBarClearance` เต็ม 89 — ค่านั้นเว้นไว้สำหรับของที่
+        // ต้องไม่ถูกแถบบัง *เลย* ส่วนบรรทัดคำอธิบายท้ายจอเป็นตัวอักษรจาง ๆ ที่นั่งได้ใกล้กว่านั้น
+        // เยอะ · ที่เหลือจากการเบียดลงไปตกเป็นของดอกไม้ ซึ่งเป็นของที่ควรได้พื้นที่มากที่สุดบนจอนี้
+        // (สัดส่วนเทียบจากสกรีนช็อตจริงของ Android: ชิปขั้นอยู่เหนือแถบแท็บแค่ราวสองบรรทัด)
+        .padding(.bottom, 44)
         .forestBackground(
             day: ForestMath.day(stage: stage, total: total),
             plantStep: stage,

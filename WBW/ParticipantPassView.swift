@@ -85,11 +85,11 @@ struct ParticipantPassView: View {
                 HStack(alignment: .top, spacing: 0) {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(me?.fullName ?? "—")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.wbwText(28, weight: .bold, relativeTo: .title))
                             .foregroundStyle(Color.passInk)
                         if let school = me?.schoolName, !school.isEmpty {
                             Text(school)
-                                .font(.system(size: 12))
+                                .font(.wbwText(12, relativeTo: .caption))
                                 .foregroundStyle(Color.passMuted)
                                 .padding(.top, 8)
                         }
@@ -99,7 +99,7 @@ struct ParticipantPassView: View {
                         // เพราะสองบรรทัดนั้นคือที่อยู่เดียวกัน ควรอ่านเป็นก้อนเดียว
                         if let major = me?.major, !major.isEmpty {
                             Text(major)
-                                .font(.system(size: 12))
+                                .font(.wbwText(12, relativeTo: .caption))
                                 .foregroundStyle(Color.passFaint)
                                 .padding(.top, 4)
                         }
@@ -108,7 +108,7 @@ struct ParticipantPassView: View {
                         // ด้วย 693 บอกตัวเองอยู่แล้ว · ตัวเลขคือส่วนที่คนต้องอ่านออกเสียงหรือจดตาม
                         if let sid = me?.studentId, !sid.isEmpty {
                             Text(sid)
-                                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                .font(.wbwNumeral(18, relativeTo: .title3))
                                 .kerning(1.2)
                                 .foregroundStyle(Color.passInk)
                                 .padding(.top, 6)
@@ -149,7 +149,7 @@ struct ParticipantPassView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         kicker("หมายเลขบิบ")
                         Text(me?.bibNumber.map(String.init) ?? "—")
-                            .font(.system(size: 46, weight: .bold, design: .rounded))
+                            .font(.wbwNumeral(46, weight: .bold, relativeTo: .largeTitle))
                             .foregroundStyle(Color.passInk)
                             .padding(.top, 4)
                     }
@@ -211,14 +211,14 @@ struct ParticipantPassView: View {
     /// ป้ายตัวเล็กพิมพ์ใหญ่ที่ถ่างตัวอักษร — สไตล์ตัวอักษรรองแบบเดียวของแผ่นนี้
     private func kicker(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 8.5, weight: .semibold))
+            .font(.wbwKicker)
             .kerning(3)
             .foregroundStyle(Color.passFaint)
     }
 
     private func verticalLabel(_ text: String, color: Color, height: CGFloat) -> some View {
         Text(text)
-            .font(.system(size: 8.5, weight: .semibold))
+            .font(.wbwKicker)
             .kerning(4)
             .foregroundStyle(color)
             .lineLimit(1)
@@ -230,7 +230,7 @@ struct ParticipantPassView: View {
     /// ชิปขอบเส้นผม
     private func outlinePill(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 8.5, weight: .semibold))
+            .font(.wbwKicker)
             .kerning(1.6)
             .foregroundStyle(Color.passMuted)
             .padding(.horizontal, 13)
@@ -241,7 +241,7 @@ struct ParticipantPassView: View {
     /// ชิปทึบชิ้นเดียวบนแผ่น — ต้นทางก็มีใบเดียวเป๊ะ
     private func filledPill(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 8.5, weight: .bold))
+            .font(.wbwText(8.5, weight: .bold, relativeTo: .caption2))
             .kerning(1.6)
             .foregroundStyle(Color.passDeepInk)
             .padding(.horizontal, 14)
@@ -257,13 +257,13 @@ struct ParticipantPassView: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 16) {
                 Text(label.uppercased())
-                    .font(.system(size: 8.5))
+                    .font(.wbwText(8.5, relativeTo: .caption2))
                     .kerning(1.6)
                     .foregroundStyle(Color.passFaint)
                     .padding(.top, 2)
                 Spacer(minLength: 0)
                 Text(value)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.wbwText(12.5, weight: .semibold, relativeTo: .caption))
                     .foregroundStyle(Color.passInk)
                     .multilineTextAlignment(.trailing)
             }

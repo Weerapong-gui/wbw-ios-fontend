@@ -20,7 +20,7 @@ struct SettingsView: View {
                 card {
                     HStack {
                         Text("settings_display_language")
-                            .font(.body)
+                            .font(.wbwBodyLarge)
                             .foregroundStyle(Color.wbwOnBackdrop)
                         Spacer(minLength: 12)
                         languagePicker
@@ -41,7 +41,7 @@ struct SettingsView: View {
                         .padding(.top, 12)
 
                         Text("settings_appearance_hint")
-                            .font(.caption2)
+                            .font(.wbwBodySmall)
                             .foregroundStyle(Color.wbwOnBackdropMuted)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 16)
@@ -86,7 +86,7 @@ struct SettingsView: View {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
                                     .font(.body)
                                 Text("settings_logout")
-                                    .font(.body)
+                                    .font(.wbwBodyLarge)
                                 Spacer()
                             }
                             .foregroundStyle(Color.wbwDanger)
@@ -114,7 +114,7 @@ struct SettingsView: View {
             }
             ToolbarItem(placement: .principal) {
                 Text("settings_title")
-                    .font(.headline)
+                    .font(.wbwTitleLarge)
                     .foregroundStyle(Color.wbwOnBackdrop)
             }
         }
@@ -134,7 +134,7 @@ struct SettingsView: View {
 
     private func sectionHeader(_ key: LocalizedStringKey) -> some View {
         Text(key)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.wbwLabelMedium)
             .kerning(1.4)
             .foregroundStyle(Color.wbwOnBackdropMuted)
             .padding(.leading, 4)
@@ -169,7 +169,7 @@ struct SettingsView: View {
         let selected = settings.language == lang || (settings.language == .system && lang == systemLanguage)
         return Button { settings.language = lang } label: {
             Text(label)
-                .font(.subheadline)
+                .font(.wbwLabelLarge)
                 .foregroundStyle(Color.wbwOnBackdrop)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
@@ -193,7 +193,7 @@ struct SettingsView: View {
         return Button { settings.themeMode = mode } label: {
             VStack(spacing: 8) {
                 Image(systemName: systemImage).font(.title3)
-                Text(titleKey).font(.footnote)
+                Text(titleKey).font(.wbwLabelMedium)
             }
             .foregroundStyle(Color.wbwOnBackdrop)
             .frame(maxWidth: .infinity)
@@ -213,10 +213,10 @@ struct SettingsView: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(titleKey)
-                    .font(.body)
+                    .font(.wbwBodyLarge)
                     .foregroundStyle(Color.wbwOnBackdrop)
                 Text(subtitleKey)
-                    .font(.caption)
+                    .font(.wbwBodySmall)
                     .foregroundStyle(Color.wbwOnBackdropMuted)
             }
             Spacer(minLength: 8)
@@ -231,7 +231,7 @@ struct SettingsView: View {
     private func navRow(_ titleKey: LocalizedStringKey, systemImage: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage).font(.body)
-            Text(titleKey).font(.body)
+            Text(titleKey).font(.wbwBodyLarge)
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.footnote)
@@ -252,7 +252,7 @@ private struct DocView: View {
     var body: some View {
         ScrollView {
             Text(bodyKey)
-                .font(.body)
+                .font(.wbwBodyLarge)
                 .foregroundStyle(Color.wbwOnBackdrop)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)

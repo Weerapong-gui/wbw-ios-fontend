@@ -1,3 +1,4 @@
+import SwiftUI
 import Foundation
 
 /// สภาพบนเส้นทางตอนนี้ — อากาศกับฝุ่น
@@ -65,18 +66,38 @@ enum Sky: String, Equatable {
         }
     }
 
+    /// สีของไอคอน — **ที่เดียวในแอปที่ใช้เฉดสีเพื่อบอกความหมาย** และข้อยกเว้นนี้แคบโดยตั้งใจ
+    /// (ยกตารางมาจาก `Sky` ใน `TrailConditionsRow.kt` ของ Android)
+    ///
+    /// "โปร่ง" กับ "ส่วนใหญ่โปร่ง" ใช้สีเดียวกัน — ความต่างของสองอย่างนี้ไม่ใช่สิ่งที่เฉดสีขนาด 17pt
+    /// แบกได้ ฝืนแยกจะได้แค่เหลืองสองเฉดที่เกือบเหมือนกัน
+    var tint: Color {
+        switch self {
+        case .clear, .mainlyClear, .partlyCloudy: return .skySunTint
+        case .overcast: return .skyCloudTint
+        case .fog: return .skyFogTint
+        case .drizzle, .rain, .showers: return .skyRainTint
+        case .snow: return .skySnowTint
+        case .thunderstorm: return .skyStormTint
+        }
+    }
+
+    /// ชื่อสภาพอากาศ — ผ่านชุดคีย์ร่วมกับ Android (`weather_*` ใน `strings.xml`)
+    ///
+    /// อ่านออกเสียงให้ VoiceOver เท่านั้น ไม่ได้ขึ้นจอ — ไอคอนเป็นตัวแทนบนจอ · แต่ต้องแปล
+    /// เพราะ VoiceOver อ่านด้วยเสียงภาษาที่ผู้ใช้ตั้งไว้ คำไทยในโหมดอังกฤษจะออกมาเป็นเสียงมั่ว
     var label: String {
         switch self {
-        case .clear: return "ท้องฟ้าโปร่ง"
-        case .mainlyClear: return "ส่วนใหญ่โปร่ง"
-        case .partlyCloudy: return "มีเมฆบางส่วน"
-        case .overcast: return "เมฆมาก"
-        case .fog: return "หมอก"
-        case .drizzle: return "ฝนละออง"
-        case .rain: return "ฝนตก"
-        case .showers: return "ฝนซู่"
-        case .snow: return "หิมะ"
-        case .thunderstorm: return "พายุฝนฟ้าคะนอง"
+        case .clear: return String(localized: "weather_clear")
+        case .mainlyClear: return String(localized: "weather_mainly_clear")
+        case .partlyCloudy: return String(localized: "weather_partly_cloudy")
+        case .overcast: return String(localized: "weather_overcast")
+        case .fog: return String(localized: "weather_fog")
+        case .drizzle: return String(localized: "weather_drizzle")
+        case .rain: return String(localized: "weather_rain")
+        case .showers: return String(localized: "weather_showers")
+        case .snow: return String(localized: "weather_snow")
+        case .thunderstorm: return String(localized: "weather_thunderstorm")
         }
     }
 }
@@ -104,12 +125,12 @@ enum AqiBand: String, Equatable {
 
     var label: String {
         switch self {
-        case .good: return "ดี"
-        case .moderate: return "ปานกลาง"
-        case .sensitiveGroups: return "กลุ่มเสี่ยง"
-        case .unhealthy: return "มีผลต่อสุขภาพ"
-        case .veryUnhealthy: return "อันตราย"
-        case .hazardous: return "อันตรายมาก"
+        case .good: return String(localized: "aqi_good")
+        case .moderate: return String(localized: "aqi_moderate")
+        case .sensitiveGroups: return String(localized: "aqi_sensitive")
+        case .unhealthy: return String(localized: "aqi_unhealthy")
+        case .veryUnhealthy: return String(localized: "aqi_very_unhealthy")
+        case .hazardous: return String(localized: "aqi_hazardous")
         }
     }
 
@@ -119,6 +140,29 @@ enum AqiBand: String, Equatable {
         switch self {
         case .good, .moderate, .sensitiveGroups: return false
         case .unhealthy, .veryUnhealthy, .hazardous: return true
+        }
+    }
+
+    /// สีของไอคอน — ไล่ เขียว-เหลือง-แดง ตามที่คนคุ้นจากทุกแอปอากาศ แต่ที่ความอิ่มสีของ palette นี้
+    var iconTint: Color {
+        switch self {
+        case .good: return .airGoodTint
+        case .moderate: return .airModerateTint
+        case .sensitiveGroups: return .airSensitiveTint
+        case .unhealthy, .veryUnhealthy, .hazardous: return .airUnhealthyTint
+        }
+    }
+
+    /// สีของ **คำ** ซึ่งไต่ระดับช้ากว่าไอคอนมาก — ไอคอนคือเครื่องหมายที่กวาดตามอง
+    /// ส่วนคำคือตัวอักษรบนภาพถ่าย ต้องอ่านออกก่อนเป็นอันดับแรก
+    ///
+    /// ใช้ `airUnhealthyTint` ไม่ใช่ `wbwDanger` เพราะบรรทัดนี้นั่งบนภาพพื้นหลัง — `wbwDanger`
+    /// พลิกเป็นแดงเข้มในโหมดสว่าง แต่พื้นใต้มันเป็นภาพมืดใบเดิมทั้งสองธีม
+    var wordTint: Color {
+        switch self {
+        case .good, .moderate: return .wbwOnBackdropMuted
+        case .sensitiveGroups: return .wbwOnBackdrop
+        case .unhealthy, .veryUnhealthy, .hazardous: return .airUnhealthyTint
         }
     }
 }

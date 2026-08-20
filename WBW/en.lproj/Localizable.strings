@@ -70,6 +70,7 @@
 "home_bloom_hint" = "Your flower opens a little further at every base you check in at";
 "home_stage_preview_hint" = "A look ahead — tap your own stage to go back";
 "home_greeting" = "Hi, %1$@";
+"role_participant" = "Participant";
 "home_weather_feels" = "Feels %1$ld°";
 "home_air_aqi" = "AQI %1$ld";
 "home_air_quality" = "Air quality";
