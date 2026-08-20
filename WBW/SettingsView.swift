@@ -81,6 +81,11 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
                         divider
+                        NavigationLink { CreditsView() } label: {
+                            navRow("settings_credits", systemImage: "doc.text")
+                        }
+                        .buttonStyle(.plain)
+                        divider
                         Button { showLogoutConfirm = true } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -275,4 +280,30 @@ struct AboutEventView: View {
 
 struct HelpContactView: View {
     var body: some View { DocView(titleKey: "settings_help", bodyKey: "help_contact_body") }
+}
+
+/// เครดิตข้อมูลแผนที่กับโมเดล 3 มิติ — **เงื่อนไขสัญญาอนุญาต ห้ามลบ**
+///
+/// โมเดลแผนที่มาจาก maps3d.io ที่ใช้ภาพ `satlas-superes-2023` ของ Allen Institute for AI
+/// กับข้อมูล OpenStreetMap · ส่วนไฟล์ `.glb` ใน `WBW/Resources/models/` หลายชิ้นเป็น CC BY 4.0
+/// ซึ่งผูกกับ**การเผยแพร่** ไม่ใช่แค่การแสดงผล — ต่อให้ฉากป่าปิดอยู่ (`Config.forest3D = false`)
+/// ไฟล์ก็ยังถูกแพ็กไปกับ .ipa เครดิตจึงต้องมี
+///
+/// เดิมเครดิตแผนที่เป็นข้อความฮาร์ดโค้ดวางทับบนจอแผนที่ (ไม่ผ่านชุดคีย์ด้วย) ย้ายมาที่นี่
+/// 2026-08-21 เพราะมันบังแผนที่อยู่ตลอดเวลา · `WBWTests/MapCreditsTests.swift` ตรวจว่าชื่อ
+/// ที่สัญญาอนุญาตบังคับยังอยู่ครบทั้งสองภาษา — สคริปต์ตรวจคีย์จับแทนไม่ได้ เพราะ regex ของมัน
+/// ไม่ครอบ `DocView(titleKey:bodyKey:)` และมันไม่รู้ว่าข้างในเขียนอะไร
+struct CreditsView: View {
+    /// คีย์เป็นค่าคงที่ ไม่ใช่ลิเทอรัลในบรรทัด `DocView(...)` เพราะ **`DocView` รับ
+    /// `LocalizedStringKey` ซึ่งพิมพ์ผิดแล้วเรนเดอร์ชื่อคีย์ออกมาเฉย ๆ** ไม่มี error ไม่มี warning
+    /// และ `scripts/check-localization.sh` ก็จับไม่ได้ (regex ของมันไม่ครอบ `DocView(...)`) ·
+    /// ดึงออกมาแล้วเทสอ่านคีย์ตัวเดียวกับที่จอใช้จริง พิมพ์ผิดที่นี่ = เทสแดง ไม่ใช่ผู้ใช้เห็นคำว่า
+    /// "credits_body" บนหน้าเครดิต
+    static let titleKey = "settings_credits"
+    static let bodyKey = "credits_body"
+
+    var body: some View {
+        DocView(titleKey: LocalizedStringKey(Self.titleKey),
+                bodyKey: LocalizedStringKey(Self.bodyKey))
+    }
 }

@@ -194,6 +194,8 @@
 "home_greeting_thai" = "สวัสดี %1$@";
 "about_event_body" = "Walk Beyond the Wild คืองานเดินเส้นทางธรรมชาติของสโมสรนักศึกษา มฟล. เดินรอบดอยระยะ 8.36 กม. เช็กอินให้ครบทุกฐาน แล้วปลูกดอกไม้ของคุณให้บานเต็มที่\n\nวันงาน: 29 สิงหาคม 2569\nจุดเริ่ม: ลานธงชัย";
 "help_contact_body" = "เข้าสู่ระบบอย่างไร\nใช้รหัสนักศึกษาและรหัสผ่านที่ลงทะเบียนไว้\n\nเช็กอินที่ฐานอย่างไร\nยื่น QR บนบัตรผู้เข้าร่วมให้เจ้าหน้าที่สแกน หรือแจ้งหมายเลขบิบ\n\nมีปัญหาระหว่างงาน\nแจ้งเจ้าหน้าที่เสื้อกั๊กสีส้มได้ทันที ทุกฐานมีชุดปฐมพยาบาล";
+"settings_credits" = "เครดิตและสัญญาอนุญาต";
+"credits_body" = "ข้อมูลแผนที่\nแผนที่ 3 มิติของพื้นที่งานสร้างจากภาพถ่ายดาวเทียม Satlas ของ Allen Institute for AI ส่วนอาคาร ถนน และแหล่งน้ำมาจาก OpenStreetMap\n\nSatlas · Allen Institute for AI\n© OpenStreetMap contributors\nopenstreetmap.org/copyright\n\nโมเดล 3 มิติ\nต้นไม้โดย Poly by Google · ภูเขาหิมะโดย Matthew Creighton · ภูเขาโดย jeremy · เนินหิมะโดย Nebel · พงหญ้าโดย Jarlan Perez — สัญญาอนุญาต CC BY 4.0 ผ่าน poly.pizza\nก้อนหินโดย Quaternius และป้ายบอกทางโดย Kenney — CC0";
 
 
 /* ข้อผิดพลาดจาก APIClient — ขึ้นเป็นข้อความในกล่องเตือน ไม่ใช่ log */

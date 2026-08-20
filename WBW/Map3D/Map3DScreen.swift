@@ -144,7 +144,6 @@ struct Map3DScreen: View {
 
             if shouldRender && !isLoading {
                 compass
-                credit
                 if let tappedSequence {
                     baseCard(sequence: tappedSequence)
                 } else if showsHint {
@@ -182,22 +181,6 @@ struct Map3DScreen: View {
             .padding(.top, 8)
             .transition(.opacity)
         }
-    }
-
-    private var credit: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Text("Satlas · Allen AI · © OpenStreetMap contributors")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.55))
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            // พ้นแท็บบาร์ลอย — ค่าเดียวกับที่ฉากป่าใช้ วัดจากเครื่องจริงสองรุ่นมาแล้ว
-            .padding(.bottom, ForestSceneHost.tabBarClearance)
-        }
-        .allowsHitTesting(false)
     }
 
     /// บอกครั้งเดียวว่าแท่งแดงกดได้ — ไม่มีอะไรบนจอบอกเลยว่าโมเดลนี้โต้ตอบได้
