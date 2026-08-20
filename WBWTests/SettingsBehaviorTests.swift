@@ -98,22 +98,68 @@ final class SettingsBehaviorTests: XCTestCase {
         assertAdapts(.wbwLine, "wbwLine")
     }
 
-    /// สีแบรนด์ห้ามพลิกตามธีม — ทองกับเขียวเป็นเอกลักษณ์ของงาน ไม่ใช่สีพื้นผิว
-    func testBrandColorsStayFixedAcrossSchemes() {
-        for (color, name) in [(Color.wbwGold, "wbwGold"), (Color.wbwGreen, "wbwGreen"),
-                              (Color.wbwCream, "wbwCream"), (Color.wbwForestVoid, "wbwForestVoid")] {
+    /// **กฎข้อที่สำคัญที่สุดของ palette ที่ยกมาจาก Android** — พื้นหลังเป็นภาพเดียวและมืดเสมอ
+    /// ไม่ว่าผู้ใช้เลือกธีมไหน ตัวอักษรที่วางลงบนภาพจึงตามธีมไม่ได้
+    ///
+    /// ต้นทางเขียนว่า *"Using [textPrimary] here is what makes a title vanish in light mode"* —
+    /// อาการคือคำทักทายบน Home หายไปเฉย ๆ ตอนสลับเป็นโหมดสว่าง โดยไม่มี error ให้เห็น
+    func testBackdropInkStaysLightInBothSchemes() {
+        for (color, name) in [(Color.wbwOnBackdrop, "wbwOnBackdrop"),
+                              (Color.wbwOnBackdropMuted, "wbwOnBackdropMuted")] {
             XCTAssertEqual(resolved(color, .light), resolved(color, .dark),
-                           "\(name) เป็นสีแบรนด์/สีฉาก ต้องเหมือนกันทั้งสองธีม")
+                           "\(name) วางอยู่บนภาพพื้นหลัง ห้ามเปลี่ยนตามธีม")
+            var white: CGFloat = 0
+            resolved(color, .light).getWhite(&white, alpha: nil)
+            XCTAssertGreaterThan(white, 0.55,
+                                 "\(name) ต้องสว่างพอจะอ่านออกบนภาพที่ความสว่างเฉลี่ย 0.25")
         }
     }
 
-    /// โหมดสว่างต้องได้ค่าเดิมเป๊ะ งานนี้เพิ่มโหมดมืด ไม่ใช่เปลี่ยนหน้าตาของโหมดสว่าง
-    func testLightModeKeepsOriginalValues() {
-        XCTAssertEqual(resolved(.wbwInk, .light), UIColor(red: 43 / 255, green: 43 / 255, blue: 43 / 255, alpha: 1),
-                       "wbwInk โหมดสว่างต้องยังเป็น #2B2B2B เท่าเดิม")
-        XCTAssertEqual(resolved(.wbwBg, .light), UIColor(red: 250 / 255, green: 247 / 255, blue: 240 / 255, alpha: 1),
-                       "wbwBg โหมดสว่างต้องเป็นครีม #FAF7F0 สีเดียวกับที่แต่ละจอเคยประกาศเอง")
-        XCTAssertEqual(resolved(.wbwSurface, .light), UIColor.white,
-                       "wbwSurface โหมดสว่างต้องเป็นขาวล้วนเหมือน Color.white เดิม")
+    /// ของที่เป็นดีไซน์ตายตัว ไม่ใช่พื้นผิวที่เดินตามการตั้งค่ารูปลักษณ์
+    ///
+    /// บัตรผู้เข้าร่วมคือของที่ยกให้เจ้าหน้าที่ดู · สีสภาพอากาศนั่งบนภาพพื้นหลังโดยตรง
+    /// (เหตุผลเดียวกับ `wbwOnBackdrop`) · `wbwForestVoid` เป็นพื้นฉาก ไม่ใช่พื้นจอ
+    func testFixedDesignColoursDoNotFollowTheTheme() {
+        for (color, name) in [(Color.wbwForestVoid, "wbwForestVoid"),
+                              (Color.wbwMedical, "wbwMedical"),
+                              (Color.ticketDeep, "ticketDeep"),
+                              (Color.ticketGreen, "ticketGreen"),
+                              (Color.ticketCreamPaper, "ticketCreamPaper"),
+                              (Color.skySunTint, "skySunTint"),
+                              (Color.skyRainTint, "skyRainTint"),
+                              (Color.airGoodTint, "airGoodTint")] {
+            XCTAssertEqual(resolved(color, .light), resolved(color, .dark),
+                           "\(name) เป็นดีไซน์ตายตัว ต้องเหมือนกันทั้งสองธีม")
+        }
+    }
+
+    /// **ไม่มีสีเน้นแล้ว** — accent คือ ink ตัวเดียวกัน ไม่ใช่เฉดอื่น
+    ///
+    /// `Color.kt` ของ Android: *"There is no accent hue. Gold, then leaf green, were both tried
+    /// and both lost"* · โทเคนยังอยู่เพื่อให้จุดเรียกคงความหมาย แต่ค่าต้องเท่ากับ `wbwInk` เป๊ะ
+    /// ทั้งสองธีม ไม่งั้นชื่อโทเคนจะโกหกอีกรอบเหมือนตอนที่ `wbwGold` ไม่ได้เป็นสีทองแล้ว
+    func testAccentIsTheInkNotAHue() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            XCTAssertEqual(resolved(.wbwAccent, style), resolved(.wbwInk, style),
+                           "accent ต้องเป็นสีเดียวกับ ink")
+            XCTAssertEqual(resolved(.wbwGold, style), resolved(.wbwAccent, style),
+                           "wbwGold เป็น alias ของ accent แล้ว — ห้ามมีสีทองเหลืออยู่")
+        }
+    }
+
+    /// เขียวสถานะปรับตามธีม (ต่างจากของเดิมที่ตายตัว) เพราะมันวางบน **การ์ด** ไม่ใช่บนภาพ
+    func testStatusGreenAdaptsBecauseItSitsOnCards() {
+        assertAdapts(.wbwGreen, "wbwGreen")
+    }
+
+    /// โหมดสว่างต้องได้ค่าตามชุดที่ยกมาจาก Android เป๊ะ — ออฟไวท์อุ่นที่ยังมีเขียวปน
+    /// ไม่ใช่ขาวล้วน (`"Pure white on a forest ground reads as a hole punched in the page"`)
+    func testLightModeMatchesTheAndroidPalette() {
+        XCTAssertEqual(resolved(.wbwInk, .light), UIColor(red: 0x1B / 255, green: 0x2A / 255, blue: 0x1B / 255, alpha: 1),
+                       "wbwInk โหมดสว่าง = #1B2A1B")
+        XCTAssertEqual(resolved(.wbwBg, .light), UIColor(red: 0xED / 255, green: 0xF0 / 255, blue: 0xE5 / 255, alpha: 1),
+                       "wbwBg โหมดสว่าง = #EDF0E5")
+        XCTAssertEqual(resolved(.wbwSurface, .light), UIColor(red: 0xF5 / 255, green: 0xF4 / 255, blue: 0xE9 / 255, alpha: 1),
+                       "wbwSurface โหมดสว่าง = #F5F4E9 ไม่ใช่ขาวล้วน")
     }
 }

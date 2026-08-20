@@ -45,45 +45,86 @@ struct BloomView: View {
 
 // MARK: - แถบขั้น
 
-/// รางความคืบหน้า 6 ช่อง กดได้ทุกช่องเพื่อพรีวิวขั้นนั้น
+/// แถบขั้นการบาน 6 ช่อง — **ยกทรงมาจาก `BloomStage` ใน `ui/home/Bloom.kt` ของ Android**
 ///
-/// **เคยเป็นชิปรูปดอกไม้ 44pt ต่อขั้น — เปลี่ยนแล้ว 2026-08-20 ห้ามถอยกลับ** เจตนาเดิมของชิปคือ
-/// ให้เห็น "รูปทรงที่กำลังปลูกไปหา" แต่ที่ 44pt ตาราง halftone ย่อลงจนอ่านเป็นเม็ดฝุ่น ไม่ใช่ดอกไม้
-/// (ถ่ายจริงแล้วเห็นชัด) และขั้นที่ยังไม่ถึงซึ่งตั้ง alpha 0.28 ไว้ก็จมหายไปกับพื้นภาพป่าทั้งช่อง
-/// ตัวที่โชว์รูปทรงได้จริงคือดอกไม้ 300pt ที่อยู่เหนือแถบนี้ — แถบจึงเหลือหน้าที่เดียวคือ "เลือกขั้น"
+/// ขั้นที่ยังไม่ถึงเป็นเงาจาง ๆ **แต่ยังเป็นรูปดอกไม้ขั้นนั้นจริง** ไม่ใช่จุดหรือแถบ — นั่นคือสิ่งเดียว
+/// ที่แถบนี้มีไว้ทำ: ให้เห็นรูปทรงที่กำลังปลูกไปหา คอมเมนต์ต้นทางเขียนว่า *"the row shows what the
+/// trail leads to rather than hiding it behind a number"*
 ///
-/// กดแล้วพรีวิวเฉย ๆ **ไม่บันทึก** กดซ้ำหรือหมดเวลาแล้วกลับไปขั้นจริงเสมอ (ปุ่มที่ดันความคืบหน้า
-/// จริงได้จะเป็นการโกงเช็คอิน)
+/// **เคยเป็นชิปแบบนี้อยู่แล้วแล้วถูกเปลี่ยนเป็นรางทองเมื่อ 2026-08-20 เช้า เพราะที่ 44pt
+/// อ่านเป็นเม็ดฝุ่น — กลับมาเป็นชิปได้เพราะสัดส่วนของ Android ต่างกันสามข้อ:**
+/// - ช่องกว้างตามน้ำหนัก สูง 64pt (ชิปได้ ~50pt) ไม่ใช่ 44pt ตายตัว
+/// - ขั้นที่ยังไม่ถึงเข้มขึ้นจาก 0.28 → **0.42** เห็นเป็นรูปดอกไม้จริง ไม่ใช่ฝุ่น
+/// - ขอบเบาลงมาก (0.13–0.34 หนา 1pt) จาก 0.22–0.85 หนา 1–2pt — ขอบเดิมดังกว่าตัวดอกที่มันล้อม
+///
+/// กดแล้วพรีวิวเฉย ๆ **ไม่บันทึก** กดขั้นของตัวเองเพื่อกลับ (ปุ่มที่ดันความคืบหน้าจริงได้จะเป็น
+/// การโกงเช็คอิน)
 struct BloomStageStrip: View {
     let currentStage: Int
     @Binding var previewStage: Int?
 
+    /// ขั้นที่กำลังโชว์อยู่ — พรีวิวชนะขั้นจริง (Android: `val shown = preview ?: reached`)
+    private var shown: Int { previewStage ?? currentStage }
+
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 0) {
             ForEach(0..<BloomStages.count, id: \.self) { s in
-                Button {
-                    previewStage = (previewStage == s) ? nil : s
-                } label: {
-                    segment(s)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(BloomStages.label(s)) ขั้นที่ \(s + 1) จาก \(BloomStages.count)")
+                chip(s)
+                    // ช่องกินพื้นที่เท่า ๆ กันตามน้ำหนัก ไม่ใช่ขนาดตายตัว — ต้นทางอธิบายว่าหกชิป
+                    // ที่ใหญ่พอจะอ่านออกไม่มีทางลงตัวบนจอมือถือที่ขนาดคงที่ค่าใดค่าหนึ่ง
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 64)
+                    // ทั้งช่องรับการแตะ ไม่ใช่แค่วงที่มองเห็น — ส่วนต่างระหว่างช่องกับชิปคือระยะ
+                    // ที่กันไม่ให้กดโดนขั้นข้างเคียง
+                    .contentShape(Rectangle())
+                    .onTapGesture { previewStage = (s == currentStage) ? nil : s }
+                    .accessibilityLabel("\(BloomStages.label(s)) ขั้นที่ \(s + 1) จาก \(BloomStages.count)")
             }
         }
     }
 
-    /// รางหนา 6 pt แต่พื้นที่กดสูง 44 pt — ขนาดขั้นต่ำที่นิ้วกดโดนตาม HIG
-    /// ไม่ห่อแบบนี้ต้องเล็งให้ตรงเส้นบาง ๆ ซึ่งพลาดแทบทุกครั้ง
-    private func segment(_ s: Int) -> some View {
+    private func chip(_ s: Int) -> some View {
+        let selected = s == shown
         let reached = s <= currentStage
-        let selected = previewStage == s
-        return Capsule()
-            .fill(reached ? Color.wbwGold : Color.white.opacity(0.18))
-            .frame(maxWidth: .infinity)
-            .frame(height: 6)
-            .overlay(Capsule().stroke(.white, lineWidth: selected ? 1.5 : 0))
-            .frame(height: 44)
-            .contentShape(Rectangle())
+        // ความเข้มของตัวดอก แยกจากความเข้มของกรอบ เพื่อให้ขั้นที่ยังไม่ถึงเป็นภาพวาดจาง ๆ
+        // อยู่ใน "ปุ่มที่ทึบสนิท" ได้ (คำอธิบายของต้นทาง)
+        let strength: Double = selected ? 1 : (reached ? 0.78 : 0.42)
+        let ring: Double = selected ? 0.34 : (reached ? 0.20 : 0.13)
+        let fill: Double = selected ? 0.14 : 0.05
+
+        return GeometryReader { geo in
+            // วัดจากช่อง ไม่ใช่ยืดเต็มช่อง — ทรงมนบนกล่องที่กว้างกว่าสูงจะออกมาเบี้ยว
+            // และหกชิปเบี้ยวอ่านเป็นแถวปุ่มที่ใส่ไม่ลง
+            let d = max(min(geo.size.width, geo.size.height) - 6, 24)
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.wbwOnBackdrop.opacity(fill))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.wbwOnBackdrop.opacity(ring), lineWidth: 1))
+                BloomChipCanvas(stage: s, ink: .wbwOnBackdrop, alphaScale: strength)
+                    .padding(d * 0.11)
+            }
+            .frame(width: d, height: d)
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            .animation(.easeOut(duration: 0.22), value: shown)
+        }
+    }
+}
+
+/// ดอกไม้ขั้นเดียวขนาดเล็กสำหรับชิป — ไม่มีก้าน ไม่มีใบ (ใบอยู่บนก้าน เอาหัวดอกมาอย่างเดียว
+/// แล้วยังเก็บใบไว้จะได้เส้นสองเส้นลอยอยู่ใต้ดอก กับกล่องที่สูงเกินไปครึ่งเท่า) และไม่หายใจ
+private struct BloomChipCanvas: View {
+    let stage: Int
+    let ink: Color
+    let alphaScale: Double
+
+    @State private var cache = BloomFieldCache()
+
+    var body: some View {
+        BloomCanvas(openness: Double(stage), breath: 0, kind: .head,
+                    gridPoints: 3, centreYFraction: 0.5,
+                    ink: ink, alphaScale: alphaScale, cache: cache)
     }
 }
 

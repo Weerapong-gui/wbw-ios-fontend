@@ -98,8 +98,8 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 
 **ทำไมบางคีย์ต้องมาคู่กัน:** `-uitestMedical`/`-uitestSettings` ถูกอ่านใน `.task` ของ `TicketView`
 (`WBW/TicketView.swift:48-49`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน
-`.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:72-74`) ซึ่งเปิดจาก
-`-uitestProfile` เท่านั้น (`WBW/HomeView.swift:69`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
+`.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:133-135`) ซึ่งเปิดจาก
+`-uitestProfile` เท่านั้น (`WBW/HomeView.swift:130`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
 เลย ส่วน `-uitestMapPin`/`-uitestMapHeading`/`-uitestMapPitch`/`-uitestMapDistance`/`-uitestMapYaw` ถูกอ่านใน
 `.onAppear` ของ `Map3DScreen` (`WBW/Map3D/Map3DScreen.swift:622-671`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen(isActive: tab == 1) }` ที่
 `WBW/MainTabView.swift:51`) — `TabView` โหลดเนื้อในแท็บแบบ lazy แท็บที่ยังไม่เคยถูกเลือกจะไม่ mount View

@@ -61,13 +61,10 @@
 วาดทะลุกรอบออกไปได้ `frame` คุมแค่พื้นที่ layout ไม่ได้คลิปการวาด (เคยพลาดมาแล้ว เส้นประพาด
 ออกนอกการ์ดไปจนสุดขอบจอ)
 
-`GlassRing` เป็น `private struct` (`ViewModifier`) อยู่ใน `WBW/HomeView.swift` (บรรทัด 192) — **ไม่ใช่ API
-กลาง** ใช้ได้เฉพาะภายในไฟล์นั้น (เรียกอยู่ 2 จุดในไฟล์เดียวกัน) จะเอาไปใช้ที่จออื่นต้องยกออกมาเป็นไฟล์
-กลางก่อน (ตามแพทเทิร์นเดียวกับที่ `glassSurface` ทำไปแล้ว) อย่าสมมติว่า import แล้วเรียกจากจอไหนก็ได้
-
 ทุกที่ที่แตะกระจกจริงต้อง guard `#available(iOS 26.0, *)` แล้ว fallback เป็น `.ultraThinMaterial` เพราะ
 deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_DEPLOYMENT_TARGET: "18.0"` ใน `project.yml`) — ตอนนี้มี
-3 จุดที่ guard ไว้แบบนี้: `WBW/HomeView.swift:194`, `WBW/GlassSurface.swift:12`, `WBW/WelcomeView.swift:60`
+2 จุดที่ guard ไว้แบบนี้: `WBW/GlassSurface.swift:12`, `WBW/WelcomeView.swift:60`
+(`GlassRing` ที่ `HomeView` ถูกลบไปพร้อม avatar บนหัวจอตอนยกเลย์เอาต์ Home มาจาก Android)
 เพิ่มจุดใหม่ก็ต้อง guard แบบเดียวกันเสมอ
 
 **ห้ามปลอมกระจกด้วย blur เอง** (เช่น `.blur()` + opacity ผสมมือ) — ผลลัพธ์ไม่เนียนเท่า `.glassEffect`

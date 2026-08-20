@@ -21,7 +21,7 @@ final class AppAssetsTests: XCTestCase {
         .deletingLastPathComponent()   // repo root
 
     private static let appIcon = "WBW/Assets.xcassets/AppIcon.appiconset/icon1024.png"
-    private static let backdrop = "WBW/Assets.xcassets/bg_ticket.imageset/bg_ticket.jpg"
+    private static let backdrop = "WBW/Assets.xcassets/bg_backdrop.imageset/bg_backdrop.jpg"
 
     private func source(_ relativePath: String) throws -> CGImageSource {
         let url = Self.repoRoot.appendingPathComponent(relativePath)
@@ -85,6 +85,9 @@ final class AppAssetsTests: XCTestCase {
 
     // MARK: - พื้นหลังกลางของแอป
 
+    /// ยิ่งสำคัญกว่าเดิมหลังเปลี่ยนภาพ — ฟิล์มที่ทาทับลดจาก 0.35 เหลือ 0.12 ตามกฎของ palette
+    /// ฝั่ง Android ("The image is the design; it is shown, not tinted") ตัวภาพเองจึงต้องมืดพอ
+    /// ด้วยตัวมันเอง ไม่มีชั้นทึบมาช่วยเหมือนก่อน
     func testBackdropIsDarkEnoughForWhiteTextOnTop() throws {
         let luminance = try meanLuminance(Self.backdrop)
         XCTAssertLessThan(luminance, 0.30,
@@ -94,12 +97,16 @@ final class AppAssetsTests: XCTestCase {
                           """)
     }
 
-    /// อัตราส่วน 1:2 ไม่ใช่เลขสุ่ม — `AppBackdrop` เลือกมาให้อยู่กึ่งกลางระหว่าง SE กับ Pro Max
-    /// เพื่อให้ `scaledToFill` ตัดขอบหนักสุดราว 11% ด้านเดียว เปลี่ยนสัดส่วนเมื่อไหร่คำอธิบาย
-    /// ในไฟล์นั้นกลายเป็นเท็จทันที และองค์ประกอบกลางภาพจะเลื่อนหลุดกรอบ
+    /// อัตราส่วน 1:2 ไม่ใช่เลขสุ่ม — `AppBackdrop` เลือกมาให้อยู่กึ่งกลางระหว่าง SE (0.562) กับ
+    /// Pro Max (0.460) เพื่อให้ `scaledToFill` ตัดขอบหนักสุดราว 11% ด้านเดียว เปลี่ยนสัดส่วน
+    /// เมื่อไหร่คำอธิบายในไฟล์นั้นกลายเป็นเท็จทันที และองค์ประกอบกลางภาพจะเลื่อนหลุดกรอบ
+    ///
+    /// คุมเป็น "อัตราส่วน" ไม่ใช่ขนาดพิกเซลตายตัวแล้ว — ภาพที่ยกมาจากแอป Android เป็น 736×1471
+    /// ซึ่งเล็กกว่าใบเดิม (1440×2880) แต่สัดส่วนเท่ากันเป๊ะ · ภาพเบลอทั้งใบจึงไม่มีรายละเอียด
+    /// ให้เสียตอนขยาย ขนาดพิกเซลไม่ใช่สิ่งที่ต้องตรึง สัดส่วนต่างหาก
     func testBackdropKeepsTheOneToTwoAspectAppBackdropAssumes() throws {
         let (width, height) = try size(Self.backdrop)
-        XCTAssertEqual(width, 1440)
-        XCTAssertEqual(height, 2880)
+        XCTAssertEqual(Double(height) / Double(width), 2.0, accuracy: 0.01,
+                       "สัดส่วนต้องเป็น 1:2 — ได้ \(width)×\(height)")
     }
 }
