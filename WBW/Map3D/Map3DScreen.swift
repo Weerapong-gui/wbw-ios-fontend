@@ -424,6 +424,21 @@ struct Map3DScreen: View {
 
             root.addChild(map)
 
+            // เมฆของ Map2.0 มีคีย์แอนิเมชันของ Blender ติดมา (stage 1…280 เฟรม ที่ 24 fps)
+            // RealityKit ไม่เล่นให้เอง ต้องสั่ง · ไล่ทั้งต้นเพราะ Blender ยัดคีย์ไว้ที่ `cloud_*`
+            // ทีละก้อน ไม่ใช่คลิปเดียวที่ราก — เรียกแค่ที่ `map` ตัวเดียวจะได้เมฆค้างนิ่งทั้งฟ้า
+            //
+            // ถ้า RealityKit ไม่แปลง timeSamples ให้เป็น availableAnimations ลูปนี้ก็ไม่ทำอะไรเลย
+            // เมฆค้างนิ่ง แผนที่ยังใช้ได้ทุกอย่าง — เป็นข้อจำกัดที่ยอมรับไว้แล้ว ไม่ต้องเขียน
+            // แอนิเมชันเองมาแทน (ดู docs/superpowers/specs/2026-08-20-map-2-0-design.md §8)
+            var pending = [map]
+            while let entity = pending.popLast() {
+                for animation in entity.availableAnimations {
+                    entity.playAnimation(animation.repeat())
+                }
+                pending.append(contentsOf: entity.children)
+            }
+
             // โดมฟ้า + ชั้นเมฆ — แขวนใต้ root ไม่ใช่ใต้ map เพราะไม่ควรหมุนตาม
             // cameraFramingYaw ที่ใช้หันทิศพื้นที่งาน (ท้องฟ้าไม่มีทิศ)
             //
