@@ -553,46 +553,29 @@ struct Map3DScreen: View {
             }
 
             guard let dot = map.findEntity(named: "UserDot") else { return }
+            let anchor = Map3DConfig.current.anchor
             guard let coordinate = location.coordinate,
-                  let point = Map3DGeo.modelPoint(latitude: coordinate.latitude,
+                  let point = Map3DGeo.modelUnits(latitude: coordinate.latitude,
                                                   longitude: coordinate.longitude,
-                                                  in: Map3DGeo.eventArea) else {
+                                                  in: anchor) else {
                 dot.isEnabled = false
                 return
             }
             dot.isEnabled = true
-            // จุดต้องอยู่ใน local space ของ map เอง (เมตรจริงก่อนย่อ/หมุน) ไม่ใช่ช่วง -1…1 ที่
-            // Map3DGeo คืนมาตรงๆ — หา extents/center จริงของโมเดลด้วย visualBounds(relativeTo:
-            // map) แล้วคูณสัดส่วน -1…1 เข้ากับครึ่งหนึ่งของ extents แต่ละแกนเอง (ไม่ใช่แกนเดียวกัน
-            // หมดแบบ "widest" ตอนย่อสเกล เพราะกรอบ eventArea ไม่ได้เป็นสี่เหลี่ยมจัตุรัส)
+            // จุดอยู่ใน local space ของโมเดล ซึ่งเป็น Z-up ตามที่ usdz เขียนมา (usdcat: upAxis = "Z")
+            // และเป็นเมตร Web Mercator ตรง ๆ — ตัวแปลง Z-up→Y-up ของ RealityKit ถูกอบไว้ใน
+            // transform ของ entity ตัวนอกที่ Entity(named:) คืนมา ไม่ได้แก้พิกัดของเนื้อโมเดลข้างใน
+            // ดังนั้นในนี้ x = ตะวันออก-ตะวันตก · y = เหนือ-ใต้ · z = ความสูง
             //
-            // ⚠️ ยืนยันด้วย NSLog แล้วว่า visualBounds(relativeTo: map) ตอบแกน Y/Z "สลับกัน" กับที่
-            // โมเดลเรนเดอร์จริงบนจอ (ตัว X ไม่กระทบ): self-relative ตอบ Y ~2581 (แกนแนวนอน) และ
-            // Z ~332 (แกนสูง) สวนทางกับ visualBounds(relativeTo: nil) ที่ยิงตอนโหลด (ดูตัวแปร
-            // `bounds` ด้านบนในฟังก์ชัน make) ซึ่ง Y ~332 (สูง) Z ~2581 (แนวนอน) — ตรงกับภาพที่เห็น
-            // จริงบนจอ (โมเดลราบ ไม่ตะแคง) สาเหตุที่แท้จริงไม่ทราบ แก้โดยอ่านสลับแกน: ใช้ z ของ
-            // ผลลัพธ์เป็นความสูง และ y เป็นแกนเหนือ-ใต้ ตัว x ใช้ตรงๆ ปกติ (ไม่กระทบ)
-            let localBounds = map.visualBounds(relativeTo: map)
-            let half = localBounds.extents / 2
-            let dotRadius = Map3DScreen.dotRadiusOnScreen / map.scale.x
-            // Map3DGeo คืน point.y เป็นแกนเหนือ-ใต้ จึงต้องกลับเครื่องหมาย (แกนแนวนอนที่สองของ
-            // RealityKit ชี้เข้าหากล้อง = ทิศใต้) ไม่ต้องคูณ cameraFramingYaw เองตรงนี้ เพราะจุด
-            // อยู่ในสาย transform เดียวกับโมเดลแล้ว — hierarchy พาการหมุนไปเองอัตโนมัติ (เหมือน
-            // หมุดจาก Task 3)
+            // **ไม่พึ่ง visualBounds อีกแล้ว** ใบก่อนคูณสัดส่วน −1…1 เข้ากับครึ่ง extents ของทั้ง
+            // โมเดล พอ Map2.0 มีเมฆลอยสูง 1160 หน่วยเข้ามา ครึ่ง extents ก็โตตาม จุดจะไปลอย
+            // เหนือเมฆทันทีโดยไม่มีอะไรฟ้อง · ผูกกับ anchor แล้วใส่อะไรเพิ่มในโมเดลก็ไม่ขยับจุด
             //
-            // ลำดับแกนตรงนี้คือ local space ของโมเดล ซึ่งเป็น Z-up ตามที่ usdz เขียนมา (usdcat:
-            // upAxis = "Z") — ตัวแปลง Z-up→Y-up ของ RealityKit ถูกอบไว้ใน transform ของ entity
-            // ตัวนอกที่ Entity(named:) คืนมา ไม่ได้แก้พิกัดของเนื้อโมเดลข้างใน ดังนั้นในนี้
-            // x = ตะวันออก-ตะวันตก · y = เหนือ-ใต้ · z = ความสูง (ตรงกับ extents ที่วัดได้:
-            // y ~2581 แนวนอน, z ~332 ความสูง)
-            //
-            // ความสูง: วางไว้เหนือยอดสูงสุดของโมเดลเล็กน้อย ไม่ใช่กึ่งกลางความสูง — กึ่งกลางจมอยู่
-            // ใต้ภูมิประเทศในหลายจุด จุดจะหายไปโดยไม่มีอะไรฟ้อง
-            dot.position = SIMD3<Float>(
-                localBounds.center.x + point.x * half.x,
-                localBounds.center.y - point.y * half.y,
-                localBounds.center.z + half.z + dotRadius
-            )
+            // ⚠️ เครื่องหมายของ y พิสูจน์ด้วยภาพจริง ไม่ใช่ด้วยเหตุผล — ใบก่อนต้องกลับเครื่องหมาย
+            // พร้อมคอมเมนต์ว่าแกน Y/Z ที่ visualBounds ตอบสลับกับที่เห็นบนจอ และ "สาเหตุที่แท้จริง
+            // ไม่ทราบ" · รอบนี้ตรวจด้วยการป้อนพิกัดของหมุดฐานที่ 5 (20.04454, 99.90955) เป็น
+            // ตำแหน่งปลอมแล้วดูว่าจุดทับหมุดเลข 5 ไหม (docs/map-2-0-verification.md ข้อ 4)
+            dot.position = SIMD3<Float>(point.x, point.y, anchor.userDotHeightUnits)
         }
         // ลากนิ้ว = กวาด/เงย · หุบนิ้ว = ระยะ · ทุกค่าผ่าน clamp ของ Map3DCamera ก่อนเสมอ
         // simultaneousGesture เพื่อให้ไม่ไปแย่ง SpatialTapGesture ของหมุดด้านล่าง

@@ -1,12 +1,6 @@
 {
   "modelName": "map",
   "framingYawDegrees": 90,
-  "bounds": {
-    "south": 20.02371,
-    "west": 99.88272,
-    "north": 20.06727,
-    "east": 99.92288
-  },
   "anchor": {
     "originLatitude": 20.04549,
     "originLongitude": 99.90280,

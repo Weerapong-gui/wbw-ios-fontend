@@ -73,7 +73,6 @@ struct Map3DConfig: Decodable, Equatable {
     let modelName: String
     /// ทิศของพื้นที่งานเทียบกับกล้อง — ไม่ใช่ทิศเหนือจริง อย่าตีความเป็น compass bearing
     let framingYawDegrees: Float
-    let bounds: Map3DGeo.Bounds
     let anchor: Anchor
     let camera: Camera
     let sky: Sky
@@ -92,8 +91,6 @@ struct Map3DConfig: Decodable, Equatable {
         guard !config.pins.isEmpty,
               config.pins.allSatisfy({ !$0.entityNames.isEmpty }),
               Set(config.pins.flatMap(\.entityNames)).count == config.pins.flatMap(\.entityNames).count,
-              config.bounds.south < config.bounds.north,
-              config.bounds.west < config.bounds.east,
               config.anchor.unitsPerDegreeLatitude > 0,
               config.anchor.unitsPerDegreeLongitude > 0,
               config.anchor.halfSpanUnitsEastWest > 0,
@@ -124,14 +121,11 @@ struct Map3DConfig: Decodable, Equatable {
     static let current: Map3DConfig = bundled ?? fallback
 
     /// ค่าเดียวกับไฟล์ JSON ที่ส่งไปกับแอป — ที่มาของแต่ละตัวเลขอยู่ในไฟล์ที่เคยถือมันไว้:
-    /// มุมกล้องดู `Map3DCamera` · กรอบ lat/lng ดู `Map3DGeo.eventArea` เดิม (fit แบบ Procrustes
-    /// กับจุดสำรวจจริง 7 จุด) · ชื่อ prim มาจากตัวโมเดลตรง ๆ (Map2.0 ปั้นเลขฐานติดหมุดมาแล้ว
-    /// ไม่ต้องเดาคู่เหมือนใบก่อน)
+    /// มุมกล้องดู `Map3DCamera` · ที่มาของ anchor ดูคอมเมนต์ของ struct Anchor ในไฟล์นี้ ·
+    /// ชื่อ prim มาจากตัวโมเดลตรง ๆ (Map2.0 ปั้นเลขฐานติดหมุดมาแล้ว ไม่ต้องเดาคู่เหมือนใบก่อน)
     static let fallback = Map3DConfig(
         modelName: "map",
         framingYawDegrees: 90,
-        bounds: Map3DGeo.Bounds(south: 20.02371, west: 99.88272,
-                                north: 20.06727, east: 99.92288),
         anchor: Anchor(originLatitude: 20.04549, originLongitude: 99.90280,
                        unitsPerDegreeLatitude: 118498.01, unitsPerDegreeLongitude: 111319.49,
                        halfSpanUnitsEastWest: 2230, halfSpanUnitsNorthSouth: 2230,

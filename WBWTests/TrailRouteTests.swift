@@ -35,13 +35,15 @@ final class TrailRouteTests: XCTestCase {
         XCTAssertEqual(route.points.count, 750)
     }
 
+    /// Task 4 ลบ `Map3DGeo.eventArea`/`Bounds` ทิ้งแล้ว (ผูกกับ bbox ของใบเก่า) เทสนี้เดิมพึ่งมันอยู่
+    /// ตัวที่ยังคุมความหมายเดียวกันได้ (จุดเส้นทางต้องแมปลงพื้นที่งานบนโมเดลได้) คือ
+    /// `Map3DGeo.modelUnits` ผ่าน `Map3DConfig.current.anchor` ตรงๆ — nil = หลุดกรอบเหมือนเดิม
     func testBundledRouteStaysInsideEventArea() throws {
         let route = try XCTUnwrap(TrailRoute.bundled)
-        let area = Map3DGeo.eventArea
+        let anchor = Map3DConfig.current.anchor
         for p in route.points {
-            XCTAssertTrue(p.latitude >= area.south && p.latitude <= area.north
-                          && p.longitude >= area.west && p.longitude <= area.east,
-                          "จุด \(p.latitude),\(p.longitude) หลุดกรอบพื้นที่งาน — เส้นทางกับแผนที่ 3D คนละที่กันแล้ว")
+            XCTAssertNotNil(Map3DGeo.modelUnits(latitude: p.latitude, longitude: p.longitude, in: anchor),
+                            "จุด \(p.latitude),\(p.longitude) หลุดกรอบพื้นที่งาน — เส้นทางกับแผนที่ 3D คนละที่กันแล้ว")
         }
     }
 

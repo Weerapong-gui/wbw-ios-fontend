@@ -69,14 +69,12 @@ final class Map3DConfigFileTests: XCTestCase {
     }
 
     private func valid(pins: String = #"[{"sequence":1,"entityNames":["marker_1"]}]"#,
-                       bounds: String = #"{"south":20.0,"west":99.8,"north":20.1,"east":99.9}"#,
                        anchor: String? = nil,
                        domeRadius: String = "9.0",
                        minPitch: String = "12",
                        maxPitch: String = "75") -> String {
         """
         {"modelName":"map","framingYawDegrees":90,
-         "bounds":\(bounds),
          "anchor":\(anchor ?? anchorJSON()),
          "camera":{"defaultPitchDegrees":68,"minPitchDegrees":\(minPitch),"maxPitchDegrees":\(maxPitch),
                    "minDistance":0.8,"maxDistance":4.0,"defaultDistance":1.6,
@@ -137,13 +135,6 @@ final class Map3DConfigFileTests: XCTestCase {
                                                   in: anchor))
         XCTAssertEqual(p.x, 751.2, accuracy: 6)
         XCTAssertEqual(p.y, -112.0, accuracy: 6)
-    }
-
-    func testRejectsAnUpsideDownBoundingBox() {
-        XCTAssertNil(decode(valid(bounds: #"{"south":20.1,"west":99.8,"north":20.0,"east":99.9}"#)),
-                     "south ต้องน้อยกว่า north")
-        XCTAssertNil(decode(valid(bounds: #"{"south":20.0,"west":99.9,"north":20.1,"east":99.8}"#)),
-                     "west ต้องน้อยกว่า east")
     }
 
     func testRejectsAPitchRangeThatIsInverted() {
