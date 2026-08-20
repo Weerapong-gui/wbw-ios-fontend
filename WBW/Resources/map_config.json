@@ -16,7 +16,7 @@
     "maxPitchDegrees": 75,
     "minDistance": 0.8,
     "maxDistance": 4.0,
-    "defaultDistance": 1.6,
+    "defaultDistance": 1.15,
     "focusPitchDegrees": 34,
     "focusDistance": 0.55,
     "orbitDegreesPerSecond": 8

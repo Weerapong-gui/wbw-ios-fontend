@@ -18,6 +18,17 @@ struct Map3DConfig: Decodable, Equatable {
         let maxPitchDegrees: Float
         let minDistance: Float
         let maxDistance: Float
+        /// ระยะกล้องตอนเปิดแท็บ — หน่วยเดียวกับที่โมเดลถูกย่อให้กว้าง `normalisedSpan` (= 2)
+        /// ครึ่งแผ่นจึงเป็น 1 หน่วย ค่านี้คือ "ไกลกว่าครึ่งแผ่นกี่เท่า"
+        ///
+        /// **1.15 มาจากการถ่ายเทียบ ไม่ใช่จากการคำนวณ** (2026-08-21) — ที่ 1.6 เดิมเหลือแถบฟ้า
+        /// กับขอบไม้โค้งพาดด้านบนราว 9% ของจอ ซึ่งคือ "ขอบว่าง" ที่ขอให้หาย · กวาด 0.95/1.05/1.15/1.6
+        /// บนทั้ง iPhone 17 และ iPhone SE (3rd gen) ซึ่งเป็นตัวบังคับเพราะจอ 16:9 มีมุมเป็นเหลี่ยม
+        /// เห็นพิกเซลมุมจริง — 1.15 เต็มเฟรมทั้งสองรุ่นแล้ว ไม่มีฟ้าแม้แต่ที่มุม
+        ///
+        /// เลขที่คำนวณล้วนบอกเพดานไว้ต่ำกว่านี้ (1.078 สำหรับมุมจอ 16:9) เพราะจำลองแผ่นเป็นวงกลม
+        /// รัศมี 1.0 พอดี ของจริงเผื่อกว่านั้น — ภูมิประเทศนูนขึ้นเหนือระนาบแผ่นดันเส้นขอบฟ้าขึ้นไปอีก
+        /// **ลดต่ำกว่านี้แล้วไม่ได้อะไรเพิ่ม เสียแต่ภาพรวม** ที่ 1.15 เห็นพื้นกว้างราว 1.3 กม.กลางจอ
         let defaultDistance: Float
         /// มุมเงยตอนกล้องบินเข้าไปจ้องหมุด — ต่ำกว่าค่าเริ่มต้นเพื่อให้เห็นฐานเป็นทรงสามมิติ
         let focusPitchDegrees: Float
@@ -129,7 +140,7 @@ struct Map3DConfig: Decodable, Equatable {
                        halfSpanUnitsEastWest: 2230, halfSpanUnitsNorthSouth: 2230,
                        userDotHeightUnits: 320),
         camera: Camera(defaultPitchDegrees: 68, minPitchDegrees: 34, maxPitchDegrees: 75,
-                       minDistance: 0.8, maxDistance: 4.0, defaultDistance: 1.6,
+                       minDistance: 0.8, maxDistance: 4.0, defaultDistance: 1.15,
                        focusPitchDegrees: 34, focusDistance: 0.55, orbitDegreesPerSecond: 8),
         sky: Sky(domeRadius: 9.0),
         pins: (1...8).map { number in
