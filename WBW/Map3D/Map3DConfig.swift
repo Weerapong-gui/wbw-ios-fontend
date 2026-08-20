@@ -32,6 +32,33 @@ struct Map3DConfig: Decodable, Equatable {
         let apronSpanMultiplier: Float
     }
 
+    /// ที่ยึดระหว่างพิกัดจริงกับพิกัดในโมเดล — แทน `bounds` แบบกรอบสี่มุมของใบก่อน
+    ///
+    /// **ทำไมไม่ใช้ bbox แล้ว:** ใบก่อนแปลง lat/lng เป็นสัดส่วน −1…1 แล้วให้จอคูณกับครึ่ง
+    /// `visualBounds` ของทั้งโมเดลเอง · Map2.0 มีเมฆลอยสูงถึง 1160 หน่วยเข้ามา ครึ่ง extents
+    /// โตตามทันที จุดตำแหน่งผู้ใช้เลยไปลอยเหนือเมฆ และแผ่นฐานที่เปลี่ยนจากผืนผ้าเป็นเกือบ
+    /// จัตุรัสก็ทำให้สัดส่วนแนวราบเพี้ยนทั้งแผนที่ — ทั้งสองอาการไม่มีอะไรฟ้องนอกจากมีคนสังเกตเห็น
+    ///
+    /// โมเดลจาก maps3d.io เป็น **เมตร Web Mercator (EPSG:3857)** ไม่ใช่เมตรพื้นจริง (ต่างกัน
+    /// 6.4% ที่ละติจูดนี้) ตัวเลขสองตัวกลางจึงเป็นค่าคงที่ของ EPSG:3857 เป๊ะ:
+    /// `6378137 × π/180 = 111319.49` และ `111319.49 / cos(20.04549°) = 118498.01`
+    /// ถอดกลับได้ตรงทุกตำแหน่งจากกรอบ lat/lng ชุดเดิม ที่ fit แบบ Procrustes กับจุดสำรวจจริง 7 จุด
+    /// ความคลาดเดิมยังอยู่: scatter ต่อจุดราว 110 ม. มาจากความหยาบของการปักหมุดในโมเดลเอง
+    struct Anchor: Decodable, Equatable {
+        /// พิกัดจริงของจุด (0,0) ในโมเดล
+        let originLatitude: Double
+        let originLongitude: Double
+        let unitsPerDegreeLatitude: Double
+        let unitsPerDegreeLongitude: Double
+        /// ครึ่งความกว้างของ "พื้นที่งาน" ในหน่วยโมเดล — ไกลกว่านี้คือเนื้อแผ่นตอไม้ ไม่ใช่พื้นที่งาน
+        /// (ขอบภูมิประเทศจริงคือ `tinMesh` extent ±2230 ส่วนขอบแผ่นไม้อยู่ที่ ±2292)
+        let halfSpanUnitsEastWest: Double
+        let halfSpanUnitsNorthSouth: Double
+        /// ความสูงที่วางจุดตำแหน่งผู้ใช้ หน่วยโมเดล — ต้องเหนือยอดภูมิประเทศ (306.57) ไม่ใช่
+        /// กึ่งกลางความสูง กึ่งกลางจมอยู่ใต้ภูมิประเทศหลายจุด จุดจะหายไปโดยไม่มีอะไรฟ้อง
+        let userDotHeightUnits: Float
+    }
+
     struct Pin: Decodable, Equatable {
         let sequence: Int
         /// ชื่อ prim ทุกตัวที่แตะแล้วต้องนับเป็นฐานนี้ · **ตัวแรกคือแท่งหลัก** ที่กล้องจะบินไปจ้อง
@@ -47,6 +74,7 @@ struct Map3DConfig: Decodable, Equatable {
     /// ทิศของพื้นที่งานเทียบกับกล้อง — ไม่ใช่ทิศเหนือจริง อย่าตีความเป็น compass bearing
     let framingYawDegrees: Float
     let bounds: Map3DGeo.Bounds
+    let anchor: Anchor
     let camera: Camera
     let sky: Sky
     let pins: [Pin]
@@ -66,6 +94,11 @@ struct Map3DConfig: Decodable, Equatable {
               Set(config.pins.flatMap(\.entityNames)).count == config.pins.flatMap(\.entityNames).count,
               config.bounds.south < config.bounds.north,
               config.bounds.west < config.bounds.east,
+              config.anchor.unitsPerDegreeLatitude > 0,
+              config.anchor.unitsPerDegreeLongitude > 0,
+              config.anchor.halfSpanUnitsEastWest > 0,
+              config.anchor.halfSpanUnitsNorthSouth > 0,
+              config.anchor.userDotHeightUnits > 0,
               config.camera.minPitchDegrees < config.camera.maxPitchDegrees,
               config.camera.minDistance < config.camera.maxDistance,
               config.sky.domeRadius > config.camera.maxDistance
@@ -99,6 +132,10 @@ struct Map3DConfig: Decodable, Equatable {
         framingYawDegrees: 90,
         bounds: Map3DGeo.Bounds(south: 20.02371, west: 99.88272,
                                 north: 20.06727, east: 99.92288),
+        anchor: Anchor(originLatitude: 20.04549, originLongitude: 99.90280,
+                       unitsPerDegreeLatitude: 118498.01, unitsPerDegreeLongitude: 111319.49,
+                       halfSpanUnitsEastWest: 2230, halfSpanUnitsNorthSouth: 2230,
+                       userDotHeightUnits: 320),
         camera: Camera(defaultPitchDegrees: 68, minPitchDegrees: 34, maxPitchDegrees: 75,
                        minDistance: 0.8, maxDistance: 4.0, defaultDistance: 1.6,
                        focusPitchDegrees: 34, focusDistance: 0.55, orbitDegreesPerSecond: 8),

@@ -53,14 +53,31 @@ final class Map3DConfigFileTests: XCTestCase {
         Map3DConfig.decode(Data(json.utf8))
     }
 
+    private func anchorJSON(unitsPerDegreeLatitude: String = "118498.01",
+                            unitsPerDegreeLongitude: String = "111319.49",
+                            halfSpanUnitsEastWest: String = "2230.0",
+                            halfSpanUnitsNorthSouth: String = "2230.0",
+                            userDotHeightUnits: String = "320.0") -> String {
+        """
+        {"originLatitude":20.04549,"originLongitude":99.90280,
+         "unitsPerDegreeLatitude":\(unitsPerDegreeLatitude),
+         "unitsPerDegreeLongitude":\(unitsPerDegreeLongitude),
+         "halfSpanUnitsEastWest":\(halfSpanUnitsEastWest),
+         "halfSpanUnitsNorthSouth":\(halfSpanUnitsNorthSouth),
+         "userDotHeightUnits":\(userDotHeightUnits)}
+        """
+    }
+
     private func valid(pins: String = #"[{"sequence":1,"entityNames":["marker_1"]}]"#,
                        bounds: String = #"{"south":20.0,"west":99.8,"north":20.1,"east":99.9}"#,
+                       anchor: String? = nil,
                        domeRadius: String = "9.0",
                        minPitch: String = "12",
                        maxPitch: String = "75") -> String {
         """
         {"modelName":"map","framingYawDegrees":90,
          "bounds":\(bounds),
+         "anchor":\(anchor ?? anchorJSON()),
          "camera":{"defaultPitchDegrees":68,"minPitchDegrees":\(minPitch),"maxPitchDegrees":\(maxPitch),
                    "minDistance":0.8,"maxDistance":4.0,"defaultDistance":1.6,
                    "focusPitchDegrees":34,"focusDistance":0.55,"orbitDegreesPerSecond":8},
@@ -93,6 +110,33 @@ final class Map3DConfigFileTests: XCTestCase {
         XCTAssertNil(decode(valid(pins: #"""
         [{"sequence":1,"entityNames":["marker_1"]},{"sequence":2,"entityNames":["marker_1"]}]
         """#)))
+    }
+
+    /// สเกลเป็นศูนย์หรือติดลบ = ทุกพิกัดยุบไปกองที่จุดเดียวหรือกลับด้านทั้งแผนที่
+    func testRejectsAnAnchorScaleThatIsNotPositive() {
+        XCTAssertNil(decode(valid(anchor: anchorJSON(unitsPerDegreeLatitude: "0"))))
+        XCTAssertNil(decode(valid(anchor: anchorJSON(unitsPerDegreeLongitude: "-111319.49"))))
+    }
+
+    /// ครึ่งความกว้างเป็นศูนย์ = จุดตำแหน่งผู้ใช้ถูกตัดว่า "นอกพื้นที่" ทุกครั้ง ไม่เคยโผล่เลย
+    func testRejectsAZeroSizedEventArea() {
+        XCTAssertNil(decode(valid(anchor: anchorJSON(halfSpanUnitsEastWest: "0"))))
+        XCTAssertNil(decode(valid(anchor: anchorJSON(halfSpanUnitsNorthSouth: "0"))))
+    }
+
+    /// ความสูงศูนย์/ติดลบ = จุดจมอยู่ใต้ภูมิประเทศ หายไปเงียบ ๆ โดยไม่มีอะไรฟ้อง
+    func testRejectsAUserDotBuriedUnderTheTerrain() {
+        XCTAssertNil(decode(valid(anchor: anchorJSON(userDotHeightUnits: "0"))))
+    }
+
+    /// ค่าที่ส่งไปกับแอปต้องเป็นค่าที่ถอดจากโมเดลจริง ไม่ใช่ค่าที่พิมพ์มั่ว — ตรวจด้วยหมุดฐานที่ 5
+    /// ที่รู้พิกัดในไฟล์โมเดลอยู่แล้ว (751.2, −112) ผิดเมื่อไหร่จุด GPS เพี้ยนทั้งแผนที่
+    func testShippedAnchorPutsBaseFiveWhereTheModelPutsIt() throws {
+        let anchor = try XCTUnwrap(Map3DConfig.bundled).anchor
+        let p = try XCTUnwrap(Map3DGeo.modelUnits(latitude: 20.04454, longitude: 99.90955,
+                                                  in: anchor))
+        XCTAssertEqual(p.x, 751.2, accuracy: 6)
+        XCTAssertEqual(p.y, -112.0, accuracy: 6)
     }
 
     func testRejectsAnUpsideDownBoundingBox() {

@@ -7,6 +7,15 @@
     "north": 20.06727,
     "east": 99.92288
   },
+  "anchor": {
+    "originLatitude": 20.04549,
+    "originLongitude": 99.90280,
+    "unitsPerDegreeLatitude": 118498.01,
+    "unitsPerDegreeLongitude": 111319.49,
+    "halfSpanUnitsEastWest": 2230.0,
+    "halfSpanUnitsNorthSouth": 2230.0,
+    "userDotHeightUnits": 320.0
+  },
   "camera": {
     "defaultPitchDegrees": 68,
     "minPitchDegrees": 34,
