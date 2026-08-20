@@ -41,6 +41,17 @@ final class MapModelLoader {
     /// เฟรม 0 (เมฆกระตุกเห็นชัด) และซ้อน playback controller ตัวใหม่ทับตัวเดิมที่ไม่มีใครหยุด
     var hasStartedCloudAnimations = false
 
+    /// ฐานที่ไฮไลต์แขวนอยู่ตอนนี้ — nil = ยังไม่ได้แขวนกับหมุดไหน
+    ///
+    /// อยู่ที่นี่ไม่ใช่ `@State` ในจอ เพราะตัวที่อ่านมันคือ `RealityView.update` ซึ่งรันทุกเฟรม
+    /// การเขียน `@State` จากในนั้นได้คำเตือน "modifying state during view update" ตรง ๆ ·
+    /// ที่นี่เป็นบ้านของ bookkeeping แบบนี้อยู่แล้ว (hasPlayedIntro, hasShownPinHint,
+    /// hasStartedCloudAnimations) และอายุเท่ากับ entity ที่แคชไว้พอดี ซึ่งคือสิ่งที่ธงนี้พูดถึง
+    ///
+    /// มีไว้เพื่อไม่ต้องเรียก `findEntity(named:)` แบบไล่ทั้งต้น 2,201 ก้อนทุกเฟรม — เรียกเฉพาะ
+    /// เฟรมที่ฐานที่เลือกเปลี่ยนจริง
+    var highlightedSequence: Int?
+
     /// มีจอไหนกำลังใช้โมเดลอยู่ไหม — `Map3DScreen` เขียนค่านี้ตาม `isActive` ของแท็บ
     ///
     /// จำเป็นเพราะการคืนหน่วยความจำเป็นเรื่องของ "จังหวะ" ล้วน ๆ: entity ตัวเดียวกันนี้แขวนอยู่ใน
@@ -80,6 +91,9 @@ final class MapModelLoader {
         // จะค้าง true ข้ามไปจากโมเดลใบเก่า แล้ว Map3DScreen จะไม่สั่ง playAnimation ให้ใบใหม่
         // เลยตลอดไป — เมฆแข็งค้างถาวรทันทีที่เจอ memory warning หนึ่งครั้ง โดยไม่มีอะไร log แจ้ง
         hasStartedCloudAnimations = false
+        // ธงไฮไลต์ก็ต้องรีเซ็ตด้วยเหตุผลเดียวกัน — โมเดลใบใหม่ไม่มีอะไรแขวนอยู่ที่หมุดไหนเลย
+        // ธงที่ค้างค่าไว้แปลว่า update จะไม่ย้ายไฮไลต์ไปแขวนใหม่ ผู้ใช้กดหมุดแล้วไม่มีวงแสงขึ้น
+        highlightedSequence = nil
         NSLog("[Map3DScreen] คืนโมเดลแผนที่ให้ระบบตอนความจำเหลือน้อย")
     }
 

@@ -1,5 +1,6 @@
 import RealityKit
 import SwiftUI
+import UIKit
 
 /// แท็บแผนที่ — โมเดล 3D ของพื้นที่งาน (map.usdz) แทน MapLibre เดิม
 ///
@@ -40,6 +41,15 @@ struct Map3DScreen: View {
     /// ตอนสร้าง entity ต้องหารด้วย map.scale กลับเป็นเมตรจริงของ local space เสมอ
     private static let dotRadiusOnScreen: Float = 0.02
 
+    /// ชื่อ entity ไฮไลต์หมุด — ต้องหาเจอด้วยชื่อทั้งตอนลบของเก่าตอนต้น `make` และตอนย้ายพ่อ
+    /// ใน `update` จึงเก็บเป็นค่าคงที่ ไม่ใช่สตริงลอยสองที่
+    private static let pinHighlightName = "PinHighlight"
+
+    /// รัศมีจานไฮไลต์ **ในหน่วย local ของหมุด** ไม่ใช่หน่วยที่ย่อแล้ว — เป็นลูกของ `marker_N`
+    /// จึงกินสเกลของหมุดไปเอง · แว่นไม้เองกว้าง ±29.5 หน่วย จาน 75 จึงกว้างกว่าราวสองเท่าครึ่ง
+    /// พอให้เห็นเป็นวงแสงรอบฐาน ไม่ใช่แผ่นรองที่ใหญ่จนกลบหมุด
+    private static let pinHighlightRadius: Float = 75
+
     /// ทิศของพื้นที่งานเทียบกับกล้อง — หมุนรอบแกนตั้ง **ของตัวโมเดลเอง (Z)** ไม่ใช่แกน Y ของโลก
     ///
     /// ⚠️ เคยหมุนรอบ Y แล้วพัง: ที่ 45° ยังดูเหมือนหมุนทิศปกติ แต่พอเพิ่มเป็น 135° โมเดลตะแคงจน
@@ -79,6 +89,17 @@ struct Map3DScreen: View {
     @State private var poseBeforeFocus: Map3DPose?
     /// คำใบ้ "แตะหมุดเพื่อดูฐาน" ยังโชว์อยู่ไหม
     @State private var showsHint = false
+
+    /// ฐานที่ `-uitestMapPin` สั่งให้เปิดค้างไว้ แต่ยังบินไปหาไม่ได้เพราะโมเดลยังโหลดไม่เสร็จ
+    /// (DEBUG เท่านั้น — ปลาย make เป็นคนหยิบไปใช้แล้วล้างทิ้ง)
+    @State private var pendingForcedPin: Int?
+
+    /// ความเข้มของม่านมืดตอนนี้ 0…1 — 0 = ไม่มีม่าน, 1 = เข้มเต็มที่ (`Map3DFocus.maxDim`)
+    ///
+    /// เดินไปพร้อมกล้องในลูปเดียวกัน (`run(to:over:dimTo:)`) ไม่ได้ใช้ `withAnimation` —
+    /// จอนี้เดินค่ากล้องด้วยมือทุกเฟรมอยู่แล้ว การเอา implicit animation มาไว้บนค่าชุดเดียวกัน
+    /// ในจอเดียวกันกับตัวเดินมือ 60 Hz เป็นความเสี่ยงที่ต้องมีรอบพิสูจน์ของตัวเอง
+    @State private var focusProgress: Float = 0
 
     /// ปิดแอนิเมชันทั้งหมดเมื่อผู้ใช้เปิด Reduce Motion — กล้องกระโดดไปท่าปลายทางเลย
     /// (จอนี้มีทั้ง intro บินทะลุเมฆและการหมุนวนรอบฐาน ซึ่งเป็นการเคลื่อนไหวแบบที่ตัวเลือกนี้หมายถึงตรง ๆ)
@@ -143,6 +164,7 @@ struct Map3DScreen: View {
             }
 
             if shouldRender && !isLoading {
+                focusScrim
                 compass
                 if let tappedSequence {
                     baseCard(sequence: tappedSequence)
@@ -181,6 +203,26 @@ struct Map3DScreen: View {
             .padding(.top, 8)
             .transition(.opacity)
         }
+    }
+
+    /// ม่านมืดรอบ ๆ ตอนจ้องหมุด — ใสตรงกลาง เข้มที่ขอบ
+    ///
+    /// เป็นวงไล่สีไม่ใช่ม่านทึบทั้งจอ เพราะม่านทึบจะหรี่หมุดที่เลือกไปด้วย ซึ่งสวนทางกับสิ่งที่ต้องการ ·
+    /// หมุดที่โฟกัสอยู่กลางเฟรมเสมอโดยไม่ต้องคำนวณอะไรเลย เพราะกล้อง `look(at: target)` วาง
+    /// target ไว้บนแกนหน้าของกล้องพอดี
+    ///
+    /// เยื้องรูใสขึ้นเล็กน้อย (0.46) เพราะ `focus(on:at:)` ส่งตำแหน่ง **ฐาน** ของแว่นไม้
+    /// (local z = 0) ไม่ใช่กึ่งกลาง ตัวหมุดกับเลขจึงอยู่เหนือจุดที่กล้องจ้องขึ้นไป
+    ///
+    /// สร้างที่ความเข้มเต็มครั้งเดียวแล้วอนิเมตแค่ `.opacity()` ของกล่องนอก — ให้ระบบเลื่อนค่า alpha
+    /// แทนที่จะไล่วาด gradient เต็มจอใหม่ทุกเฟรมตลอด 84 เฟรมของการบิน
+    private var focusScrim: some View {
+        RadialGradient(colors: [.clear, .black],
+                       center: UnitPoint(x: 0.5, y: 0.46),
+                       startRadius: 90, endRadius: 420)
+            .ignoresSafeArea()
+            .opacity(Map3DFocus.dimOpacity(focusProgress))
+            .allowsHitTesting(false)
     }
 
     /// บอกครั้งเดียวว่าแท่งแดงกดได้ — ไม่มีอะไรบนจอบอกเลยว่าโมเดลนี้โต้ตอบได้
@@ -282,7 +324,7 @@ struct Map3DScreen: View {
         poseBeforeFocus = nil
         animate(to: Map3DPose(yaw: Map3DCamera.defaultYaw, pitch: Map3DCamera.defaultPitch,
                               distance: Map3DCamera.defaultDistance, target: .zero),
-                over: Map3DFocus.returnDuration)
+                over: Map3DFocus.returnDuration, dimTo: 0)
     }
 
     /// บินเข้าไปหาหมุดแล้วหมุนวนรอบมันจนกว่าผู้ใช้จะสั่งหยุด
@@ -297,7 +339,7 @@ struct Map3DScreen: View {
         tappedSequence = sequence
         let destination = Map3DFocus.pose(forPinAt: position, currentYaw: yaw)
         focusTask = Task { @MainActor in
-            await run(to: destination, over: Map3DFocus.flyDuration)
+            await run(to: destination, over: Map3DFocus.flyDuration, dimTo: 1)
             guard !Task.isCancelled, !reduceMotion else { return }
             // หมุนวนต่อไปเรื่อย ๆ · base คือมุมตอนบินถึง ไม่ใช่ 0 ไม่งั้นภาพกระโดดตอนเริ่มหมุน
             let base = yaw
@@ -314,9 +356,10 @@ struct Map3DScreen: View {
         focusTask?.cancel()
         focusTask = nil
         tappedSequence = nil
-        guard let previous = poseBeforeFocus else { return }
+        // ม่านต้องหายแม้ไม่มีท่าเดิมให้บินกลับ — ไม่งั้นกดปิดการ์ดแล้วจอยังมืดค้างอยู่
+        guard let previous = poseBeforeFocus else { focusProgress = 0; return }
         poseBeforeFocus = nil
-        animate(to: previous, over: Map3DFocus.returnDuration)
+        animate(to: previous, over: Map3DFocus.returnDuration, dimTo: 0)
     }
 
     /// ผู้ใช้เข้ามาคุมกล้องเอง — หยุดหมุนวน แต่ยังจ้องฐานเดิมอยู่ (การ์ดยังเปิด)
@@ -324,24 +367,32 @@ struct Map3DScreen: View {
     private func stopOrbit() {
         focusTask?.cancel()
         focusTask = nil
+        // ม่านต้องกระโดดไปเข้มเต็มทันที — ลากจอกลางทางบินแล้วปล่อยม่านค้างครึ่งทางทั้งที่การ์ด
+        // ยังเปิดอยู่ อ่านเป็นจอค้าง ไม่ใช่โฟกัส (ลูปที่กำลังไล่ค่าให้เพิ่งถูก cancel ไปเมื่อกี้)
+        focusProgress = 1
     }
 
-    private func animate(to pose: Map3DPose, over duration: TimeInterval) {
-        focusTask = Task { @MainActor in await run(to: pose, over: duration) }
+    private func animate(to pose: Map3DPose, over duration: TimeInterval, dimTo: Float) {
+        focusTask = Task { @MainActor in await run(to: pose, over: duration, dimTo: dimTo) }
     }
 
     /// เดินค่าเองทีละเฟรม ไม่ใช้ withAnimation — เหตุผลเดียวกับ `playIntroIfNeeded`:
     /// ค่ากล้องถูกอ่านใน update closure ของ RealityView การพึ่งว่า SwiftUI จะ re-run closure นั้น
     /// ครบทุกเฟรมตามค่า animated เป็นข้อสมมติที่พิสูจน์ไม่ได้จากโค้ด
+    ///
+    /// `dimTo` = ความเข้มม่านปลายทาง 0…1 — ม่านเกาะลูปนี้ไปด้วยแทนที่จะมีตัวขับของตัวเอง
+    /// จะได้ถึงที่หมายพร้อมกล้องเสมอ ไม่ใช่ "เกือบพร้อม"
     @MainActor
-    private func run(to pose: Map3DPose, over duration: TimeInterval) async {
+    private func run(to pose: Map3DPose, over duration: TimeInterval, dimTo: Float) async {
         let from = Map3DPose(yaw: yaw, pitch: pitch, distance: distance, target: target)
-        guard !reduceMotion else { apply(pose); return }
+        let dimFrom = focusProgress
+        guard !reduceMotion else { apply(pose); focusProgress = dimTo; return }
         let started = CFAbsoluteTimeGetCurrent()
         while !Task.isCancelled {
             let elapsed = CFAbsoluteTimeGetCurrent() - started
-            let frame = Map3DFocus.frame(at: Float(min(elapsed / duration, 1)), from: from, to: pose)
-            apply(frame)
+            let progress = Float(min(elapsed / duration, 1))
+            apply(Map3DFocus.frame(at: progress, from: from, to: pose))
+            focusProgress = Map3DFocus.dim(at: progress, from: dimFrom, to: dimTo)
             if elapsed >= duration { return }
             try? await Task.sleep(nanoseconds: 16_000_000)
         }
@@ -423,6 +474,16 @@ struct Map3DScreen: View {
             // — วัดจากภาพสองรอบแล้ว ไม่ใช่การคาดเดา
             (map.children.first ?? map).orientation =
                 simd_quatf(angle: 0, axis: SIMD3<Float>(0, 0, 1))
+            // ลบ entity ที่ **เราแขวนเพิ่มเอง** รอบก่อนทิ้งก่อนวัด — สองตัวนี้ไม่ได้มากับไฟล์โมเดล
+            // แต่แขวนอยู่ใต้ `map` ซึ่งเป็น entity ตัวเดิมข้ามการ mount ถ้าไม่ลบก่อน มันถูกนับเข้าไป
+            // ใน extents ที่ใช้คำนวณสเกล · จุดฟ้าเคยถูกลบทีหลังบรรทัดนี้ ซึ่งไม่มีอาการเพราะบังเอิญ
+            // มันอยู่ในกรอบพอดี ไม่ใช่เพราะออกแบบไว้ — ไฮไลต์หมุดอยู่ที่ขอบนอกของหมุดซึ่งเข้าใกล้
+            // ขอบแผ่นกว่ามาก ย้ายมาลบพร้อมกันตรงนี้ให้การวัดพิสูจน์ได้ว่าไม่ถูกกวน
+            //
+            // `map.findEntity(named:)` ค้นทั้งซับทรี จึงเจอไฮไลต์แม้มันถูกย้ายไปแขวนใต้ `marker_N` แล้ว
+            map.findEntity(named: "UserDot")?.removeFromParent()
+            map.findEntity(named: Self.pinHighlightName)?.removeFromParent()
+
             let bounds = map.visualBounds(relativeTo: nil)
             let widest = max(bounds.extents.x, max(bounds.extents.y, bounds.extents.z))
             if widest > 0 { map.scale = SIMD3<Float>(repeating: Self.normalisedSpan / widest) }
@@ -532,12 +593,40 @@ struct Map3DScreen: View {
             )
             dot.name = "UserDot"
             dot.isEnabled = false
-            // ลบตัวเก่าก่อนเสมอ — `dotParent` อยู่ใต้ `map` ซึ่งเป็น entity ตัวเดิมที่ถูกใช้ซ้ำข้าม
-            // การ mount จอใหม่ (ล็อกเอาต์แล้วล็อกอินใหม่) ไม่ลบทิ้งก็ได้จุดฟ้าเพิ่มขึ้นทีละลูกทุกรอบ
-            // และ `findEntity(named:)` ใน update closure ก็จับได้แค่ลูกเดียว ที่เหลือค้างอยู่กับที่
-            // ตำแหน่งเก่าโดยไม่มีใครขยับหรือปิดมันอีกเลย
-            dotParent.findEntity(named: "UserDot")?.removeFromParent()
+            // ตัวเก่าถูกลบไปแล้วตอนต้น make (ก่อนวัด visualBounds) — ไม่ลบทิ้งก็ได้จุดฟ้าเพิ่มขึ้น
+            // ทีละลูกทุกรอบที่ mount ใหม่ และ `findEntity(named:)` ใน update ก็จับได้แค่ลูกเดียว
+            // ที่เหลือค้างอยู่ตำแหน่งเก่าโดยไม่มีใครขยับหรือปิดมันอีกเลย
             dotParent.addChild(dot)
+
+            // ไฮไลต์หมุดที่เลือก — จานกลมแบนสีทองวางที่โคนหมุด
+            //
+            // ทำไมเป็น entity แยกที่ย้ายพ่อ ไม่ใช่การสลับ material ของหมุดเอง: `MapModelLoader`
+            // คืน entity ตัวเดิมตลอดอายุแอปและไม่เคย clone การสลับวัสดุจึงเป็นการแก้ของที่ใช้ร่วมกัน
+            // ต้องรับประกันคืนค่าครบทุกทางออก ซึ่งจอนี้มีอย่างน้อยหกทาง (ปิดการ์ด, กดเข็มทิศ,
+            // ลากจอ, ออกจากแท็บ, ล็อกเอาต์แล้วล็อกอินใหม่, ระบบเตือนความจำ) พลาดทางเดียว
+            // หมุดค้างสีผิดถาวรโดยไม่มี error ไม่มีเทส · แบบนี้ย้อนกลับด้วยการปิดสวิตช์ตัวเดียว
+            //
+            // ⚠️ `generatePlane(width:height:)` ให้ระนาบใน **XY** normal +Z ซึ่งใต้ `dotParent`
+            // ยังเป็นสเปซ USD ที่เป็น **Z-up** อยู่ (ตัวแปลง Z-up→Y-up อบไว้ที่ entity ตัวนอก)
+            // จานจึงราบกับพื้นโดยไม่ต้องหมุนเลย · ห้ามใช้ `generatePlane(width:depth:)` ซึ่งเป็น
+            // ระนาบ XZ normal +Y — อันนั้นจะตั้งจานขึ้นมาตะแคง
+            // สีเขียนตรง ๆ ไม่ใช้โทเคนจาน สี — แพทเทิร์นเดียวกับจุดผู้ใช้ (`.systemBlue`) และโดมฟ้า
+            // (`Map3DSky.skyColor`) เพราะนี่คือของในฉาก 3D ไม่ใช่ chrome ของ UI ที่ต้องปรับตามธีม ·
+            // เคยลอง `Color.wbwGold` แล้วได้จานสีขาวนวล: โทเคนนั้นถูกชี้ไป `wbwAccent` ตั้งแต่รอบ
+            // ที่พาเลตต์ตัดเฉดทองออก (`Config.swift:212` และคอมเมนต์เหนือมันบอกไว้ว่าโค้ดใหม่ห้ามใช้)
+            // ในโหมดมืดมันคือ #E9EEE0 · อำพันอ่านออกบนพื้นเขียวทั้งกลางวันกลางคืน
+            var highlightMaterial = UnlitMaterial(
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 1))
+            highlightMaterial.blending = .transparent(opacity: 0.9)
+            highlightMaterial.faceCulling = .none
+            let highlight = ModelEntity(
+                mesh: .generatePlane(width: Self.pinHighlightRadius * 2,
+                                     height: Self.pinHighlightRadius * 2,
+                                     cornerRadius: Self.pinHighlightRadius),
+                materials: [highlightMaterial])
+            highlight.name = Self.pinHighlightName
+            highlight.isEnabled = false
+            dotParent.addChild(highlight)
 
             #if DEBUG
             NSLog("[Map3DScreen] map.visualBounds = %@", String(describing: bounds))
@@ -575,10 +664,54 @@ struct Map3DScreen: View {
                 }
                 isLoading = false
                 playIntroIfNeeded()
+
+                #if DEBUG
+                // บินไปหาหมุดที่ -uitestMapPin สั่งไว้ ทำที่นี่เพราะเป็นจุดแรกที่ทั้งโมเดลพร้อมและ
+                // ยังอยู่บน main actor · ตำแหน่งอ่านใน scene space ตัวเดียวกับที่ตัวจัดการแตะใช้
+                if let forced = pendingForcedPin {
+                    pendingForcedPin = nil
+                    if let name = Map3DPins.primaryEntityName(for: forced),
+                       let marker = map.findEntity(named: name) {
+                        focus(on: forced, at: marker.position(relativeTo: nil))
+                    } else {
+                        tappedSequence = forced
+                    }
+                }
+                #endif
             }
         } update: { content in
             guard let root = content.entities.first,
                   let map = root.findEntity(named: "Map") else { return }
+
+            // ไฮไลต์หมุด — อ่านจาก `tappedSequence` ตรง ๆ ไม่ได้สั่งจาก `focus()`
+            //
+            // ทางเข้า/ออกของการเลือกหมุดมีสี่ทาง (แตะหมุด, ปิดการ์ด, กดเข็มทิศ, สลับไปหมุดอื่น)
+            // แต่ทั้งสี่ไหลผ่าน `@State` ตัวเดียวกันนี้ ผูกกับมันจึงคุมครบโดยไม่ต้องเขียนอะไรเพิ่ม —
+            // รวมถึงกรณีที่ `stopOrbit()` **ตั้งใจ**ไม่เคลียร์ค่า (ลากจอแล้วการ์ดยังเปิด) ซึ่งไฮไลต์
+            // ก็ต้องอยู่ต่อ ถ้าสั่งจาก focus() ต้องไปจำกรณีนี้เองอีกที
+            //
+            // ธงใน MapModelLoader กันไม่ให้ไล่ `findEntity(named:)` บนต้นไม้ 2,201 ก้อนทุกเฟรม —
+            // เข้าเฉพาะเฟรมที่ฐานที่เลือกเปลี่ยนจริง
+            if MapModelLoader.shared.highlightedSequence != tappedSequence {
+                MapModelLoader.shared.highlightedSequence = tappedSequence
+                if let highlight = map.findEntity(named: Self.pinHighlightName) {
+                    if let sequence = tappedSequence,
+                       let markerName = Map3DPins.primaryEntityName(for: sequence),
+                       let marker = map.findEntity(named: markerName) {
+                        // ย้ายพ่อ (idempotent — RealityKit ถอดออกจากพ่อเดิมให้เอง) เพื่อรับตำแหน่ง
+                        // กับการเอียงตามภูมิประเทศของหมุดมาฟรี ๆ ไม่ต้องคำนวณเอง
+                        marker.addChild(highlight)
+                        // สูงจากฐานหมุดพอให้พ้นผิวภูมิประเทศที่ไม่เรียบ · แกน Z คือขึ้น เพราะข้างใน
+                        // โมเดลยังเป็นสเปซ USD ที่เป็น Z-up · เคยตั้งไว้ 1 แล้วจานจมอยู่ในเนินดิน
+                        // เห็นโผล่มาแค่เสี้ยวเดียวตรงที่พื้นเว้าลง (ถ่ายเทียบแล้ว ไม่ใช่การคาดเดา) ·
+                        // 6 ยังต่ำกว่าความสูงหมุด (34) มาก จึงยังอ่านเป็นแสงกองที่โคน ไม่ใช่จานลอย
+                        highlight.position = SIMD3<Float>(0, 0, 6)
+                        highlight.isEnabled = true
+                    } else {
+                        highlight.isEnabled = false
+                    }
+                }
+            }
 
             // เมฆเป็นของสำหรับ intro — ปิดเมื่อเล่นจบ ไม่งั้นมุมกล้องต่ำจะมองทะลุชั้นเมฆ
             // เห็นแผนที่เป็นสีจาง ๆ ทั้งจอ (เจอจากสกรีนช็อตรอบแรก)
@@ -700,8 +833,12 @@ struct Map3DScreen: View {
             #if DEBUG
             // เปิดการ์ดฐานตรงๆ โดยไม่ต้องแตะจริง — ทรงเดียวกับ uitestChat/uitestFeedback ที่
             // MainTabView.swift เป็นทางเดียวที่ถ่ายรูปการ์ดได้ในสภาพแวดล้อมที่ไม่มี tap tooling
+            // ตั้งเฉพาะการ์ดตรงนี้ไม่พอ — ม่านมืดกับกล้องผูกกับ `focus(on:at:)` ซึ่งต้องรู้ตำแหน่ง
+            // หมุดในฉาก และตำแหน่งนั้นมีให้ก็ต่อเมื่อโมเดลโหลดเสร็จแล้ว · เก็บไว้ให้ปลาย make
+            // มาหยิบไปแทน (เดิมตั้งแค่ `tappedSequence` จึงถ่ายยืนยันได้แค่ครึ่งเดียว —
+            // บันทึกไว้เป็นข้อจำกัดข้อ 2 ใน docs/map-2-0-verification.md)
             let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
-            if forced > 0 { tappedSequence = forced; showsHint = false }
+            if forced > 0 { pendingForcedPin = forced; showsHint = false }
             // ลองมุมกล้องหลายค่าแล้วถ่ายเทียบกับภาพอ้างอิงโดยไม่ต้อง build ใหม่ทุกครั้ง
             // (หน่วยเป็นองศา · หมุนโมเดล ไม่ใช่หมุนกล้อง เพราะทิศของพื้นที่งานอบอยู่ในโมเดล)
             if UserDefaults.standard.object(forKey: "uitestMapHeading") != nil {
