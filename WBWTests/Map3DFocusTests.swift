@@ -116,4 +116,70 @@ final class Map3DFocusTests: XCTestCase {
         XCTAssertLessThan(Map3DFocus.returnDuration, Map3DFocus.flyDuration,
                           "ขากลับต้องเร็วกว่าขาไป — ผู้ใช้กดปิดแล้วอยากได้จอคืนทันที")
     }
+
+    // MARK: - ม่านมืดตอนโฟกัสหมุด
+
+    /// ปลายทั้งสองต้องคืนค่าเป๊ะ ไม่ผ่านการคำนวณ — เหตุผลเดียวกับ `frame(at:from:to:)`:
+    /// `a + (b - a) * 1` ใน floating point ไม่ได้เท่ากับ `b` เสมอไป เศษที่เหลือแปลว่าม่าน
+    /// ไม่เคยมืดเต็มที่จริงหรือไม่เคยใสสนิทจริง ซึ่งบนจอคือคราบจาง ๆ ที่ไม่มีวันหายไป
+    func testDimReturnsItsEndpointsExactly() {
+        XCTAssertEqual(Map3DFocus.dim(at: 0, from: 0, to: 1), 0)
+        XCTAssertEqual(Map3DFocus.dim(at: 1, from: 0, to: 1), 1)
+        XCTAssertEqual(Map3DFocus.dim(at: 1, from: 1, to: 0), 0)
+    }
+
+    /// SwiftUI ส่ง progress เลยขอบมาได้ในบางเส้นโค้ง — ต้องบีบ ไม่ใช่คำนวณต่อ
+    func testDimClampsProgressOutsideZeroToOne() {
+        XCTAssertEqual(Map3DFocus.dim(at: -0.5, from: 0, to: 1), 0)
+        XCTAssertEqual(Map3DFocus.dim(at: 1.7, from: 0, to: 1), 1)
+    }
+
+    /// ม่านต้องมืดขึ้นทางเดียวตอนเข้าโฟกัส และใสขึ้นทางเดียวตอนออก — กระพริบกลับทางแม้เฟรมเดียว
+    /// อ่านเป็นจอสั่น ไม่ใช่การเปลี่ยนโฟกัส
+    func testDimMovesOneWayOnly() {
+        var previous = Map3DFocus.dim(at: 0, from: 0, to: 1)
+        for step in 1...40 {
+            let value = Map3DFocus.dim(at: Float(step) / 40, from: 0, to: 1)
+            XCTAssertGreaterThanOrEqual(value, previous, "ม่านสว่างกลับที่ก้าวที่ \(step)")
+            previous = value
+        }
+        previous = Map3DFocus.dim(at: 0, from: 1, to: 0)
+        for step in 1...40 {
+            let value = Map3DFocus.dim(at: Float(step) / 40, from: 1, to: 0)
+            XCTAssertLessThanOrEqual(value, previous, "ม่านมืดกลับที่ก้าวที่ \(step)")
+            previous = value
+        }
+    }
+
+    /// ม่านกับกล้องต้องถึงที่หมายพร้อมกัน — ใช้เส้นโค้งเดียวกันจริงหรือเปล่า
+    ///
+    /// เดิม `frame(at:from:to:)` คำนวณ `1 - pow(1 - t, 3)` ไว้ในตัวเอง ถ้าม่านลอกสูตรไปเขียนซ้ำ
+    /// แล้ววันหลังมีคนแก้ที่เดียว ม่านกับกล้องจะเดินคนละจังหวะโดยไม่มีอะไรฟ้อง
+    func testDimRidesTheSameEasingCurveAsTheCamera() {
+        let from = Map3DPose(yaw: 0, pitch: Map3DCamera.defaultPitch,
+                             distance: Map3DCamera.defaultDistance, target: .zero)
+        let to = Map3DPose(yaw: 0, pitch: Map3DCamera.focusPitch,
+                           distance: Map3DCamera.focusDistance, target: SIMD3<Float>(0.3, 0, 0.2))
+        for step in 1..<10 {
+            let t = Float(step) / 10
+            let cameraShare = (Map3DFocus.frame(at: t, from: from, to: to).target.x - from.target.x)
+                / (to.target.x - from.target.x)
+            XCTAssertEqual(Map3DFocus.dim(at: t, from: 0, to: 1), cameraShare, accuracy: 0.001,
+                           "ม่านกับกล้องเดินคนละเส้นโค้งที่ t = \(t)")
+        }
+    }
+
+    /// ความทึบจริงบนจอต้องอยู่ใน 0…maxDim เสมอ แม้ป้อนค่านอกช่วงเข้าไป
+    func testDimOpacityStaysInsideItsOwnRange() {
+        XCTAssertEqual(Map3DFocus.dimOpacity(0), 0)
+        XCTAssertEqual(Map3DFocus.dimOpacity(1), Map3DFocus.maxDim)
+        XCTAssertEqual(Map3DFocus.dimOpacity(2), Map3DFocus.maxDim, "ค่าเกิน 1 ต้องถูกบีบ")
+        XCTAssertEqual(Map3DFocus.dimOpacity(-1), 0, "ค่าติดลบต้องถูกบีบ")
+    }
+
+    /// ม่านทึบเต็มแปลว่าแผนที่หายไปทั้งจอ เหลือแต่การ์ด — ซึ่งไม่ใช่การโฟกัส แต่คือการปิดแผนที่
+    func testMaxDimLeavesTheMapVisible() {
+        XCTAssertGreaterThan(Map3DFocus.maxDim, 0, "ม่านที่ใสสนิทคือไม่มีม่าน")
+        XCTAssertLessThan(Map3DFocus.maxDim, 1, "ม่านทึบเต็มแปลว่าแผนที่หายไปหมด")
+    }
 }
