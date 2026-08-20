@@ -95,3 +95,61 @@ final class BloomGeometryTests: XCTestCase {
                        "ความไม่เท่ากันของจุดต้องมาจาก hash ไม่ใช่ตัวสุ่ม ไม่งั้นดอกไม้จะระยิบทุกเฟรม")
     }
 }
+
+/// ดอกไม้ต้องเป็น "ถ้วยที่เปิดขึ้นฟ้า" ไม่ใช่ "จานที่หันหน้าเข้าหาคนดู"
+///
+/// ตารางกลีบฝั่ง iOS ค้างอยู่ที่ค่าก่อนที่ Android จะแก้ (`00f0408`) — กาง 166° คือการกวาด 332°
+/// ซึ่งพัดปิดตัวเองจนกลายเป็นจาน และแกนกลางที่วาดเต็มความเข้มทำให้ตรงกลางสว่างที่สุดบนจอ
+/// รวมกันแล้วอ่านเป็น "รอยกระเด็น" ไม่ใช่ดอกไม้ · Android เขียนเหตุผลไว้ตรง ๆ ในคอมเมนต์ของ
+/// `petalsFor` กับ `CoreShade` — เทสชุดนี้ตรึงข้อสรุปนั้นไว้ฝั่ง iOS ด้วย
+final class BloomShapeTests: XCTestCase {
+
+    /// กลีบทุกใบต้องยังมีองค์ประกอบชี้ขึ้น — พัดที่ปิดตัวเองได้แปลว่าดอกหันหน้าเข้าหาคนดู
+    func testHeadOpensUpwardAtEveryStage() {
+        for s in stride(from: CGFloat(1), through: 5, by: 0.5) {
+            for p in BloomGeometry.petals(stage: s, withLeaves: false) {
+                let up = sin(p.ang * .pi / 180)
+                XCTAssertLessThan(up, 0,
+                                  "ขั้น \(s) มีกลีบชี้ลง (\(p.ang)°) — พัดปิดตัวเองแล้วดอกจะอ่านเป็นจาน")
+            }
+        }
+    }
+
+    /// ดอกบานเต็มที่ต้องกว้างกว่าสูง — ถ้วยที่เปิดขึ้นจะแบน จานจะเป็นสี่เหลี่ยมจัตุรัส
+    func testFullBloomIsWiderThanTall() {
+        let ps = BloomGeometry.petals(stage: 5, withLeaves: false)
+        let b = BloomGeometry.headBounds(ps, stage: 5)
+        let w = b.maxX - b.minX, h = b.maxY - b.minY
+        // 1.25 ไม่ใช่ค่าที่วัดมาเป๊ะ ๆ (ของจริงคือ ~1.38) แต่เป็นเส้นที่แยก "ถ้วย" ออกจาก "จาน"
+        // ได้ชัด — ตารางก่อนแก้ให้ 0.90 คือสูงกว่ากว้าง ซึ่งอยู่คนละฝั่งของเส้นนี้แบบไม่กำกวม
+        XCTAssertGreaterThan(w / h, 1.25,
+                             "หัวดอกขั้น 5 กว้าง \(w) สูง \(h) — เกือบจัตุรัสแปลว่าพัดปิดเป็นจานแล้ว")
+    }
+
+    /// แกนกลางต้องเป็น "ตาของถ้วย" ที่หม่นที่สุด ไม่ใช่จุดที่สว่างที่สุดบนดอก
+    func testCoreIsNotTheBrightestThingOnTheFlower() {
+        let size = CGSize(width: 220, height: 260)
+        let dots = BloomGeometry.build(size: size, stage: 5, step: 6,
+                                       centreYFraction: 0.38, kind: .plant)
+        let scale = min(size.width / BloomGeometry.flowerWidth, size.height / BloomGeometry.flowerHeight)
+        let centreX = size.width / 2
+        let centreY = size.height / 2 - (BloomGeometry.flowerHeight / 2 - BloomGeometry.maxPetal) * scale
+        let core = dots.min { hypot($0.x - centreX, $0.y - centreY) < hypot($1.x - centreX, $1.y - centreY) }
+        let peak = dots.map(\.alpha).max() ?? 1
+        XCTAssertNotNil(core)
+        XCTAssertLessThan(core?.alpha ?? 1, peak - 0.05,
+                          "แกนกลางเข้มเท่าจุดที่เข้มที่สุดบนดอก — ตรงกลางที่สว่างกว่ารอบข้างคือรอยกระเด็น")
+    }
+
+    /// กลีบซ้อนกันต้องยังแยกออกจากกันได้ — คุมด้วยการซ้อนทับ ไม่ใช่ `max`
+    ///
+    /// `max` เก็บแค่กลีบที่เข้มที่สุดของแต่ละจุด แล้วโยนข้อเท็จจริงว่ากลีบไหนอยู่หน้าทิ้ง
+    /// กองกลีบที่ทับกันจึงออกมาเป็นค่าเดียวกับกลีบใบเดียว คืออิ่มตัวหมดทั้งดอก
+    func testOverlappingPetalsProduceMoreThanOneTone() {
+        let dots = BloomGeometry.build(size: CGSize(width: 220, height: 260), stage: 5, step: 4,
+                                       centreYFraction: 0.38, kind: .plant)
+        let tones = Set(dots.map { (($0.alpha * 50).rounded()) })
+        XCTAssertGreaterThan(tones.count, 12,
+                             "ทั้งดอกมีแค่ \(tones.count) ระดับความเข้ม — แบนเกินกว่าจะนับกลีบได้")
+    }
+}

@@ -35,8 +35,53 @@ enum BloomGeometry {
     static let headSpan: CGFloat = 160
     static let headFitExponent: CGFloat = 0.4
 
-    private struct Petal {
+    // MARK: - โทน (ทุกตัวเป็นตัวคูณของ "การคลุม")
+
+    /// halftone มีช่องทางเดียว: การคลุม ซึ่งคุมทั้งรัศมีจุดและความจางของจุด ไม่มีสีที่สองให้แรเงา
+    /// ทุกค่าข้างล่างจึงเป็นตัวคูณของค่าเดียวกันนั้น (ยกทั้งชุดมาจาก `Bloom.kt`)
+
+    /// กลีบสลับหน้า-หลัง เหมือนวงกลีบจริงที่แต่ละใบซุกใต้ใบถัดไป — พัดที่ทุกกลีบโทนเดียวกัน
+    /// คือพัดที่นับกลีบไม่ได้ ต่อให้มีกี่กลีบก็ตาม
+    static let petalBack: CGFloat = 0.80
+    static let petalFront: CGFloat = 1.0
+    /// วงในนั่งอยู่ข้างในถ้วย ไม่ได้อยู่กลางแสง
+    static let innerShade: CGFloat = 0.70
+    /// ตาของดอก — **หม่นโดยตั้งใจ** ดูคำอธิบายที่ `rootShade`
+    static let coreShade: CGFloat = 0.62
+    /// ใบกับก้านอยู่ใต้หัวดอกนิดหนึ่ง ดอกจะได้เป็นของที่สว่างที่สุดเสมอ
+    static let leafShade: CGFloat = 0.88
+    static let stemShade: CGFloat = 0.85
+    /// โคนกลีบเข้มแค่ไหน ไล่ขึ้นไปเต็มที่ตรงปลาย
+    ///
+    /// หัวดอกคือถ้วย ตรงกลางอยู่ในเงา ปลายกลีบคือส่วนที่รับแสง · ของเดิมให้แสงกลับด้าน
+    /// (แกนกลางทึบที่การคลุม 1.0 สว่างกว่าทุกอย่างรอบตัว) และแกนที่โชนอยู่กลางพื้นที่เรียบ ๆ
+    /// คือรูปร่างของ "รอยกระเด็น" เป๊ะ ๆ · การกลับไล่โทนด้านนี้คือการแก้ครั้งเดียวที่ทำให้หัวดอก
+    /// อ่านว่ามีด้านใกล้กับด้านไกล
+    static let rootShade: CGFloat = 0.62
+    /// กลีบเข้มขึ้นแค่ไหนเมื่อเข้าใกล้ขอบของตัวเอง — เส้นนี้คือสิ่งที่แยกกลีบใบหนึ่งออกจากใบที่อยู่ใต้มัน
+    static let rimShade: CGFloat = 0.30
+    /// กลีบถอยไปแค่ไหนเมื่อหันขอบเข้าหาคนดู — ถ้วยเปิดขึ้นฟ้า กลีบที่ชี้ขึ้นจึงหันด้านในที่รับแสง
+    /// มาให้เรา ส่วนกลีบที่ชี้ออกข้างถูกเห็นแบบเฉียงขอบ · ลำพังมันคือไล่โทนแนวตั้งธรรมดา
+    /// แต่พอทาบลงบนพัดของกลีบ มันคือสิ่งที่ทำให้ถ้วยมี "ข้างใน"
+    static let leanShade: CGFloat = 0.76
+    /// สัดส่วนของครึ่งความกว้างที่ยกให้เป็นขอบนุ่ม ที่เหลือเป็นเนื้อแบนความเข้มเต็ม
+    ///
+    /// เพื่อให้กลีบ **บัง** สิ่งที่อยู่ข้างหลังจริง ๆ ไม่ใช่เฉลี่ยรวมกับมัน · หน้าตัดแบบโดมที่จางจาก
+    /// สันไล่ออกไปจนถึงขอบจะประกอบกันเป็นโคลน เพราะไม่มีส่วนไหนของกลีบที่อยู่หน้าอย่างไม่กำกวมเลย
+    static let petalEdge: CGFloat = 0.30
+    /// ชิปในแถบขั้นถูกดันกลับขึ้นไปหาความเข้มก่อนแรเงาเท่าไหร่
+    ///
+    /// โมเดลความลึกยังทำงานบนชิปอยู่ (โทน *สัมพัทธ์* คือส่วนหนึ่งของสิ่งที่ทำให้ชิปอ่านเป็นดอกไม้
+    /// ไม่ใช่รอยเปื้อน) แต่ระดับสัมบูรณ์ของมันถูกตั้งไว้สำหรับดอกที่สูงเท่าจอ · ที่ 50pt
+    /// การแรเงาละเอียดกว่าที่ตาแยกออกอยู่แล้ว และสิ่งเดียวที่มันทำคือกดสองขั้นที่จางที่สุด
+    /// (เมล็ดกับตูม) ให้ต่ำกว่าระดับที่ชิปขั้นที่ยังไม่ถึงจะมองเห็นได้เลย
+    static let headGain: CGFloat = 1.4
+
+    /// กลีบหนึ่งใบ · `shade` คือ "โทน" ของกลีบนั้น ซึ่งเป็นช่องทางเดียวที่ halftone มีให้ใช้บอก
+    /// ความลึก (ไม่มีสีที่สอง มีแต่ความเข้มของการคลุม ซึ่งคุมทั้งรัศมีจุดและความจางของจุด)
+    struct Petal {
         let cx: CGFloat, cy: CGFloat, ang: CGFloat, len: CGFloat, halfWidth: CGFloat
+        let shade: CGFloat
     }
 
     private struct LeafSpec {
@@ -59,18 +104,29 @@ enum BloomGeometry {
     /// (กลีบใหม่ยืดความยาวจาก 0 แทนที่จะโผล่มาเต็มความยาวพร้อมกัน), ความกว้างกลีบ
     /// (interpolate แทน branch แยกตอนมีกลีบเดียว) และ seed ของความไม่เท่ากัน (ผูกกับดัชนีกลีบ
     /// อย่างเดียว ไม่ผูกกับ stage ที่กำลังวิ่ง ไม่งั้นทั้งดอกจะระยิบระยับตลอดช่วงเปลี่ยนขั้น)
-    private static func petals(stage: CGFloat, withLeaves: Bool) -> [Petal] {
+    static func petals(stage: CGFloat, withLeaves: Bool) -> [Petal] {
         let s = min(max(stage, 0), 5)
         let i = min(Int(s), 4)
         let t = s - CGFloat(i)
 
-        // ขั้น 5 เคยเป็น 18 กลีบกาง 180° ซึ่งปิดพัดจนกลายเป็นจาน ไม่เหลือเส้นรอบรูปให้ดู
-        // แล้วอ่านว่าแย่กว่าขั้น 4 · กลีบน้อยลง กางไม่สุด แต่ยาวขึ้น
-        let counts = [0, 1, 6, 9, 13, 16]
+        // **การกางคือสิ่งที่ตัดสินว่าดอกไม้หันไปทางไหน** และเป็นเหตุผลทั้งหมดที่ขั้นท้าย ๆ
+        // เคยอ่านเป็นดาวกระจายแทนที่จะเป็นดอกบาน
+        //
+        // กาง 166 คือการกวาด 332 องศา: กลีบพันรอบเกือบครบวง และพัดที่ปิดตัวเองได้คือนิยามของ
+        // ดอกไม้ที่ถูกมองจากด้านหน้า คือหันหน้าเข้าหาคนดู · กดไว้ใต้ราว 90 แล้วพัดปิดไม่ได้ —
+        // ทุกกลีบยังมีองค์ประกอบชี้ขึ้น มันบรรจบกันที่ก้านด้านล่าง และหัวดอกอ่านเป็นถ้วยที่เปิด
+        // ขึ้นฟ้า นั่นคือดอกไม้ที่ตั้งใจให้เป็น: เปิดขึ้นทุกขั้นและไม่เคยหันมาหาเรา
+        //
+        // จำนวนกลีบลดตามลงมาด้วย ระยะห่างระหว่างกลีบคือการกางหารจำนวน การเก็บ 16 กลีบไว้
+        // ในพัด 76 องศาจะอัดกันแน่นกว่าตอนอยู่ในพัด 166 องศาที่มันมา และล้างช่องว่างที่ทำให้
+        // เห็นการซ้อนชั้นทิ้งไปหมด
+        let counts = [0, 1, 6, 9, 12, 14]
         let lengths: [CGFloat] = [0, 30, 40, 52, 64, 80]
-        let splays: [CGFloat] = [0, 0, 42, 96, 140, 166]
-        // ตูมแล้วป้าน ค่อยเรียวลงตอนกลีบแยกออกจากกัน
-        let ratios: [CGFloat] = [0.35, 0.35, 0.24, 0.21, 0.20, 0.20]
+        let splays: [CGFloat] = [0, 0, 36, 54, 66, 76]
+        // ตูมแล้วป้าน ค่อยเรียวลงตอนกลีบแยกออกจากกัน · สองค่าท้ายแคบกว่าเดิม: ที่ 0.20
+        // กลีบขั้น 5 กว้างราว 46 องศาโดยมีที่ว่างคั่นแค่ 21 องศา พัดจึงปิดเป็นจานตันที่ไม่มี
+        // การแรเงาระดับไหนเปิดออกได้ · กลีบที่แคบลงเหลือช่องว่างให้เห็นการซ้อนชั้น
+        let ratios: [CGFloat] = [0.35, 0.35, 0.24, 0.21, 0.17, 0.17]
 
         let j = min(i + 1, 5)
         let fromCount = counts[i], toCount = counts[j]
@@ -91,7 +147,16 @@ enum BloomGeometry {
             let grow: CGFloat = k < fromCount ? 1 : t
             let len = length * (0.72 + 0.28 * hash(CGFloat(k) * 70.3)) * grow
             if len <= 0.01 { continue }
-            out.append(Petal(cx: cx, cy: cy, ang: ang, len: len, halfWidth: len * ratio))
+            // สัญญาณความลึกสองอย่าง ทั้งคู่ส่งผ่านโทน
+            //
+            // การซ้อนกลีบ: กลีบสลับหน้า-หลังแบบที่วงกลีบจริงซุกแต่ละใบไว้ใต้ใบถัดไป
+            //
+            // การเอน: หัวดอกคือถ้วยที่เปิดขึ้น กลีบที่เล็งฟ้าจึงหันด้านในที่รับแสงมาหาเรา
+            // ส่วนกลีบที่เล็งออกข้างถูกเห็นแบบเฉียงขอบและเสียแสงไป — นี่คือสิ่งที่กันไม่ให้ถ้วย
+            // อ่านเป็นพัดแบน ๆ ของเส้นที่เหมือนกันหมด
+            let lean = (1 - sin(ang * .pi / 180)) / 2
+            let shade = (k % 2 == 0 ? petalBack : petalFront) * (leanShade + (1 - leanShade) * lean)
+            out.append(Petal(cx: cx, cy: cy, ang: ang, len: len, halfWidth: len * ratio, shade: shade))
         }
 
         // วงใน — สั้นกว่าและชิดกว่า ทำให้ตรงกลางอ่านว่าแน่น ไม่ใช่เป็นรูตรงที่โคนกลีบมาชนกัน
@@ -106,7 +171,7 @@ enum BloomGeometry {
                 let grow: CGFloat = k < innerFrom ? 1 : t
                 let len = length * 0.5 * innerGrow * grow
                 if len <= 0.01 { continue }
-                out.append(Petal(cx: cx, cy: cy, ang: ang, len: len, halfWidth: len * 0.26))
+                out.append(Petal(cx: cx, cy: cy, ang: ang, len: len, halfWidth: len * 0.26, shade: innerShade))
             }
         }
 
@@ -121,7 +186,7 @@ enum BloomGeometry {
                 let len = leaf.length * grow
                 if len <= 0.01 { continue }
                 let jitter = 5 * (hash(CGFloat(n) * 27.1) - 0.5)
-                out.append(Petal(cx: lx, cy: ly, ang: leaf.angle + jitter, len: len, halfWidth: len * 0.30))
+                out.append(Petal(cx: lx, cy: ly, ang: leaf.angle + jitter, len: len, halfWidth: len * 0.30, shade: leafShade))
             }
         }
         return out
@@ -171,11 +236,14 @@ enum BloomGeometry {
             : h * centreYFraction
 
         let maxR = step * 0.60
+        // ชิปในแถบขั้นถูกดันกลับขึ้นไปหาความเข้มก่อนแรเงา (ดูคำอธิบายที่ `headGain`)
+        let gain: CGFloat = kind == .head ? headGain : 1
 
         var minX = min(fan.minX, cx - coreR), maxX = max(fan.maxX, cx + coreR)
         var minY = min(fan.minY, cy - coreR), maxY = max(fan.maxY, cy + coreR)
         if withStem {
-            minX = min(minX, cx - 17); maxX = max(maxX, cx + 17)
+            // ก้านแกว่งไปราว 13 หน่วยจากแกนกลาง ส่วนที่เรียวกว้างขึ้นบวกครึ่งความกว้างทับไปอีก
+            minX = min(minX, cx - 19); maxX = max(maxX, cx + 19)
             minY = min(minY, cy - 6);  maxY = max(maxY, cy + stemLength + 4)
         }
 
@@ -206,20 +274,32 @@ enum BloomGeometry {
                     let t = min(max((fy - cy) / stemLength, 0), 1)
                     let sx = cubic(cx, cx + 13, cx - 11, cx + 3, t)
                     let d = abs(fx - sx)
-                    // เรียว: หนาที่โคน บางตรงที่ไปบรรจบกับหัวดอก
-                    let halfW: CGFloat = 3.4 * (0.45 + 0.55 * t)
-                    if d < halfW { cover = max(cover, 1 - d / halfW) }
+                    // เรียว: หนาที่โคน บางตรงที่ไปบรรจบกับหัวดอก — แต่เรียวน้อยกว่าเดิมมาก
+                    // ที่ 0.45 ของ 3.4 หน่วย ยอดก้านออกมาแคบกว่าหนึ่งช่อง halftone แล้วหลุด
+                    // ออกจากภาพไปเลย เหลือหัวดอกลอยพ้นก้านของตัวเอง · ดอกเดิมกลบไว้ได้เพราะ
+                    // กลีบมันพันลงมาต่ำกว่าแนวนอนแล้วคลุมรอยต่อ หัวดอกที่เปิดขึ้นฟ้าไม่คลุม
+                    // ก้านจึงต้องรอดด้วยตัวเองตรงนั้น
+                    let halfW: CGFloat = 4.4 * (0.70 + 0.30 * t)
+                    if d < halfW { cover = max(cover, stemShade * (1 - d / halfW)) }
                 }
 
                 // แกนกลาง — จุดจะแออัดตรงที่โคนกลีบทุกใบมาชนกัน จึงวาดเป็นเนื้อทึบไปเลย
                 // วาดทุกขั้นรวมขั้น 0 ที่มันคือเมล็ด — ถ้ากันไว้ที่ขั้น 1 ชิปแรกของแถบจะว่างสนิท
                 // ใต้ป้ายที่เขียนว่า "เมล็ด"
+                //
+                // **กดไว้ด้วย `coreShade` ไม่ได้วาดเต็มความเข้ม** — ตอนเป็นของที่สว่างที่สุดบน
+                // canvas มันเปลี่ยนขั้นที่บานแล้วให้กลายเป็นดาวกระจาย พอเป็นของที่หม่นที่สุด
+                // มันคือตาของถ้วย และหัวดอกได้ด้านใกล้ขึ้นมา
                 let dc = hypot(fx - cx, fy - cy)
-                if dc < coreR { cover = max(cover, 1 - (dc / coreR) * 0.35) }
+                if dc < coreR { cover = max(cover, coreShade * (1 - (dc / coreR) * 0.35)) }
 
                 if cover <= 0.02 { continue }
+                if gain != 1 { cover = min(cover * gain, 1) }
                 let n = hash(CGFloat(ix) * 31 + CGFloat(iy) * 57)
-                let r = maxR * min(cover, 1) * (0.55 + 0.45 * n)
+                // กระจายรัศมีน้อยลงกว่าเดิม · ที่ ±45% เสียงรบกวนระหว่างจุดกับจุดข้างเคียง
+                // ใหญ่กว่าความต่างของโทนที่การแรเงากำลังวาดอยู่ ความลึกจึงมีอยู่ในตัวเลข
+                // แต่มองไม่เห็นบนจอ · เหลือไว้พอให้ตารางแตก ไม่พอให้กลบโทน
+                let r = maxR * min(cover, 1) * (0.75 + 0.25 * n)
                 if r <= 0.25 { continue }
                 dots.append(Dot(x: gx + (n - 0.5) * step * 0.35,
                                 y: gy + (hash(n) - 0.5) * step * 0.35,
@@ -237,7 +317,7 @@ enum BloomGeometry {
 
     private struct PetalFan {
         private let ox: [CGFloat], oy: [CGFloat], ca: [CGFloat], sa: [CGFloat]
-        private let len: [CGFloat], hw: [CGFloat]
+        private let len: [CGFloat], hw: [CGFloat], sh: [CGFloat]
         private let bx0: [CGFloat], bx1: [CGFloat], by0: [CGFloat], by1: [CGFloat]
         let minX: CGFloat, maxX: CGFloat, minY: CGFloat, maxY: CGFloat
 
@@ -245,7 +325,7 @@ enum BloomGeometry {
             // sin/cos ต่อกลีบถูกยกออกมานอกลูปช่อง — เดิมคำนวณซ้ำทุกช่องคูณทุกกลีบ
             // เป็นบรรทัดที่แพงที่สุดในการวาดทั้งหมด
             var ox: [CGFloat] = [], oy: [CGFloat] = [], ca: [CGFloat] = [], sa: [CGFloat] = []
-            var len: [CGFloat] = [], hw: [CGFloat] = []
+            var len: [CGFloat] = [], hw: [CGFloat] = [], sh: [CGFloat] = []
             var bx0: [CGFloat] = [], bx1: [CGFloat] = [], by0: [CGFloat] = [], by1: [CGFloat] = []
             var mnX = CGFloat.greatestFiniteMagnitude, mxX = -CGFloat.greatestFiniteMagnitude
             var mnY = CGFloat.greatestFiniteMagnitude, mxY = -CGFloat.greatestFiniteMagnitude
@@ -254,7 +334,7 @@ enum BloomGeometry {
                 let a = p.ang * .pi / 180
                 let c = cos(a), s = sin(a)
                 ox.append(p.cx); oy.append(p.cy); ca.append(c); sa.append(s)
-                len.append(p.len); hw.append(p.halfWidth)
+                len.append(p.len); hw.append(p.halfWidth); sh.append(p.shade)
                 // กลีบกว้างสุดที่เอว 1.1 เผื่อไหล่ของการเรียว
                 let pad = p.halfWidth * 1.1
                 let tipX = p.cx + p.len * c, tipY = p.cy + p.len * s
@@ -264,7 +344,7 @@ enum BloomGeometry {
                 mnX = min(mnX, x0); mxX = max(mxX, x1); mnY = min(mnY, y0); mxY = max(mxY, y1)
             }
             self.ox = ox; self.oy = oy; self.ca = ca; self.sa = sa
-            self.len = len; self.hw = hw
+            self.len = len; self.hw = hw; self.sh = sh
             self.bx0 = bx0; self.bx1 = bx1; self.by0 = by0; self.by1 = by1
             if petals.isEmpty {
                 minX = BloomGeometry.cx; maxX = BloomGeometry.cx
@@ -274,8 +354,18 @@ enum BloomGeometry {
             }
         }
 
+        /// จุดหนึ่งจุดในพื้นที่ดอกไม้กินหมึกเท่าไหร่ 0..1
+        ///
+        /// กลีบถูก **ซ้อนทับ** จากหลังมาหน้า ไม่ใช่เอาค่ามากสุด · `max` คือเหตุผลทั้งหมดที่ขั้นที่
+        /// บานแล้วไม่มีความลึก: มันเก็บแค่กลีบที่เข้มที่สุดของแต่ละจุดแล้วโยนข้อเท็จจริงว่ากลีบไหน
+        /// อยู่หน้าทิ้งทั้งหมด กองกลีบที่ทับกันจึงออกมาค่าเดียวกับกลีบใบเดียว คืออิ่มตัวทั้งดอก
+        ///
+        /// การซ้อนทับเก็บลำดับนั้นไว้ แต่ละกลีบทาโทนของตัวเองลงบนของที่มีอยู่แล้ว โดยใช้หน้าตัด
+        /// ของตัวเองเป็นความทึบ กลีบที่อยู่หน้าสุดจึงชนะตรงที่มันตัน และปล่อยให้กลีบข้างหลัง
+        /// ทะลุออกมาตรงขอบ · **ลำดับในลิสต์คือลำดับความลึก** — `petals` ปล่อยวงนอกก่อน
+        /// แล้ววงในทับ แล้วใบ จึงไม่ต้องเรียงอะไรที่นี่
         func cover(atX x: CGFloat, y: CGFloat) -> CGFloat {
-            var cover: CGFloat = 0
+            var acc: CGFloat = 0
             for i in 0..<ox.count {
                 if x < bx0[i] || x > bx1[i] || y < by0[i] || y > by1[i] { continue }
                 let dx = x - ox[i], dy = y - oy[i]
@@ -288,15 +378,23 @@ enum BloomGeometry {
                 let halfW = hw[i] * 4 * u * (1 - u) * (1.15 - 0.15 * u)
                 if halfW <= 0 { continue }
                 let d = abs(s) / halfW
-                if d < 1 { cover = max(cover, (1 - d * d) * 0.9 + 0.1) }
+                if d >= 1 { continue }
+                // เนื้อแบนกับขอบนุ่ม กลีบจึงบังสิ่งที่อยู่ใต้มันจริง ๆ
+                let a = min(1, (1 - d) / BloomGeometry.petalEdge)
+                // เข้มขึ้นเมื่อเข้าใกล้ขอบของตัวเอง (คือรอยต่อกับกลีบที่อยู่ข้างล่าง) และเข้มขึ้น
+                // เมื่อเข้าใกล้โคน เพราะหัวดอกคือถ้วยที่ถูกจุดไฟจากปลายกลีบเข้ามา
+                let tone = sh[i]
+                    * (1 - BloomGeometry.rimShade * d * d * d)
+                    * (BloomGeometry.rootShade + (1 - BloomGeometry.rootShade) * u)
+                acc = a * tone + (1 - a) * acc
             }
-            return cover
+            return acc
         }
     }
 
     /// ขอบเขตจริงของ "หัวดอกอย่างเดียว" — วัดเอา ไม่ได้จดเป็นตาราง เพราะตารางกลีบถูกปรับบ่อย
     /// พอที่ค่าที่จดไว้จะผิดภายในรอบเดียว และผิดแบบเงียบ ๆ (เห็นเป็นชิปที่ล้นวงนิดหน่อย)
-    private static func headBounds(_ petals: [Petal], stage: CGFloat)
+    static func headBounds(_ petals: [Petal], stage: CGFloat)
         -> (minX: CGFloat, minY: CGFloat, maxX: CGFloat, maxY: CGFloat) {
         let coreR: CGFloat = 3.5 + 3 * stage
         var minX = cx - coreR, maxX = cx + coreR
