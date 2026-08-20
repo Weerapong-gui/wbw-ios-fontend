@@ -243,7 +243,12 @@ struct Map3DScreen: View {
                 .accessibilityLabel("action_close")
             }
             .padding(20)
-            .glassSurface(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            // แผ่นเข้ม ไม่ใช่กระจกใส — การ์ดนี้ลอยอยู่บน **แผนที่ดาวเทียม** ไม่ใช่บนพื้นภาพป่า
+            // ถ่ายจริงตอนหมุดอยู่แถวตัวเมืองแล้วชื่อฐานกับสถานะหายไปในตึกสีขาว · นี่คือเคสที่
+            // ต้นทางเขียนถึงตรง ๆ ที่ `GlassPanel`: ปัญหาคือความแปรปรวนของพื้น ไม่ใช่ระดับ
+            // ฝ้าจางจึงแก้ไม่ได้ แผ่นต้องกลบอาร์ตทิ้ง
+            .glassSurface(RoundedRectangle(cornerRadius: 24, style: .continuous),
+                          tint: Color.glassPanel)
             .padding(.horizontal, 20)
             .padding(.bottom, ForestSceneHost.tabBarClearance)
         }

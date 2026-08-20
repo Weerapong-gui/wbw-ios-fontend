@@ -127,8 +127,11 @@ struct SURunView: View {
         // ต้องย้อมเข้ม ไม่ใช่กระจกใส — ตัวหนังสือบน HUD เป็นสีขาว ส่วนแผนที่ของ MapKit เป็นพื้นสว่าง
         // ถ่ายจริงแล้วขาวบนขาวหายไปทั้งแถบ · ใช้ tint ของ Glass ไม่ใช่แปะสีทึบใต้กระจก
         // (แบบหลังกระจกจะไปอยู่หลังสีทึบจนไม่เหลือการหักเหอะไรเลย)
+        //
+        // `glassPanel` คือแผ่นที่ Android สงวนไว้ให้เคสนี้เป๊ะ ๆ — เดิมที่นี่ย้อมด้วย
+        // `wbwForestVoid` ซึ่งเป็นสีเดียวกันโดยบังเอิญแต่คนละโทเคน ใช้ตัวที่ตั้งชื่อตามหน้าที่แทน
         .glassSurface(RoundedRectangle(cornerRadius: 22, style: .continuous),
-                      tint: Color.wbwForestVoid)
+                      tint: Color.glassPanel)
         .padding(.horizontal, 14)
     }
 
