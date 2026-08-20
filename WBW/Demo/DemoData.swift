@@ -100,39 +100,42 @@ enum DemoData {
 
     /// ฐานทั้ง 12 ใบตามที่ `GET /wbw/checkpoints` คืนมา
     ///
-    /// **ชื่อฐาน 1–5 ต้องตรงกับ `progress` ข้างล่างเป๊ะ** — การ์ดบนแผนที่อ่านชื่อจากชุดนี้
-    /// ส่วน toast ตอนเช็คอินอ่านจาก `progress` ถ้าสองชุดใช้ชื่อคนละแบบ reviewer จะเห็นฐานเดียวกัน
-    /// ชื่อไม่ตรงกันในจอเดียว · ฐาน 6–8 กับจุดบริการเป็นของชุดนี้อย่างเดียว ไม่มีใน progress
-    /// เพราะเดโม่เดินมาแค่ 5 ฐาน
+    /// **ชื่อชุดนี้คือชื่อจริงจากตาราง `checkpoint` ของงาน** ไม่ใช่ชื่อสมมติ — โหมดเดโม่คือสิ่งที่
+    /// App Review เห็น มันควรเป็นงานจริง · รอบแรกเคยใช้ชื่อสมมติ (ลานธงชัย, ศาลาต้นจามจุรี ฯลฯ)
+    /// เพื่อให้ตรงกับ `progress` ที่มีชื่อสมมติอยู่ก่อน ซึ่งตรงกันก็จริงแต่ตรงกันที่ชื่อผิดทั้งคู่
     ///
-    /// จำนวน 12 แถวตรงกับ `total: 12` ใน `progress` พอดี
+    /// **ชื่อฐาน 1–5 ต้องตรงกับ `progress` ข้างล่างเป๊ะ** — การ์ดบนแผนที่อ่านชื่อจากชุดนี้
+    /// ส่วน toast ตอนเช็คอินอ่านจาก `progress` สองชุดใช้ชื่อคนละแบบเมื่อไหร่ reviewer จะเห็นฐาน
+    /// เดียวกันชื่อไม่ตรงกันในจอเดียว (`DemoModeTests` คุมไว้)
+    ///
+    /// จำนวน 12 แถวตรงกับ `total: 12` ใน `progress` และตรงกับจำนวนแถวจริงใน DB พอดี
     static let checkpoints: [Checkpoint] = decode("""
     [
-      {"id": 1, "sequence": 1, "name": "ลานธงชัย", "name_en": "Thong Chai Lawn",
-       "activity_name": "ลงทะเบียนเข้างาน", "activity_name_en": "Event check-in",
+      {"id": 1, "sequence": 1, "name": "วิหารพระเจ้าล้านทอง", "name_en": "Wihan Phra Chao Lan Thong",
+       "activity_name": "ไหว้พระวิหารพระเจ้าล้านทอง", "activity_name_en": "Pay respects at Wihan Phra Chao Lan Thong",
        "type": "activity", "requires_checkin": true},
-      {"id": 2, "sequence": 2, "name": "ศาลาต้นจามจุรี", "name_en": "Rain Tree Pavilion",
-       "activity_name": "ฐานผูกมิตร", "activity_name_en": "Ice-breaker base",
+      {"id": 2, "sequence": 2, "name": "สวนกุหลาบ", "name_en": "Rose Garden",
+       "activity_name": "R2L", "activity_name_en": "R2L",
        "type": "activity", "requires_checkin": true},
-      {"id": 3, "sequence": 3, "name": "สันเขาแรก", "name_en": "First Ridge",
-       "activity_name": "ฐานเดินสมดุล", "activity_name_en": "Balance walk",
+      {"id": 3, "sequence": 3, "name": "ลานวัฒนธรรม", "name_en": "Culture Plaza",
+       "activity_name": "ปลูกป่าข้ามแม่น้ำ", "activity_name_en": "Plant trees across the river",
        "type": "activity", "requires_checkin": true},
-      {"id": 4, "sequence": 4, "name": "จุดชมวิวผาหมอก", "name_en": "Mist Cliff Viewpoint",
-       "activity_name": "ฐานถ่ายภาพหมู่", "activity_name_en": "Group photo",
+      {"id": 4, "sequence": 4, "name": "ลานสวนสน", "name_en": "Pine Grove Plaza",
+       "activity_name": "ส่งแป้งข้ามหัว", "activity_name_en": "Pass the flour overhead",
        "type": "activity", "requires_checkin": true},
-      {"id": 5, "sequence": 5, "name": "ลานสนสามใบ", "name_en": "Three-Needle Pine Clearing",
-       "activity_name": "ฐานปริศนาพรรณไม้", "activity_name_en": "Plant riddle",
+      {"id": 5, "sequence": 5, "name": "จุดปลูก", "name_en": "Planting Point",
+       "activity_name": "ปลูกป่า", "activity_name_en": "Tree planting",
        "type": "activity", "requires_checkin": true},
-      {"id": 6, "sequence": 6, "name": "ธารน้ำใส", "name_en": "Clearwater Stream",
-       "activity_name": "ฐานส่งน้ำข้ามลำธาร", "activity_name_en": "Pass the water",
+      {"id": 6, "sequence": 6, "name": "ลานย่อย 3", "name_en": "Sub-area 3",
+       "activity_name": "ล้วงไห", "activity_name_en": "Reach into the jar",
        "type": "activity", "requires_checkin": true},
-      {"id": 7, "sequence": 7, "name": "ดงเฟิร์น", "name_en": "Fern Hollow",
-       "activity_name": "ฐานผ้าใบเขียนความรู้สึก", "activity_name_en": "Feelings canvas",
+      {"id": 7, "sequence": 7, "name": "ฐานผ้าใบ", "name_en": "Canvas Base",
+       "activity_name": "ผ้าใบเขียนความรู้สึก", "activity_name_en": "Canvas: write your feelings",
        "type": "activity", "requires_checkin": true},
-      {"id": 8, "sequence": 8, "name": "ยอดดอย", "name_en": "Summit",
-       "activity_name": "ฐาน Zero Waste", "activity_name_en": "Zero Waste",
+      {"id": 8, "sequence": 8, "name": "ฐาน Zero Waste", "name_en": "Zero Waste Base",
+       "activity_name": "Zero Waste และ SDGs", "activity_name_en": "Zero Waste & SDGs",
        "type": "activity", "requires_checkin": true},
-      {"id": 9, "sequence": null, "name": "จุดพักต้นทาง", "name_en": "Trailhead Rest Stop",
+      {"id": 9, "sequence": null, "name": "MFU Botanical Garden", "name_en": "MFU Botanical Garden",
        "activity_name": "จุดห้องน้ำ", "activity_name_en": "Restroom point",
        "type": "restroom", "requires_checkin": false},
       {"id": 10, "sequence": null, "name": "ลานย่อย 1", "name_en": "Sub-area 1",
@@ -156,15 +159,15 @@ enum DemoData {
     {
       "total": 12,
       "checked_in": [
-        {"checkpoint_id": 1, "name": "ลานธงชัย", "activity_name": "ลงทะเบียนเข้างาน",
+        {"checkpoint_id": 1, "name": "วิหารพระเจ้าล้านทอง", "activity_name": "ไหว้พระวิหารพระเจ้าล้านทอง",
          "sequence": 1, "at": "2026-08-29T07:12:00Z", "answered": true, "rating": 3, "comment": null},
-        {"checkpoint_id": 2, "name": "ศาลาต้นจามจุรี", "activity_name": "ฐานผูกมิตร",
+        {"checkpoint_id": 2, "name": "สวนกุหลาบ", "activity_name": "R2L",
          "sequence": 2, "at": "2026-08-29T07:48:00Z", "answered": true, "rating": 3, "comment": null},
-        {"checkpoint_id": 3, "name": "สันเขาแรก", "activity_name": "ฐานเดินสมดุล",
+        {"checkpoint_id": 3, "name": "ลานวัฒนธรรม", "activity_name": "ปลูกป่าข้ามแม่น้ำ",
          "sequence": 3, "at": "2026-08-29T08:21:00Z", "answered": true, "rating": 2, "comment": null},
-        {"checkpoint_id": 4, "name": "จุดชมวิวผาหมอก", "activity_name": "ฐานถ่ายภาพหมู่",
+        {"checkpoint_id": 4, "name": "ลานสวนสน", "activity_name": "ส่งแป้งข้ามหัว",
          "sequence": 4, "at": "2026-08-29T08:55:00Z", "answered": true, "rating": 3, "comment": null},
-        {"checkpoint_id": 5, "name": "ลานสนสามใบ", "activity_name": "ฐานปริศนาพรรณไม้",
+        {"checkpoint_id": 5, "name": "จุดปลูก", "activity_name": "ปลูกป่า",
          "sequence": 5, "at": "2026-08-29T09:26:00Z", "answered": false, "rating": null, "comment": null}
       ]
     }
@@ -174,7 +177,7 @@ enum DemoData {
 
     static let notifications: [NotificationItem] = decode("""
     [
-      {"id": "5", "type": "checkin_feedback", "title": "ให้คะแนนฐานลานสนสามใบ",
+      {"id": "5", "type": "checkin_feedback", "title": "ให้คะแนนฐานจุดปลูก",
        "body": "เช็คอินแล้ว แตะเพื่อบอกทีมงานว่าฐานนี้เป็นยังไงบ้าง",
        "level": "info", "audience": "user", "audience_id": "demo-user", "ref_id": "5",
        "created_at": "2026-08-29T09:26:10Z", "read_at": null},
@@ -186,12 +189,12 @@ enum DemoData {
        "body": "นำขวดน้ำส่วนตัวมาเติมได้ ไม่มีแก้วพลาสติกแจกตามนโยบายงานปลอดขยะ",
        "level": "info", "audience": "all", "audience_id": null, "ref_id": null,
        "created_at": "2026-08-29T07:30:00Z", "read_at": "2026-08-29T07:35:00Z"},
-      {"id": "2", "type": "announcement", "title": "ทีมพยาบาลประจำจุดชมวิวผาหมอก",
+      {"id": "2", "type": "announcement", "title": "ทีมพยาบาลประจำลานสวนสน",
        "body": "ถ้ารู้สึกไม่ไหว แจ้งเจ้าหน้าที่เสื้อกั๊กสีส้มได้ทันที ทุกฐานมีชุดปฐมพยาบาล",
        "level": "emergency", "audience": "all", "audience_id": null, "ref_id": null,
        "created_at": "2026-08-29T06:55:00Z", "read_at": "2026-08-29T07:00:00Z"},
       {"id": "1", "type": "announcement", "title": "ยินดีต้อนรับสู่งานเดินรอบดอย",
-       "body": "ลงทะเบียนที่ลานธงชัยตั้งแต่ 06:30 น. อย่าลืมบัตรผู้เข้าร่วมในแอป",
+       "body": "ลงทะเบียนที่วิหารพระเจ้าล้านทองตั้งแต่ 06:30 น. อย่าลืมบัตรผู้เข้าร่วมในแอป",
        "level": "info", "audience": "all", "audience_id": null, "ref_id": null,
        "created_at": "2026-08-29T06:00:00Z", "read_at": "2026-08-29T06:05:00Z"}
     ]
@@ -242,7 +245,7 @@ enum DemoData {
     static let chatMessages: [MessageDTO] = decode("""
     [
       {"id": 1, "group_id": 7, "sender_id": "demo-2", "client_id": "d-1",
-       "body": "ถึงลานธงชัยแล้วน้า ใครยังไม่มารีบเลย", "device_time": "2026-08-29T07:05:00Z",
+       "body": "ถึงวิหารพระเจ้าล้านทองแล้วน้า ใครยังไม่มารีบเลย", "device_time": "2026-08-29T07:05:00Z",
        "created_at": "2026-08-29T07:05:00Z", "first_name": "ปาล์ม", "last_name": "ใจดี"},
       {"id": 2, "group_id": 7, "sender_id": "demo-3", "client_id": "d-2",
        "body": "กำลังไปถึงใน 5 นาที", "device_time": "2026-08-29T07:06:20Z",
@@ -254,7 +257,7 @@ enum DemoData {
        "body": "ฐาน 3 คิวยาวมาก เผื่อเวลาด้วย", "device_time": "2026-08-29T08:15:00Z",
        "created_at": "2026-08-29T08:15:00Z", "first_name": "ตี๋", "last_name": "ภูผา"},
       {"id": 5, "group_id": 7, "sender_id": "demo-2", "client_id": "d-5",
-       "body": "วิวผาหมอกสวยมาก อย่าลืมถ่ายรูปหมู่", "device_time": "2026-08-29T08:58:00Z",
+       "body": "วิวจากลานสวนสนสวยมาก อย่าลืมถ่ายรูปหมู่", "device_time": "2026-08-29T08:58:00Z",
        "created_at": "2026-08-29T08:58:00Z", "first_name": "ปาล์ม", "last_name": "ใจดี"},
       {"id": 6, "group_id": 7, "sender_id": "demo-user", "client_id": "d-6",
        "body": "ถึงฐาน 5 แล้ว เหลืออีก 7 ฐาน สู้ ๆ", "device_time": "2026-08-29T09:26:30Z",
