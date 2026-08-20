@@ -96,6 +96,57 @@ enum DemoData {
     }
     """, as: Me.self)
 
+    // MARK: - ฐานทั้งงาน
+
+    /// ฐานทั้ง 12 ใบตามที่ `GET /wbw/checkpoints` คืนมา
+    ///
+    /// **ชื่อฐาน 1–5 ต้องตรงกับ `progress` ข้างล่างเป๊ะ** — การ์ดบนแผนที่อ่านชื่อจากชุดนี้
+    /// ส่วน toast ตอนเช็คอินอ่านจาก `progress` ถ้าสองชุดใช้ชื่อคนละแบบ reviewer จะเห็นฐานเดียวกัน
+    /// ชื่อไม่ตรงกันในจอเดียว · ฐาน 6–8 กับจุดบริการเป็นของชุดนี้อย่างเดียว ไม่มีใน progress
+    /// เพราะเดโม่เดินมาแค่ 5 ฐาน
+    ///
+    /// จำนวน 12 แถวตรงกับ `total: 12` ใน `progress` พอดี
+    static let checkpoints: [Checkpoint] = decode("""
+    [
+      {"id": 1, "sequence": 1, "name": "ลานธงชัย", "name_en": "Thong Chai Lawn",
+       "activity_name": "ลงทะเบียนเข้างาน", "activity_name_en": "Event check-in",
+       "type": "activity", "requires_checkin": true},
+      {"id": 2, "sequence": 2, "name": "ศาลาต้นจามจุรี", "name_en": "Rain Tree Pavilion",
+       "activity_name": "ฐานผูกมิตร", "activity_name_en": "Ice-breaker base",
+       "type": "activity", "requires_checkin": true},
+      {"id": 3, "sequence": 3, "name": "สันเขาแรก", "name_en": "First Ridge",
+       "activity_name": "ฐานเดินสมดุล", "activity_name_en": "Balance walk",
+       "type": "activity", "requires_checkin": true},
+      {"id": 4, "sequence": 4, "name": "จุดชมวิวผาหมอก", "name_en": "Mist Cliff Viewpoint",
+       "activity_name": "ฐานถ่ายภาพหมู่", "activity_name_en": "Group photo",
+       "type": "activity", "requires_checkin": true},
+      {"id": 5, "sequence": 5, "name": "ลานสนสามใบ", "name_en": "Three-Needle Pine Clearing",
+       "activity_name": "ฐานปริศนาพรรณไม้", "activity_name_en": "Plant riddle",
+       "type": "activity", "requires_checkin": true},
+      {"id": 6, "sequence": 6, "name": "ธารน้ำใส", "name_en": "Clearwater Stream",
+       "activity_name": "ฐานส่งน้ำข้ามลำธาร", "activity_name_en": "Pass the water",
+       "type": "activity", "requires_checkin": true},
+      {"id": 7, "sequence": 7, "name": "ดงเฟิร์น", "name_en": "Fern Hollow",
+       "activity_name": "ฐานผ้าใบเขียนความรู้สึก", "activity_name_en": "Feelings canvas",
+       "type": "activity", "requires_checkin": true},
+      {"id": 8, "sequence": 8, "name": "ยอดดอย", "name_en": "Summit",
+       "activity_name": "ฐาน Zero Waste", "activity_name_en": "Zero Waste",
+       "type": "activity", "requires_checkin": true},
+      {"id": 9, "sequence": null, "name": "จุดพักต้นทาง", "name_en": "Trailhead Rest Stop",
+       "activity_name": "จุดห้องน้ำ", "activity_name_en": "Restroom point",
+       "type": "restroom", "requires_checkin": false},
+      {"id": 10, "sequence": null, "name": "ลานย่อย 1", "name_en": "Sub-area 1",
+       "activity_name": "จุดสวัสดิการ", "activity_name_en": "Welfare point",
+       "type": "welfare", "requires_checkin": false},
+      {"id": 11, "sequence": null, "name": "ลานย่อย 2", "name_en": "Sub-area 2",
+       "activity_name": "สวัสดิการ/สันทนาการ", "activity_name_en": "Welfare / recreation",
+       "type": "recreation", "requires_checkin": false},
+      {"id": 12, "sequence": null, "name": "ทางออกฐานปลูกป่า", "name_en": "Reforestation Base Exit",
+       "activity_name": "สวัสดิการ/รถห้องน้ำ", "activity_name_en": "Welfare / mobile restroom",
+       "type": "service", "requires_checkin": false}
+    ]
+    """, as: [Checkpoint].self)
+
     // MARK: - ความคืบหน้าเช็คอิน
 
     /// 5 จาก 12 ฐาน — ตั้งใจให้อยู่กลาง ๆ ดอกไม้บนหน้า Home จะได้บานไปแล้วครึ่งทาง

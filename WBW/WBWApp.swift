@@ -9,6 +9,8 @@ struct WBWApp: App {
     @StateObject private var profile = ProfileStore()
     @StateObject private var groups = GroupStore()
     @StateObject private var progress = CheckinProgressStore()
+    /// ชื่อฐานทั้งงาน — แยกจาก progress เพราะเป็นข้อมูลของงานที่เหมือนกันทุกคน ไม่ใช่ของผู้ใช้คนนี้
+    @StateObject private var checkpoints = CheckpointStore()
     @StateObject private var forestHost = ForestSceneHost()
 
     init() {
@@ -24,6 +26,7 @@ struct WBWApp: App {
                 .environmentObject(profile)
                 .environmentObject(groups)
                 .environmentObject(progress)
+                .environmentObject(checkpoints)
                 .environmentObject(forestHost)
                 // `auto` = ส่ง nil ปล่อยให้เดินตามระบบ (ThemeMode ของ Android)
                 .preferredColorScheme(settings.themeMode == .auto

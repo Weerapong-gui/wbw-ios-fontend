@@ -112,4 +112,24 @@ final class DemoModeTests: XCTestCase {
         XCTAssertFalse(DemoMode.token.contains("."),
                        "token เดโม่ต้องไม่มีทางถูกเข้าใจผิดว่าเป็น JWT จริงของใคร")
     }
+
+    /// **ชื่อฐานในสอง fixture ต้องตรงกัน** — การ์ดบนแผนที่อ่านชื่อจาก `checkpoints`
+    /// ส่วน toast ตอนเช็คอินอ่านจาก `progress` ถ้าสองชุดใช้ชื่อคนละแบบ reviewer ของ App Review
+    /// จะเห็นฐานเดียวกันชื่อไม่ตรงกันในจอเดียว ซึ่งอ่านเป็นแอปที่ยังทำไม่เสร็จ
+    func testDemoCheckpointNamesMatchTheDemoProgress() {
+        for visited in DemoData.progress.checkedIn {
+            guard let match = DemoData.checkpoints.first(where: { $0.id == visited.checkpointId })
+            else {
+                XCTFail("ฐาน \(visited.checkpointId) อยู่ใน progress แต่ไม่มีในรายการฐาน")
+                continue
+            }
+            XCTAssertEqual(match.name, visited.name,
+                           "ฐาน \(visited.checkpointId) ชื่อไม่ตรงกันระหว่าง fixture สองชุด")
+        }
+    }
+
+    /// จำนวนแถวต้องตรงกับ `total` ที่ progress บอก ไม่งั้นแถบความคืบหน้ากับแผนที่เล่าคนละเรื่อง
+    func testDemoCheckpointCountMatchesTheProgressTotal() {
+        XCTAssertEqual(DemoData.checkpoints.count, DemoData.progress.total)
+    }
 }

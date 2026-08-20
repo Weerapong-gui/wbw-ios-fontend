@@ -30,6 +30,47 @@ final class Map3DPinsTests: XCTestCase {
         XCTAssertNil(Map3DPins.sequence(forEntityNamed: "stumpBase"))
     }
 
+    // MARK: - แหล่งชื่อฐาน
+
+    /// ชื่อมาจากรายการฐาน ไม่ใช่จาก progress — **นี่คือจุดประสงค์ทั้งหมดของ GET /wbw/checkpoints**
+    /// ฐานที่ยังไม่ได้ไปก็ต้องมีชื่อจริง ไม่ใช่ "ฐานที่ N"
+    func testLabelUsesTheCheckpointListEvenWhenNotCheckedIn() {
+        defer { Loc.use(.system) }
+        Loc.use(.th)
+        let list = [Checkpoint(id: 7, sequence: 7, name: "ฐานผ้าใบ", nameEn: "Canvas Base",
+                               activityName: "ผ้าใบเขียนความรู้สึก", activityNameEn: "Feelings canvas",
+                               type: "activity", requiresCheckin: true)]
+        XCTAssertEqual(Map3DPins.label(sequence: 7, checkedIn: [], checkpoints: list), "ฐานผ้าใบ")
+        XCTAssertEqual(Map3DPins.activity(sequence: 7, checkedIn: [], checkpoints: list),
+                       "ผ้าใบเขียนความรู้สึก")
+    }
+
+    /// ตั้งแอปเป็นอังกฤษแล้วต้องได้ชื่ออังกฤษ — เดิมเห็นชื่อไทยทั้งหมดเพราะ /me/progress ไม่มีฟิลด์ _en
+    func testLabelFollowsTheInAppLanguage() {
+        defer { Loc.use(.system) }
+        Loc.use(.en)
+        let list = [Checkpoint(id: 5, sequence: 5, name: "จุดปลูก", nameEn: "Planting Point",
+                               activityName: "ปลูกป่า", activityNameEn: "Tree planting",
+                               type: "activity", requiresCheckin: true)]
+        XCTAssertEqual(Map3DPins.label(sequence: 5, checkedIn: [], checkpoints: list), "Planting Point")
+    }
+
+    /// ยังไม่เคยดึงรายการฐานสำเร็จและไม่มีแคช = **ไม่รู้จริง ๆ** ต้องขึ้น "ฐานที่ N" ไม่ใช่เดาชื่อ
+    func testLabelFallsBackToNumberWhenNothingIsKnownYet() {
+        XCTAssertEqual(Map3DPins.label(sequence: 6, checkedIn: [], checkpoints: []),
+                       String(format: Loc.t("map_base_number"), 6))
+        XCTAssertNil(Map3DPins.activity(sequence: 6, checkedIn: [], checkpoints: []))
+    }
+
+    /// เครื่องที่เพิ่งอัปเดตแอปแล้วยังไม่ได้ต่อเน็ตเลยสักครั้งมีแต่แคชเก่าของ progress —
+    /// ยังต้องได้ชื่อฐานที่เคยไปมาแล้ว ไม่ใช่ถอยไปเป็นเลขทั้งแผนที่
+    func testLabelStillFallsBackToProgressWhenTheListIsEmpty() {
+        let item = CheckinProgressItem(checkpointId: 12, name: "ฐานผาหมี", activityName: nil,
+                                       sequence: 3, at: "2026-08-07T01:00:00Z",
+                                       answered: false, rating: nil, comment: nil)
+        XCTAssertEqual(Map3DPins.label(sequence: 3, checkedIn: [item], checkpoints: []), "ฐานผาหมี")
+    }
+
     func testLabelUsesRealNameWhenCheckedIn() {
         let item = CheckinProgressItem(checkpointId: 12, name: "ฐานผาหมี", activityName: nil,
                                        sequence: 3, at: "2026-08-07T01:00:00Z",

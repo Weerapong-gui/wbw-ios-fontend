@@ -22,12 +22,35 @@ enum Map3DPins {
 
     /// ข้อความบนการ์ดตอนแตะหมุด
     ///
-    /// ชื่อจริงมีให้เฉพาะฐานที่เช็คอินไปแล้ว (GET /wbw/me/progress คืนแค่ checked_in)
-    /// ฐานที่ยังไม่ไปถึงไม่มีทางรู้ชื่อจากฝั่ง participant — คืน "ฐานที่ N" แทน ห้ามเดาชื่อ
-    static func label(sequence: Int, checkedIn: [CheckinProgressItem]) -> String {
+    /// **แหล่งชื่อเปลี่ยนแล้ว (2026-08-21)** เดิมชื่อจริงมีให้เฉพาะฐานที่เช็คอินไปแล้ว เพราะ
+    /// `/me/progress` คืนแค่ `checked_in` — คนที่ยังไม่ได้เดินจึงเห็น "ฐานที่ 1"…"ฐานที่ 8"
+    /// ทั้งแผนที่ และแอดมินแก้ชื่อบนแดชบอร์ดแล้วแอปไม่รู้เรื่องจนกว่าจะมีคนไปเช็คอินฐานนั้น ·
+    /// ตอนนี้อ่านจาก `GET /wbw/checkpoints` ซึ่งคืนทุกฐานพร้อมชื่อสองภาษา
+    ///
+    /// กติกา **"ห้ามเดาชื่อ"** ยังอยู่ครบ — ถอยไป "ฐานที่ N" เมื่อยังไม่เคยดึงสำเร็จและไม่มีแคช
+    /// ซึ่งคือ "ไม่รู้" จริง ๆ ไม่ใช่การเดา · `checkedIn` ไม่ได้ใช้เป็นแหล่งชื่ออีกแล้วแต่ยังรับไว้
+    /// เป็นทางถอยสำหรับเครื่องที่เพิ่งอัปเดตแอปแล้วยังไม่ได้ต่อเน็ตเลยสักครั้ง (แคชเก่ามีแต่ progress)
+    static func label(sequence: Int, checkedIn: [CheckinProgressItem],
+                      checkpoints: [Checkpoint] = []) -> String {
+        if let match = checkpoints.first(where: { $0.sequence == sequence }) {
+            return match.displayName
+        }
         if let match = checkedIn.first(where: { $0.sequence == sequence }) {
             return match.name
         }
         return String(format: Loc.t("map_base_number"), sequence)
+    }
+
+    /// ชื่อกิจกรรมของฐานนั้น — nil = ไม่มีข้อมูล (การ์ดซ่อนบรรทัดนั้นไปเลย)
+    ///
+    /// เดิมมีให้เฉพาะฐานที่เช็คอินแล้วด้วยเหตุผลเดียวกับชื่อฐาน
+    static func activity(sequence: Int, checkedIn: [CheckinProgressItem],
+                         checkpoints: [Checkpoint] = []) -> String? {
+        if let match = checkpoints.first(where: { $0.sequence == sequence }) {
+            return match.displayActivity
+        }
+        let visited = checkedIn.first { $0.sequence == sequence }
+        guard let activity = visited?.activityName, !activity.isEmpty else { return nil }
+        return activity
     }
 }

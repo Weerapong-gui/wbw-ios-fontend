@@ -110,6 +110,10 @@ final class Session: ObservableObject {
         // ดูคอมเมนต์ที่ CheckinProgressStore.clear())
         UserDefaults.standard.removeObject(
             forKey: CheckinProgressStore.cacheKey(for: Config.backend))
+        // ชื่อฐานไม่ใช่ข้อมูลส่วนตัว แต่ล้างที่เดียวกันเพื่อไม่ให้มีของค้างข้ามบัญชีสองมาตรฐาน —
+        // และเพราะบัญชีถัดไปอาจอยู่คนละ backend ที่มีชุดฐานคนละชุด
+        UserDefaults.standard.removeObject(
+            forKey: CheckpointStore.cacheKey(for: Config.backend))
         // ความเห็นที่ยังค้างคิว (เขียนตอนเน็ตหลุด) ต้องไม่ถูก flush ทีหลังด้วย token ของบัญชีถัดไป —
         // backend ผูกความเห็นกับเจ้าของ token ไม่ใช่กับคนที่พิมพ์ ของค้างจะกลายเป็นความเห็นของคนอื่น
         // เงียบๆ · อยู่ที่เดียวกับ cache ต้นไม้ด้วยเหตุผลเดียวกัน (ดูคอมเมนต์ด้านบน)

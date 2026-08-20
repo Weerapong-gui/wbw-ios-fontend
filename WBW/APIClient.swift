@@ -70,6 +70,17 @@ struct APIClient {
         return try dec.decode(Me.self, from: data)
     }
 
+    /// ฐานทั้งงาน — ชื่อ/ชื่อกิจกรรมสองภาษา ทั้งฐานที่เช็คอินแล้วและยังไม่ได้ไป
+    ///
+    /// **ห้ามเลียนแบบ `staffCheckpoints` ข้างล่าง** ตัวนั้นเขียน URLSession เองและ**ไม่ได้ตั้ง
+    /// `convertFromSnakeCase`** รอดมาได้เพราะคีย์เป็นคำเดียวหมด (`id`/`name`/`sequence`)
+    /// ตัวนี้มี `activity_name_en` จึงต้องผ่าน `getDecoded` ที่ตั้งให้แล้ว
+    func checkpoints(token: String) async throws -> [Checkpoint] {
+        if DemoMode.active { return DemoData.checkpoints }
+        return try await getDecoded("/checkpoints", token: token, [Checkpoint].self,
+                                    error: Loc.t("error_load_checkpoints"))
+    }
+
     /// ความคืบหน้าเช็คอินของตัวเอง — คุมขั้นต้นไม้กับเวลาของวันที่หน้า Home
     func progress(token: String) async throws -> CheckinProgress {
         if DemoMode.active { return DemoData.progress }

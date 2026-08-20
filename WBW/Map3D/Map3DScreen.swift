@@ -23,6 +23,8 @@ struct Map3DScreen: View {
     @State private var introFinished = MapModelLoader.shared.hasPlayedIntro
 
     @EnvironmentObject private var progress: CheckinProgressStore
+    /// ชื่อฐานทั้งงาน — ทำให้การ์ดขึ้นชื่อจริงได้ตั้งแต่ก่อนเช็คอิน
+    @EnvironmentObject private var checkpoints: CheckpointStore
     /// ฐานที่แตะค้างไว้อยู่ — nil = ไม่มีการ์ด
     @State private var tappedSequence: Int?
 
@@ -241,21 +243,26 @@ struct Map3DScreen: View {
         .transition(.opacity)
     }
 
-    /// การ์ดฐาน — ชื่อ/ลำดับ/สถานะเช็คอิน
+    /// การ์ดฐาน — ชื่อ/กิจกรรม/สถานะเช็คอิน
     ///
-    /// ชื่อจริงมีให้เฉพาะฐานที่เช็คอินไปแล้ว (backend คืนแค่ checked_in) `Map3DPins.label` จึงคืน
-    /// "ฐานที่ N" สำหรับฐานที่ยังไม่ไป — **ห้ามเดาชื่อ** กติกาเดิมที่ต้องคงไว้
+    /// ชื่อกับกิจกรรมมาจาก `GET /wbw/checkpoints` จึงมีครบทุกฐานตั้งแต่ยังไม่ได้เดิน (เดิมมีเฉพาะ
+    /// ฐานที่เช็คอินแล้ว เพราะ `/me/progress` คืนแค่ `checked_in`) · **ห้ามเดาชื่อ** ยังเป็นกติกา —
+    /// ไม่มีข้อมูลก็ขึ้น "ฐานที่ N" ไม่ใช่เดาเอาเอง · สถานะเช็คอินยังมาจาก progress เหมือนเดิม
+    /// เพราะเป็นเรื่องของผู้ใช้คนนี้ ไม่ใช่ข้อมูลของงาน
     private func baseCard(sequence: Int) -> some View {
         let checkedIn = progress.progress?.checkedIn ?? []
         let visited = checkedIn.first { $0.sequence == sequence }
+        let known = checkpoints.checkpoints
         return VStack {
             Spacer()
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(Map3DPins.label(sequence: sequence, checkedIn: checkedIn))
+                    Text(Map3DPins.label(sequence: sequence, checkedIn: checkedIn,
+                                         checkpoints: known))
                         .font(.headline)
                         .foregroundStyle(.white)
-                    if let activity = visited?.activityName, !activity.isEmpty {
+                    if let activity = Map3DPins.activity(sequence: sequence, checkedIn: checkedIn,
+                                                         checkpoints: known) {
                         Text(activity)
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))

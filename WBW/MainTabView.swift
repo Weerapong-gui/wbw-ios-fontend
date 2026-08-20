@@ -6,6 +6,7 @@ struct MainTabView: View {
     @EnvironmentObject var session: Session
     @EnvironmentObject var profile: ProfileStore
     @EnvironmentObject var progress: CheckinProgressStore
+    @EnvironmentObject var checkpoints: CheckpointStore
     @EnvironmentObject var host: ForestSceneHost
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
@@ -99,6 +100,8 @@ struct MainTabView: View {
                 await profile.load(token: session.token ?? "")
                 // ความคืบหน้าเช็คอิน — คุมขนาดต้นไม้ที่ Home (Task 9)
                 await progress.load(token: session.token ?? "")
+                // ชื่อฐานเปลี่ยนตอนแอดมินแก้ ซึ่งนาน ๆ ครั้ง — โหลดคู่กับ progress ที่จุดนี้พอ ไม่ต้องมีลูป poll ของตัวเอง
+                await checkpoints.load(token: session.token ?? "")
                 chat.configure(groupId: profile.me?.groupId, token: session.token ?? "",
                                myId: profile.me?.userId ?? "", context: context)
                 // เรียกเองครั้งแรกตอน mount ด้วย — .onChange(of: chatVisible) ด้านล่างไม่ยิงให้ตอน mount
@@ -331,6 +334,7 @@ struct MainTabView: View {
                 .id(target.id)
                 .environmentObject(session)
                 .environmentObject(progress)
+                .environmentObject(checkpoints)
                 .environmentObject(feedback)
         }
         // MainTabView หายทั้งจอ (ล็อกเอาต์เท่านั้น — RootView สลับ MainTabView/StaffScanView ตาม role บน
@@ -346,6 +350,7 @@ struct MainTabView: View {
             // ตัว store ในหน่วยความจำล้างที่นี่ ส่วน cache บนดิสก์ล้างที่ Session.logout() (คนละที่กันเพราะ
             // Session ไม่ได้ถือ store ไว้ ดูคอมเมนต์ที่นั่น)
             progress.clear()
+            checkpoints.clear()
         }
     }
 

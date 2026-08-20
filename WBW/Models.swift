@@ -234,6 +234,58 @@ enum AppError: LocalizedError {
     }
 }
 
+/// ฐานหนึ่งใบในงาน (จาก GET /wbw/checkpoints)
+///
+/// ต่างจาก `CheckinProgressItem` ตรงที่มีครบทุกฐานไม่ใช่เฉพาะที่เช็คอินแล้ว และมีชื่อสองภาษา —
+/// `/me/progress` ไม่มีฟิลด์ `_en` เลย คนที่ตั้งแอปเป็นอังกฤษจึงเห็นชื่อฐานเป็นไทยมาตลอด
+///
+/// ทุกฟิลด์ยกเว้น `id` กับ `name` ถอดแบบยอมให้หายได้ (ดู `init(from:)`) — บทเรียนจาก
+/// `CheckinProgressItem.answered`: แคชที่เขียนไว้ก่อนฟิลด์ใหม่จะ decode พัง**ทั้งก้อน**
+/// แล้วชื่อฐานหายหมดทั้งแผนที่พร้อมกัน ไม่ใช่หายทีละแถว
+struct Checkpoint: Codable, Equatable {
+    let id: Int
+    /// ลำดับเช็คอิน 1…8 · **nil ได้จริง** — จุดบริการสี่จุด (ห้องน้ำ/สวัสดิการ/สันทนาการ) ไม่มีลำดับ
+    let sequence: Int?
+    let name: String
+    let nameEn: String?
+    let activityName: String?
+    let activityNameEn: String?
+    /// `activity` / `restroom` / `welfare` / `recreation` / `service`
+    let type: String
+    let requiresCheckin: Bool
+
+    /// ชื่อที่โชว์ตามภาษาที่ผู้ใช้เลือก**ในแอป** ไม่ใช่ภาษาของเครื่อง
+    var displayName: String { Self.pick(name, nameEn) }
+    var displayActivity: String? {
+        guard let activityName, !activityName.isEmpty else { return nil }
+        return Self.pick(activityName, activityNameEn)
+    }
+
+    /// เลือกภาษาผ่านคีย์ `lang_code` ที่อยู่ในชุดคีย์เดียวกับข้อความอื่นทั้งแอป
+    ///
+    /// ใช้ `AppSettings.language` ตรง ๆ ไม่ได้ เพราะค่า `.system` แปลว่า "ตามเครื่อง" ซึ่งยัง
+    /// ไม่บอกว่าสุดท้ายแล้วจอกำลังเป็นภาษาอะไร · ผ่าน `Loc` แทนแล้วชื่อฐานกับข้อความรอบ ๆ
+    /// จะชี้ไป `.lproj` เดียวกันเสมอ ขัดกันไม่ได้
+    private static func pick(_ thai: String, _ english: String?) -> String {
+        guard Loc.t("lang_code") == "en", let english, !english.isEmpty else { return thai }
+        return english
+    }
+}
+
+extension Checkpoint {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        sequence = try c.decodeIfPresent(Int.self, forKey: .sequence)
+        name = try c.decode(String.self, forKey: .name)
+        nameEn = try c.decodeIfPresent(String.self, forKey: .nameEn)
+        activityName = try c.decodeIfPresent(String.self, forKey: .activityName)
+        activityNameEn = try c.decodeIfPresent(String.self, forKey: .activityNameEn)
+        type = try c.decodeIfPresent(String.self, forKey: .type) ?? "activity"
+        requiresCheckin = try c.decodeIfPresent(Bool.self, forKey: .requiresCheckin) ?? true
+    }
+}
+
 /// ฐานหนึ่งที่เช็คอินไปแล้ว (จาก GET /wbw/me/progress)
 struct CheckinProgressItem: Codable, Equatable {
     let checkpointId: Int

@@ -194,6 +194,8 @@
 "home_greeting_thai" = "Hi, %1$@";
 "about_event_body" = "Walk Beyond the Wild is the MFU Student Union hiking-trail event. Walk the 8.36 km route around the doi, check in at every base, and grow your flower to full bloom.\n\nDate: 29 August 2026\nStart: Thong Chai Lawn";
 "help_contact_body" = "How do I sign in?\nUse the student ID and password you registered with.\n\nHow do I check in at a base?\nShow your pass QR to a marshal, or give them your bib number.\n\nSomething is wrong\nFind a marshal in an orange vest — every base has a first-aid kit.";
+"error_load_checkpoints" = "Could not load the bases";
+"lang_code" = "en";
 "settings_credits" = "Credits & licences";
 "credits_body" = "Map data\nThe 3D map of the event area is built from Satlas satellite imagery by the Allen Institute for AI. Its buildings, roads and water come from OpenStreetMap.\n\nSatlas · Allen Institute for AI\n© OpenStreetMap contributors\nopenstreetmap.org/copyright\n\n3D models\nTree by Poly by Google, Mountain with Snow by Matthew Creighton, Mountain by jeremy, Snowy Hills by Nebel and Grass Patch 01 by Jarlan Perez — CC BY 4.0, via poly.pizza.\nRocks by Quaternius and Signpost by Kenney — CC0.";
 
