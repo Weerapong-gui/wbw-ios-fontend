@@ -391,3 +391,18 @@
 "action_retry_send" = "Send this message again";
 "profile_barcode_label" = "Participant number barcode";
 "profile_qr_mine_label" = "My personal QR code for staff to scan";
+
+/* Medical ID card — previously hardcoded English */
+"medical_title" = "Medical ID";
+"medical_name" = "Name";
+"medical_age" = "Age";
+"medical_age_years" = "%1$lld years old";
+"medical_height" = "Height";
+"medical_weight" = "Weight";
+"medical_blood_type" = "Blood type";
+"medical_emergency_contact" = "Emergency contact";
+"medical_allergies" = "Allergies & reactions";
+"medical_medication" = "Medication";
+"medical_none" = "None";
+"medical_height_cm" = "%1$@ cm";
+"medical_weight_kg" = "%1$@ kg";

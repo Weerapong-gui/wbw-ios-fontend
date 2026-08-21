@@ -391,3 +391,18 @@
 "action_retry_send" = "ส่งข้อความนี้อีกครั้ง";
 "profile_barcode_label" = "บาร์โค้ดหมายเลขผู้เข้าร่วม";
 "profile_qr_mine_label" = "QR ประจำตัวของฉันสำหรับให้เจ้าหน้าที่สแกน";
+
+/* บัตรข้อมูลการแพทย์ (Medical ID) — เดิมฮาร์ดโค้ดอังกฤษทั้งใบ */
+"medical_title" = "ข้อมูลการแพทย์";
+"medical_name" = "ชื่อ";
+"medical_age" = "อายุ";
+"medical_age_years" = "%1$lld ปี";
+"medical_height" = "ส่วนสูง";
+"medical_weight" = "น้ำหนัก";
+"medical_blood_type" = "กรุ๊ปเลือด";
+"medical_emergency_contact" = "ผู้ติดต่อฉุกเฉิน";
+"medical_allergies" = "อาหารที่แพ้ / อาการ";
+"medical_medication" = "ยาที่ใช้ประจำ";
+"medical_none" = "ไม่มี";
+"medical_height_cm" = "%1$@ ซม.";
+"medical_weight_kg" = "%1$@ กก.";

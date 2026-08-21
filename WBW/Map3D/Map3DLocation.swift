@@ -19,7 +19,13 @@ final class Map3DLocation: NSObject, ObservableObject, CLLocationManagerDelegate
         manager.distanceFilter = 10
     }
 
+    /// **โหมดเดโม่ไม่แตะพิกัดเลย** — ทางเดียวกับที่ `SOSLocator` กันไว้
+    ///
+    /// ผู้รีวิว App Store เข้าทางโหมดเดโม่แล้วกดแท็บแผนที่เป็นจอที่สอง กล่องขอสิทธิ์เด้งตรงนั้น
+    /// โดยที่โหมดนี้ไม่มีอะไรได้ใช้พิกัดจริงเลยสักอย่าง (ข้อมูลทั้งหมดเป็น fixture)
+    /// — เจอตอนถ่ายสกรีนช็อตชุดส่ง store: กล่องค้างบัง 9 ใบจาก 10 เพราะไม่มีใครกดตอบ
     func start() {
+        guard !DemoMode.active else { return }
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
     }

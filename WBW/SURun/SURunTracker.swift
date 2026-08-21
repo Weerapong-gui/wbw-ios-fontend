@@ -69,8 +69,13 @@ final class SURunTracker: NSObject, ObservableObject, CLLocationManagerDelegate 
         startedAt = Date()
         phase = .running
 
-        manager.requestWhenInUseAuthorization()
-        manager.startUpdatingLocation()
+        // โหมดเดโม่ไม่แตะพิกัดจริงเลย — ทางเดียวกับ `SOSLocator` และ `Map3DLocation`
+        // (จอนี้ยังเข้าไม่ถึงในแอปตอนนี้ แต่ประตูต้องอยู่ก่อนที่จะมีคนต่อมันเข้าไป
+        // ไม่ใช่หลังจากผู้รีวิวเจอกล่องขอสิทธิ์ไปแล้ว)
+        if !DemoMode.active {
+            manager.requestWhenInUseAuthorization()
+            manager.startUpdatingLocation()
+        }
         startPedometer()
 
         // นับเวลาด้วยนาฬิกาจริงทุกครั้งที่ tick ไม่ใช่ +1 สะสม — timer ถูกหน่วงตอนเครื่องงานหนัก
