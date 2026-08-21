@@ -17,6 +17,13 @@ struct ParticipantPassView: View {
     @EnvironmentObject var progress: CheckinProgressStore
     @EnvironmentObject var session: Session
     var onBack: () -> Void = {}
+    /// ปุ่ม SOS อยู่ใต้การ์ดบัตรในจอนี้จอเดียวของฝั่งผู้เข้าร่วม (ดูคอมเมนต์ที่ `MainTabView`
+    /// ตรงจุดที่ถอด overlay ออก) · เจ้าของ store กับธงเปิดจอสถานะคือ `MainTabView`
+    /// จอนี้แค่ยืมมาวาง — **ไม่มีค่าเริ่มต้นโดยตั้งใจ** จุดเรียกที่ลืมส่งจะได้คอมไพล์ไม่ผ่าน
+    /// แทนที่จะได้ปุ่มที่กดแล้วไม่มีอะไรเกิดขึ้น
+    @ObservedObject var sos: SOSStore
+    let token: String
+    @Binding var showSOSStatus: Bool
 
     @State private var showSettings = false
 
@@ -43,11 +50,17 @@ struct ParticipantPassView: View {
             .padding(.bottom, 14)
 
             ScrollView {
-                pass
-                    .padding(.bottom, 16)
-                    .padding(.bottom, ForestSceneHost.tabBarClearance)
+                VStack(spacing: 20) {
+                    pass
+                    sosSection
+                }
+                .padding(.bottom, 16)
+                .padding(.bottom, ForestSceneHost.tabBarClearance)
             }
             .scrollIndicators(.hidden)
+            // บัตรสูงกว่าจอ ปุ่ม SOS ที่อยู่ต่อจากมันจึงอยู่ใต้ fold เสมอ — ถ่ายภาพยืนยันไม่ได้เลย
+            // ถ้าไม่มีทางสั่งให้เลื่อนลงสุด (เครื่องนี้ไม่มีตัวกดจอ ทรงเดียวกับ `-uitestCredits`)
+            .modifier(UITestScrollToBottom())
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -63,6 +76,30 @@ struct ParticipantPassView: View {
         .task {
             if profile.me == nil { await profile.load(token: session.token ?? "") }
         }
+    }
+
+    // MARK: - ปุ่มขอความช่วยเหลือ
+
+    /// **คำอธิบายจำเป็น ไม่ใช่ของประดับ** — วงกลมแดง 64pt ที่นั่งอยู่ใต้บัตรเฉย ๆ ไม่มีอะไรบอกว่า
+    /// คืออะไรและต้องกดยังไง · ตอนที่มันลอยเป็นปุ่มมุมจอ รูปทรงลอยเองบอกว่า "กดได้" อยู่แล้ว
+    /// พอมาอยู่ในสายเนื้อหา มันต้องมีป้ายของตัวเอง
+    ///
+    /// ตัวอักษรวางบนภาพพื้นหลังตรง ๆ จึงใช้ `wbwOnBackdrop` ไม่ใช่ `.secondary`
+    /// (ดูกติกาที่ `Config.swift` หมวดตัวอักษรบนพื้นภาพ)
+    private var sosSection: some View {
+        VStack(spacing: 10) {
+            SOSButton(store: sos, token: token, showStatus: $showSOSStatus)
+            Text("sos_pass_title")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.wbwOnBackdrop)
+            Text("sos_pass_hint")
+                .font(.system(size: 12))
+                .foregroundStyle(Color.wbwOnBackdropMuted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 4)
     }
 
     // MARK: - ตัวบัตร
@@ -308,5 +345,20 @@ struct ParticipantPassView: View {
 
     private func trim(_ v: Double) -> String {
         v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
+    }
+}
+
+/// เลื่อน `ScrollView` ลงสุดตอน launch ด้วย `-uitestPassBottom` — DEBUG เท่านั้น
+private struct UITestScrollToBottom: ViewModifier {
+    func body(content: Content) -> some View {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "uitestPassBottom") {
+            content.defaultScrollAnchor(.bottom)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
     }
 }

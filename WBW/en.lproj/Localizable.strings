@@ -286,6 +286,10 @@
 "scan_camera_missing" = "No camera on this device. Check people in with their BIB number below.";
 "scan_open_settings" = "Open Settings";
 "demo_sos_checkpoint" = "Wat Phrachao Lanthong (demo)";
+"sos_pass_title" = "Emergency help";
+"sos_pass_hint" = "Hold for 3 seconds. The nearest base and your group are told at once";
+"sos_map_pin_label" = "Where help is needed";
+"sos_map_open" = "Open in Maps";
 "map_base_number" = "Base %1$lld";
 "map_disabled" = "The 3D map is off for now";
 "map_failed" = "Couldn’t open the map";
