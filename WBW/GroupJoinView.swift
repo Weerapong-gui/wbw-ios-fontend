@@ -131,7 +131,11 @@ private struct GroupCard: View {
     var body: some View {
         HStack(spacing: 12) {
             // แตะดูสมาชิก
-            NavigationLink { GroupMembersView(groupId: group.groupId, groupNumber: group.groupNumber) } label: {
+            // ทางเข้านี้แถบแท็บยังโชว์อยู่ (ดูคอมเมนต์ที่ `GroupMembersView.bottomInset`)
+            NavigationLink {
+                GroupMembersView(groupId: group.groupId, groupNumber: group.groupNumber,
+                                 bottomInset: ForestSceneHost.tabBarClearance)
+            } label: {
                 HStack(spacing: 12) {
                     ZStack {
                         // `wbwAccent` ไม่ใช่ `wbwGold` — ค่าเท่ากันเป๊ะ (ตัวหลังเป็น alias) แต่ชื่อเดิม

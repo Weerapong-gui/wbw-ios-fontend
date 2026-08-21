@@ -7,6 +7,13 @@ struct GroupMembersView: View {
     @EnvironmentObject var groups: GroupStore
     let groupId: Int
     let groupNumber: Int
+    /// ระยะเว้นท้ายลิสต์ให้พ้นแถบแท็บลอย — **จอนี้เข้าได้สองทางที่แถบแท็บไม่เหมือนกัน**
+    ///
+    /// จากหน้าจับกลุ่ม แถบแท็บโชว์อยู่ ต้องเว้น · จากในแชท `GroupChatView` สั่ง
+    /// `.toolbar(.hidden, for: .tabBar)` ไว้ที่รากของสแตก แถบจึงซ่อนทั้งสแตก ไม่ต้องเว้น
+    /// ใส่ค่าคงที่ตายตัวไปเลยจะได้ช่องว่างตายด้าน 89pt ในสาขาแชท ส่วนไม่ใส่เลยจะได้แถวสุดท้าย
+    /// โดนแถบทับในสาขาจับกลุ่ม (กลุ่มจริงมีได้ถึง 50 คน ไม่ใช่ 4 คนแบบข้อมูลเดโม่)
+    var bottomInset: CGFloat = 0
     @State private var members: [GroupMember] = []
     @State private var loading = true
     @State private var selected: GroupMember?
@@ -27,6 +34,7 @@ struct GroupMembersView: View {
                 }
             }
             .padding(16)
+            .padding(.bottom, bottomInset)
         }
         .clearsHostOpaqueBackground()
         .navigationBarTitleDisplayMode(.inline)
