@@ -3,4 +3,3 @@
 "CFBundleDisplayName" = "Doi Walk";
 "NSCameraUsageDescription" = "The camera is used to scan participants' QR codes when checking them in at a base.";
 "NSLocationWhenInUseUsageDescription" = "Your location shows where you are on the event map, measures your distance once you start walking, and is sent to event staff when you press the emergency help button. It is only used while the app is open.";
-"NSMotionUsageDescription" = "The device's step counter is used to show how many steps you have taken during the event walk.";

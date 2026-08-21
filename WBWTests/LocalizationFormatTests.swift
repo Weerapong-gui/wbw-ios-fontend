@@ -18,7 +18,8 @@ final class LocalizationFormatTests: XCTestCase {
         "group_quota_leave_last", "group_quota_leave_left", "group_quota_remaining",
         "chat_members_count", "chat_new_messages_count", "chat_read_by", "chat_read_by_all",
         "home_checked_in", "home_weather_feels", "home_air_aqi",
-        "map_base_number", "walk_distance_m_short", "checkin_toast_more",
+        // `walk_distance_m_short` เคยอยู่ในลิสต์นี้ — ถอดออกพร้อมฟีเจอร์ SU RUN 2026-08-22
+        "map_base_number", "checkin_toast_more",
     ]
 
     func testIntegerKeysNeverUseTheObjectSpecifier() {

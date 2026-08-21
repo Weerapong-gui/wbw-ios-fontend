@@ -106,18 +106,6 @@
 "map_mode_2d" = "มุมมอง 2 มิติ";
 "map_route_start" = "จุดเริ่มต้น";
 "map_route_finish" = "จุดสิ้นสุด";
-"walk_start" = "เริ่มเดิน";
-"walk_stop" = "หยุด";
-"walk_stat_distance" = "ระยะทาง";
-"walk_stat_steps" = "ก้าว";
-"walk_stat_pace" = "เพซ";
-"walk_unavailable" = "—";
-"walk_distance_km" = "%.2f กม.";
-"walk_distance_m" = "%1$lld ม.";
-"walk_pace_min_km" = "%1$ld'%2$02d\" /กม.";
-"walk_channel_name" = "การบันทึกการเดิน";
-"walk_notification_title" = "กำลังบันทึกการเดินของคุณ";
-"walk_notification_distance" = "เดินแล้ว %.2f กม.";
 "tab_activity" = "กิจกรรม";
 "tab_chat" = "แชท";
 "chat_channel" = "แชทกลุ่ม";
@@ -269,11 +257,6 @@
 "action_done" = "เสร็จ";
 "action_close" = "ปิด";
 "date_unknown_title" = "ไม่ระบุเวลา";
-"walk_route_title" = "เส้นทางเดินรอบดอย";
-"walk_stat_time" = "เวลา";
-"walk_pace_unit" = "นาที/กม.";
-"walk_no_location" = "ยังไม่ได้ให้สิทธิ์ตำแหน่ง ดูเส้นทางได้ แต่จับระยะไม่ได้";
-"walk_tracking" = "กำลังจับระยะ · นับเฉพาะตอนเปิดแอปอยู่";
 "scan_title" = "สแกนเช็คอิน";
 "scan_role_staff" = "เจ้าหน้าที่";
 "scan_bib_placeholder" = "กรอกหมายเลข BIB";
@@ -313,7 +296,6 @@
 "feedback_send" = "ส่งความเห็น";
 "feedback_not_checked_in" = "ระบบแจ้งว่ายังไม่ได้เช็คอินฐานนี้ (ไม่ควรเกิดขึ้น) ลองปิดแล้วเปิดฟอร์มใหม่";
 "feedback_send_failed" = "ส่งไม่สำเร็จ ลองอีกครั้ง";
-"walk_distance_m_short" = "%1$lld ม.";
 "credits_3d_models" = "โมเดล 3 มิติ: ดู WBW/Resources/models/CREDITS.md · CC BY";
 
 /* SOS — จอสถานะของคนกด (ยกออกจากโค้ดที่ฮาร์ดโค้ดไว้ 2026-08-21) */

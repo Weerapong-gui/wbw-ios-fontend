@@ -54,7 +54,7 @@ enum SOSCaseMap {
 
 /// แผนที่นิ่งในการ์ดเคส · แตะแล้วออกไปนำทางต่อที่ Apple Maps
 ///
-/// **ห้ามใส่ `UserAnnotation()` เด็ดขาด** — `SURunView` บันทึกไว้ว่า MapKit ขอสิทธิ์ตำแหน่งเอง
+/// **ห้ามใส่ `UserAnnotation()` เด็ดขาด** — บันทึกไว้ตั้งแต่จอ SU RUN (ถอดออกแล้ว) ว่า MapKit ขอสิทธิ์ตำแหน่งเอง
 /// ทันทีที่เห็นตัวนั้นในฉาก · เจ้าหน้าที่ต้องเห็นตำแหน่ง**ผู้บาดเจ็บ** ไม่ใช่ของตัวเอง
 /// การเพิ่มมันได้แค่กล่องขอสิทธิ์ที่ไม่มีเหตุผลจะขอ
 struct SOSCaseMapView: View {
@@ -91,7 +91,7 @@ struct SOSCaseMapView: View {
                 Marker("", systemImage: "sos", coordinate: coordinate)
                     .tint(.red)
             }
-            // ป้ายร้านค้าไม่ใช่สิ่งที่ต้องอ่านตอนนี้ (ท่าเดียวกับ `SURunView`)
+            // ป้ายร้านค้าไม่ใช่สิ่งที่ต้องอ่านตอนนี้
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
 
         if let url = SOSMapLink.appleMaps(lat: lat, lng: lng) {

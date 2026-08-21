@@ -29,17 +29,16 @@ check_count() {
 }
 
 echo "== จำนวนไฟล์ที่ skill อ้างไว้ =="
-check_count "ไฟล์ .swift ที่รากของ WBW/" 46 "$(find WBW -maxdepth 1 -name '*.swift' | wc -l | tr -d ' ')"
+check_count "ไฟล์ .swift ที่รากของ WBW/" 45 "$(find WBW -maxdepth 1 -name '*.swift' | wc -l | tr -d ' ')"
 check_count "WBW/SOS"      11 "$(find WBW/SOS      -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Map3D"    10 "$(find WBW/Map3D    -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Chat"     5 "$(find WBW/Chat     -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Feedback" 4 "$(find WBW/Feedback -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Scene3D"  7 "$(find WBW/Scene3D  -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
-check_count "WBW/SURun"      3 "$(find WBW/SURun      -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Conditions" 4 "$(find WBW/Conditions -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Bloom"      3 "$(find WBW/Bloom      -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
 check_count "WBW/Demo"       3 "$(find WBW/Demo       -name '*.swift' 2>/dev/null | wc -l | tr -d ' ')"
-check_count "ไฟล์เทสใน WBWTests/" 65 "$(find WBWTests -name '*.swift' | wc -l | tr -d ' ')"
+check_count "ไฟล์เทสใน WBWTests/" 63 "$(find WBWTests -name '*.swift' | wc -l | tr -d ' ')"
 # workflow.md กำชับว่ายังไม่เอา Swift Testing เข้ามา ต้องคุยก่อน — ตัวเลขนี้ต้องเป็น 0 จนกว่าจะคุยกันแล้ว
 check_count "ไฟล์ที่ import Testing" 0 "$(grep -rl 'import Testing' WBWTests 2>/dev/null | wc -l | tr -d ' ')"
 check_count "ไฟล์ skill ใน $SKILL_DIR" 5 "$(find "$SKILL_DIR" -name '*.md' | wc -l | tr -d ' ')"

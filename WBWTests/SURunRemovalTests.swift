@@ -1,0 +1,71 @@
+import XCTest
+
+/// SU RUN ถูกถอดออกจากโปรเจกต์ทั้งฟีเจอร์ (เจ้าของงานตัดสินใจ 2026-08-22 ว่างานจะไม่มีกิจกรรมนี้)
+///
+/// **มีเทสนี้เพราะการถอดฟีเจอร์ทิ้งร่องรอยได้หลายที่พร้อมกัน** และร่องรอยที่แพงที่สุดคือ
+/// `NSMotionUsageDescription` — สิทธิ์ที่ขอไว้โดยไม่มีโค้ดไหนได้ใช้จริง คือเหตุให้ App Review
+/// ตีกลับตรง ๆ (Guideline 5.1.1) และเป็นรอยเดียวกับที่เพิ่งถอด `PhotosorVideos` ออกจาก
+/// privacy manifest ไปด้วยเหตุผลเดียวกันเป๊ะ
+///
+/// อีกด้านหนึ่งของเหรียญก็จริงเหมือนกัน: วันไหนมีคนเอา `CMPedometer` กลับเข้ามาโดยไม่ใส่คีย์
+/// แอปจะ **crash ทันที** ที่เรียก (CoreMotion บังคับ ไม่ใช่แค่เตือน) เทสนี้จึงผูกสองอย่างเข้าด้วยกัน
+/// ไม่ใช่แค่ยืนยันว่าคีย์หายไปแล้ว
+final class SURunRemovalTests: XCTestCase {
+
+    private static let repoRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+
+    private func swiftSources() throws -> [String] {
+        try FileManager.default
+            .subpathsOfDirectory(atPath: Self.repoRoot.appendingPathComponent("WBW").path)
+            .filter { $0.hasSuffix(".swift") }
+            .sorted()
+    }
+
+    /// ไฟล์กับโฟลเดอร์ต้องไม่เหลืออยู่จริง ไม่ใช่แค่ไม่มีใครเรียก
+    func testNoSURunFilesRemain() throws {
+        for path in ["WBW/SURun", "WBW/SURunView.swift", "WBW/Resources/route_wbw.json"] {
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: Self.repoRoot.appendingPathComponent(path).path),
+                "\(path) ยังอยู่ — ลบให้ครบแล้วรัน `xcodegen generate`")
+        }
+    }
+
+    /// สิทธิ์เซ็นเซอร์ความเคลื่อนไหวต้องหายไปพร้อมกัน — `CMPedometer` เป็นผู้ใช้รายเดียว
+    ///
+    /// `CMMotionManager` ที่ `Scene3D/GyroParallax.swift` ใช้ **ไม่ต้องขอสิทธิ์นี้** (ไจโรกับ
+    /// device-motion ไม่ใช่ข้อมูลกิจกรรม) จึงไม่ต้องเก็บคีย์ไว้เผื่อมัน
+    func testMotionPermissionRemovedTogetherWithItsOnlyUser() throws {
+        for file in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let data = try Data(contentsOf: Self.repoRoot.appendingPathComponent(file))
+            let dict = try XCTUnwrap(
+                PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+            XCTAssertNil(dict["NSMotionUsageDescription"], """
+                \(file) ยังขอสิทธิ์เซ็นเซอร์ความเคลื่อนไหว ทั้งที่ไม่มีโค้ดไหนใช้ CMPedometer แล้ว
+                สิทธิ์ที่ขอโดยไม่มีอะไรได้ใช้คือเหตุตีกลับตรง ๆ ตาม Guideline 5.1.1
+                """)
+        }
+        for file in ["WBW/th.lproj/InfoPlist.strings", "WBW/en.lproj/InfoPlist.strings"] {
+            let text = try String(
+                contentsOf: Self.repoRoot.appendingPathComponent(file), encoding: .utf8)
+            XCTAssertFalse(text.contains("NSMotionUsageDescription"),
+                           "\(file) ยังมีคำแปลของสิทธิ์ที่ถอดไปแล้ว")
+        }
+    }
+
+    /// ค้ำอีกทาง — เอา CMPedometer กลับมาเมื่อไหร่ ต้องเอาคีย์กลับมาด้วย ไม่งั้น crash
+    func testNothingUsesPedometerAnyMore() throws {
+        for file in try swiftSources() {
+            let text = try String(
+                contentsOf: Self.repoRoot.appendingPathComponent("WBW/\(file)"), encoding: .utf8)
+            XCTAssertFalse(text.contains("CMPedometer"), """
+                WBW/\(file) ใช้ CMPedometer — ต้องใส่ NSMotionUsageDescription กลับเข้า plist
+                ทั้งสองใบก่อน ไม่งั้นแอปแครชทันทีที่เรียก (CoreMotion บังคับ ไม่ใช่แค่เตือน)
+                แล้วแก้เทสนี้ให้ตรงกับความจริงใหม่
+                """)
+            XCTAssertFalse(text.contains("SURun"),
+                           "WBW/\(file) ยังอ้างถึง SU RUN ที่ถอดออกไปแล้ว")
+        }
+    }
+}

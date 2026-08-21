@@ -68,11 +68,12 @@ final class AppStoreConfigTests: XCTestCase {
             let dict = try plist(path)
             XCTAssertNil(dict["NSPhotoLibraryUsageDescription"],
                          "\(path) ขอสิทธิ์คลังรูปทั้งที่ใช้ PhotosPicker ซึ่งไม่ต้องขอ")
-            // แท็บ SU RUN เรียก CMPedometer จริงตั้งแต่ 2026-08-19 — ไม่มีคีย์นี้แล้วแอปจะ
-            // แครชทันทีที่กด "เริ่มเดิน" บนเครื่องจริง (CoreMotion บังคับ ไม่ใช่แค่เตือน)
-            let motion = dict["NSMotionUsageDescription"] as? String
-            XCTAssertFalse((motion ?? "").isEmpty,
-                           "\(path) ขาดคำอธิบายสิทธิ์เซ็นเซอร์ความเคลื่อนไหว ทั้งที่ SURunTracker ใช้ CMPedometer")
+            // เคยบังคับให้ **ต้องมี** `NSMotionUsageDescription` เพราะแท็บ SU RUN ใช้ CMPedometer
+            // จริง · SU RUN ถูกถอดออกทั้งฟีเจอร์ 2026-08-22 คีย์จึงต้องหายตามไปด้วย —
+            // เงื่อนไขกลับทิศ ไม่ใช่ถูกลบทิ้ง · รายละเอียดกับตัวค้ำอีกด้าน (ห้ามมี CMPedometer
+            // ในโค้ดโดยไม่มีคีย์) อยู่ที่ `SURunRemovalTests`
+            XCTAssertNil(dict["NSMotionUsageDescription"],
+                         "\(path) ยังขอสิทธิ์เซ็นเซอร์ความเคลื่อนไหว ทั้งที่ไม่มีอะไรใช้แล้ว")
         }
     }
 
@@ -97,7 +98,6 @@ final class AppStoreConfigTests: XCTestCase {
         "CFBundleDisplayName",
         "NSCameraUsageDescription",
         "NSLocationWhenInUseUsageDescription",
-        "NSMotionUsageDescription",
     ]
 
     /// **แอปประกาศว่ารองรับอังกฤษ แต่กล่องขอสิทธิ์เป็นไทยล้วน**

@@ -72,7 +72,6 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 |---|---|---|---|
 | `-uitestDemo` | flag | เข้าโหมดเดโม่ตอน launch (ข้อมูลจำลองครบทุกจอ ไม่ยิงเน็ตเลย ไม่ตั้งค่า Firebase) — ใช้ถ่ายสกรีนช็อต App Store | — |
 | `-uitestDemoNoGroup` | flag | โปรไฟล์เดโม่แบบยังไม่มีกลุ่ม → แท็บ 3 เป็นจอ "เข้ากลุ่ม" แทนแชท | `-uitestDemo` |
-| `-uitestRunStart` | flag | กด "เริ่มเดิน" ให้เอง — คู่กับ `xcrun simctl location <dev> start ...` ตัวเลขบน HUD จึงมาจากการคำนวณจริง | `-uitestTab 3` แล้วกดเข้า SU RUN |
 | `-uitestToken <jwt>` | JWT string | ล็อกอินทันทีด้วย token นี้ (`Session.swift`) — ข้าม splash ด้วย | — |
 | `-uitestUser <username>` | string, default `tester` | คู่กับ `-uitestToken` เป็นชื่อผู้ใช้ | — |
 | `-uitestRole participant` | string, default `participant` | คู่กับ `-uitestToken` เป็น role | — |
@@ -122,7 +121,7 @@ index แท็บ (สำหรับ `-uitestTab`/`-uitestTabSequence`):
 | 0 | Home |
 | 1 | Map |
 | 2 | Group |
-| 3 | กิจกรรม (SU RUN อยู่หลังการกดในแท็บนี้) |
+| 3 | กิจกรรม |
 | 4 | QR |
 
 ตารางนี้เคยสลับ 2 กับ 3 ไว้ผิด — ค่าจริงอ่านได้จาก `Tab(value:)` ใน `WBW/MainTabView.swift:57-78`

@@ -79,14 +79,13 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
   `Map3DScreen`, `Map3DSky`, `MapModelLoader`)
 - `WBW/Chat/` — 5 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`)
 - `WBW/Feedback/` — 4 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`)
-- `WBW/SURun/` — 3 ไฟล์ (`SURunMath`, `SURunTracker`, `TrailRoute`) · ตัวจอคือ `WBW/SURunView.swift`
-  ที่ราก
 - `WBW/Conditions/` — 4 ไฟล์ (`ConditionsModels`, `ConditionsStore`, `OpenMeteoClient`,
   `TrailConditionsRow`)
 - `WBW/Bloom/` — 3 ไฟล์ (`BloomStages`, `BloomGeometry`, `BloomView`)
-- `WBW/Demo/` — 2 ไฟล์ (`DemoMode`, `DemoData`)
+- `WBW/Demo/` — 3 ไฟล์ (`DemoMode`, `DemoData`, `DemoSOS`)
 - `WBW/Scene3D/` — 7 ไฟล์ (ฉากป่า — **ปิดอยู่ตอนนี้แต่ไม่ได้ลบ** ดู `Config.forest3D` ใน
   `backend-and-config.md`)
+- `WBW/SOS/` — 11 ไฟล์ (ปุ่มฉุกเฉิน จอสถานะ จอเจ้าหน้าที่ `LocationPrimer`)
 - `WBW/Resources/` — asset สามมิติ (`.usdz`, `.glb` ใต้ `models/`) ไม่ใช่โค้ด Swift
 
 ## ฉาก RealityKit ต้องมีโดมฟ้าเสมอ
@@ -120,27 +119,34 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
 ที่ decode ผ่านแต่ใช้จริงไม่ได้ (หมุดว่าง, กรอบกลับด้าน, โดมเล็กกว่าระยะกล้องสูงสุด) —
 `WBWTests/Map3DConfigFileTests.swift` คุมไว้ว่าไฟล์จริงกับ fallback ต้องตรงกันเป๊ะ
 
-## แท็บ SU RUN มีของจริงแล้ว
+## SU RUN ถูกถอดออกทั้งฟีเจอร์แล้ว (2026-08-22)
 
-`WBW/SURunView.swift` เคยเป็น **จอว่างสนิท** (ก่อนหน้านั้นเป็นแดชบอร์ดที่ทุกตัวเลขมาจาก `SURunMock`)
-— **เปลี่ยนแล้วตั้งแต่ 2026-08-19 ห้ามถอยกลับ** ตอนนี้เป็นแผนที่ MapKit + เส้นทางจริง 8.36 กม.
-จาก `WBW/Resources/route_wbw.json` + HUD ระยะ/ก้าว/pace/เวลา ที่คำนวณจาก CoreLocation กับ
-CMPedometer จริง ไม่มี mock เหลืออยู่เลย
+ไฟล์จอ `SURunView`, โฟลเดอร์ `SURun/` ทั้งใบ (`SURunMath`, `SURunTracker`, `TrailRoute`),
+ไฟล์เส้นทาง `route_wbw.json` ใต้ `Resources/`, คีย์ `walk_*` 18 ตัว และเทสสามไฟล์
+**ถูกลบออกจากโปรเจกต์แล้ว** (เขียนชื่อไฟล์แบบไม่เต็ม path โดยตั้งใจ — `check-skill-refs.sh`
+ตรวจว่า path ที่ skill อ้างถึงมีอยู่จริง ของที่ลบไปแล้วจึงต้องไม่ถูกเขียนเป็น path)
+เจ้าของงานตัดสินใจว่างานจะไม่มีกิจกรรมนี้
 
-เหตุผลที่ห้ามถอย: build 1.0 (7) โดน App Review ตีกลับด้วย Guideline 2.1 กับ 2.3.3 · reviewer กด
-ครบทุกแท็บเสมอ แท็บที่เปิดมาแล้วไม่มีอะไรคือใบตีกลับใบต่อไป (4.2 minimum functionality) ·
-ข้อความบนจอถูกตรึงด้วย `WBWTests/SURunCopyTests.swift`
+**สิ่งที่ต้องหายตามไปด้วยและหายแล้ว: `NSMotionUsageDescription`** — `CMPedometer` เป็นผู้ใช้
+รายเดียวของสิทธิ์นั้น สิทธิ์ที่ขอไว้โดยไม่มีโค้ดไหนได้ใช้คือเหตุตีกลับตรง ๆ ตาม Guideline 5.1.1
+(รอยเดียวกับที่ถอด `PhotosorVideos` ออกจาก privacy manifest) · `CMMotionManager` ที่
+`Scene3D/GyroParallax.swift` ใช้ **ไม่ต้อง**ขอสิทธิ์นี้ ไจโรกับ device-motion ไม่ใช่ข้อมูลกิจกรรม
+
+`WBWTests/SURunRemovalTests.swift` ค้ำสองทาง: ไฟล์ต้องไม่กลับมา **และ** ถ้ามีใครเอา
+`CMPedometer` กลับเข้ามาต้องเอาคีย์กลับมาด้วย ไม่งั้นแอปแครชทันทีที่เรียก
 
 ## แท็บถูกสร้างล่วงหน้าทุกใบ — ของที่ขอสิทธิ์ต้องหน่วงเอง
 
 `TabView` แบบ `Tab(value:)` ของ iOS 18+ **สร้างเนื้อของทุกแท็บตั้งแต่ตอน mount** ไม่ใช่ตอนกดแท็บ
 ยืนยันจากการถ่ายจริง: launch ด้วย `-uitestTab 4` แล้ว dialog ขอสิทธิ์ตำแหน่งยังเด้งทับจอ QR
-เพราะ `MapKit.Map` ของแท็บ SU RUN ขอสิทธิ์เองทันทีที่ถูกสร้าง (ไม่ใช่โค้ดเราเรียก — ใส่ NSLog ที่ทุกจุด
-ที่เรียก `requestWhenInUseAuthorization` แล้ว log ว่างเปล่า แต่ dialog ยังเด้ง)
+เพราะ `MapKit.Map` ของแท็บ SU RUN (ถอดออกแล้ว) ขอสิทธิ์เองทันทีที่ถูกสร้าง (ไม่ใช่โค้ดเราเรียก —
+ใส่ NSLog ที่ทุกจุดที่เรียก `requestWhenInUseAuthorization` แล้ว log ว่างเปล่า แต่ dialog ยังเด้ง)
+· บทเรียนยังใช้ได้กับทุกแท็บที่แตะกล้อง/ตำแหน่ง ไม่ได้ตายไปกับจอนั้น
 
 จอไหนที่แตะกล้อง/ตำแหน่ง/ไมค์ ต้องรับ `isActive` เข้ามาแล้วหน่วงการสร้างของจริงไว้จนกว่าแท็บนั้น
-จะถูกเลือกจริง — ของจริงที่ทำแบบนี้อยู่แล้วสองที่: `Map3DScreen(isActive:)` กับ `SURunView(isActive:)`
-(ทั้งคู่ถูกส่งค่ามาจาก `WBW/MainTabView.swift:51` และ `:52`)
+จะถูกเลือกจริง — ของจริงที่ทำแบบนี้อยู่คือ `Map3DScreen(isActive:)` (ส่งค่ามาจาก
+`WBW/MainTabView.swift`) · อีกด่านหนึ่งคือ `DemoMode.active` ที่ทุกจุดขอสิทธิ์ต้องผ่าน
+(`WBWTests/DemoPermissionTests.swift` กวาดทั้ง repo)
 
 ## คอมเมนต์
 

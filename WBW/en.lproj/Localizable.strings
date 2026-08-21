@@ -107,18 +107,6 @@
 "map_mode_2d" = "2D view";
 "map_route_start" = "Start";
 "map_route_finish" = "Finish";
-"walk_start" = "Start walking";
-"walk_stop" = "Stop";
-"walk_stat_distance" = "Distance";
-"walk_stat_steps" = "Steps";
-"walk_stat_pace" = "Pace";
-"walk_unavailable" = "—";
-"walk_distance_km" = "%.2f km";
-"walk_distance_m" = "%1$lld m";
-"walk_pace_min_km" = "%1$ld'%2$02d\" /km";
-"walk_channel_name" = "Walk tracking";
-"walk_notification_title" = "Recording your walk";
-"walk_notification_distance" = "%.2f km so far";
 "tab_activity" = "Activity";
 "tab_chat" = "Chat";
 "chat_channel" = "Group chat";
@@ -269,11 +257,6 @@
 "action_done" = "Done";
 "action_close" = "Close";
 "date_unknown_title" = "No date";
-"walk_route_title" = "The trail around the doi";
-"walk_stat_time" = "Time";
-"walk_pace_unit" = "min/km";
-"walk_no_location" = "Location access is off. You can see the route but distance will not be tracked";
-"walk_tracking" = "Tracking · counts only while the app is open";
 "scan_title" = "Check-in scanner";
 "scan_role_staff" = "Staff";
 "scan_bib_placeholder" = "Enter BIB number";
@@ -313,7 +296,6 @@
 "feedback_send" = "Send feedback";
 "feedback_not_checked_in" = "The server says you have not checked in at this base (this should not happen). Close the form and open it again";
 "feedback_send_failed" = "Not sent. Try again";
-"walk_distance_m_short" = "%1$lld m";
 "credits_3d_models" = "3D models: see WBW/Resources/models/CREDITS.md · CC BY";
 
 /* SOS — status screen for the person who pressed */
