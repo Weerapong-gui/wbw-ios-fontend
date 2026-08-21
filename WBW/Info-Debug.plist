@@ -66,7 +66,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน และจับระยะทางตอนกดเริ่มเดิน ระหว่างเปิดแอปเท่านั้น</string>
+	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน จับระยะทางตอนกดเริ่มเดิน และส่งพิกัดให้เจ้าหน้าที่ตอนคุณกดขอความช่วยเหลือฉุกเฉิน ระหว่างเปิดแอปเท่านั้น</string>
 	<key>NSMotionUsageDescription</key>
 	<string>ใช้ตัวนับก้าวของเครื่องเพื่อแสดงจำนวนก้าวระหว่างเดินในงาน</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

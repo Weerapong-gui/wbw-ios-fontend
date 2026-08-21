@@ -73,6 +73,26 @@ enum Config {
     /// ตั้ง true ไว้ต่างจาก forest3D โดยตั้งใจ — ฉากป่าถูกปิดเพราะอาการที่ยังไม่พิสูจน์
     /// (docs/forest-3d-off-verification.md §7) แผนที่ยังไม่ถูกวัด จึงเปิดไว้ก่อนแล้ววัด (Task 5)
     static let map3D = true
+
+    /// ต้นฉบับของสามตัวนี้คือ Task 13 (ดู task-13-brief.md ขั้นที่ 5: plist สิทธิ์ตำแหน่ง +
+    /// เบอร์กลางงาน) แต่ต้องยกมานิยามที่นี่ก่อน เพราะ SOSStore.send (Task 12) เรียก
+    /// cacheEmergencyPhone(_:) ทันทีที่ยิงสำเร็จครั้งแรก — ไฟล์ SOSStore.swift จึงคอมไพล์ไม่ผ่าน
+    /// ถ้าไม่มีฟังก์ชันนี้อยู่ก่อน (พบตอนทำ Task 12 — เหมือนกับ SOSStaffCase ที่ Task 10 เจอกับ
+    /// Task 15 มาก่อนแล้ว) เมื่อทำ Task 13 ควรเช็คว่าสามตัวนี้ตรงกับที่ตัวเองจะเพิ่มอยู่แล้วก่อนเพิ่มซ้ำ
+    ///
+    /// เบอร์กลางงาน — ค่าเริ่มต้นที่ฝังมากับแอป เผื่อยังไม่เคยคุยกับเซิร์ฟเวอร์สำเร็จเลย
+    /// ค่าจริงมาจาก emergency_phone ใน /me/progress และคำตอบของ /me/sos แล้ว cache ทับ
+    static let emergencyPhoneDefault = "053-916-000"
+
+    static var emergencyPhone: String {
+        UserDefaults.standard.string(forKey: "wbw.emergencyPhone.\(backend.cacheNamespace)")
+            ?? emergencyPhoneDefault
+    }
+
+    static func cacheEmergencyPhone(_ phone: String) {
+        guard !phone.isEmpty else { return }
+        UserDefaults.standard.set(phone, forKey: "wbw.emergencyPhone.\(backend.cacheNamespace)")
+    }
 }
 
 /// สีธีม — **ยกมาจาก `ui/theme/Color.kt` ของแอป Android ทั้งชุด (2026-08-20)**

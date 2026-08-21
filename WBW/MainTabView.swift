@@ -13,11 +13,27 @@ struct MainTabView: View {
     @StateObject private var noti = NotiStore()
     @StateObject private var chat = ChatSession()
     @StateObject private var feedback = FeedbackStore()
+    // ปุ่ม SOS อยู่นอก TabView (ดูคอมเมนต์ที่ .overlay ข้างล่าง) ต้องมี store เดียวคงอยู่ข้ามการสลับ
+    // แท็บทั้งหมด — สร้างที่นี่แทนที่จะสร้างในตัว SOSButton เอง ไม่งั้นสลับแท็บ (ซึ่ง MainTabView ไม่ได้
+    // สร้างใหม่ แต่ SOSButton ก็ไม่ได้อยู่ใต้แท็บใดแท็บหนึ่งอยู่แล้ว) จะไม่มีปัญหานี้จริงๆ ก็ตาม —
+    // แต่ยังต้องสร้างที่นี่เพื่อให้ .fullScreenCover ข้างล่างอ่าน store เดียวกันกับที่ SOSButton ยิง raise()
+    //
+    // ไม่มี default value ตรงนี้ (ต่างจาก noti/chat/feedback ด้านบน) เพราะต้องส่ง currentUserId เข้าไป
+    // ตอนสร้าง ซึ่งอ่านจาก UserDefaults ตรงๆ ผ่าน Session.currentUserIdFromDisk() ใน init() ด้านล่าง
+    // ไม่ใช่จาก @EnvironmentObject session — @StateObject default-value expression ถูกประเมินก่อนที่
+    // environment จะถูกฉีดเข้ามาตามลำดับของ SwiftUI เขียน session.user?.userId ตรงนี้ไม่ได้เลย (พบจาก
+    // รีวิว Task 14 รอบสาม — ดูคอมเมนต์ยาวที่ SOSStore.init และ SOSDraft.ownerId ว่าทำไมต้องรู้เจ้าของ
+    // ตั้งแต่ก่อน draft จะถูกกู้จาก outbox ด้วยซ้ำ ไม่ใช่รอถึง .task ตอน environment พร้อมแล้ว)
+    @StateObject private var sos: SOSStore
     @State private var tab = 0
     // เส้นทางของแท็บกลุ่ม — ว่าง = อยู่ที่จอแชท · ถือไว้ที่นี่เพราะ push แจ้งเตือนและ toast
     // ต้องสั่งเด้งกลับรากได้จากข้างนอก GroupTabView
     @State private var groupPath: [GroupRoute] = []
     @State private var showNotifications = false
+    // จอสถานะ SOS เต็มจอ — Bool ตรงๆ ไม่ใช่ binding ที่คำนวณจาก sos.status เพราะเคสที่ปิดแล้ว
+    // (closed) ต้องปิดจอได้ด้วยปุ่ม "ปิดหน้านี้" (ดู SOSStatusView) โดยไม่ต้องล้าง sos.status ไปด้วย —
+    // ถ้าผูกตรงกับ status != nil การกดปิดจะไม่มีผลอะไรเพราะ status ยังไม่ nil อยู่ดี
+    @State private var showSOSStatus = false
     // ฐานที่กำลังเปิดหน้าให้ความเห็นอยู่ (nil = ไม่มีจอเปิด) — จุดบรรจบของทั้ง 4 ทางเข้า: แตะ push ตอน
     // แอปปิด (PendingPush → .openCheckinFeedback), push ตอนแอปเปิด, แตะการ์ดในหน้าแจ้งเตือน,
     // และ toast จาก poll 60 วิ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว ไม่มีทางลัดอื่นไป FeedbackView
@@ -38,8 +54,22 @@ struct MainTabView: View {
     // ฐานที่การ์ดในหน้าแจ้งเตือนสั่งให้เปิดฟอร์มต่อ — พักไว้จนกว่าชีตแจ้งเตือนจะปิดจบจริง
     // (ดูคอมเมนต์ที่ .sheet(isPresented:onDismiss:))
     @State private var pendingFeedbackFromNoti: Int?
+    // เคส SOS ของเพื่อนที่กำลังเปิดจอให้ดูอยู่ (nil = ไม่มีจอเปิด) — จุดบรรจบของทั้ง 3 ทางเข้า: แตะ push
+    // ตอนแอปปิด (PendingPush → .openSOSCase), push ตอนแอปเปิด (willPresent → .sosArrived → รีเฟรช
+    // รายการ → ผู้ใช้แตะการ์ดเอง), และแตะการ์ดในหน้าแจ้งเตือนตรงๆ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว
+    // ไม่มีทางลัดอื่นไป SOSFriendView — ทรงเดียวกับ feedbackCheckpoint ด้านบนทุกประการ
+    @State private var sosFriendTarget: SOSFriendTarget?
+    // เคส SOS ที่การ์ดในหน้าแจ้งเตือนสั่งให้เปิดจอต่อ — พักไว้จนกว่าชีตแจ้งเตือนจะปิดจบจริง (ทรงเดียวกับ
+    // pendingFeedbackFromNoti ด้านบน เหตุผลเดียวกัน — ดูคอมเมนต์ที่ .sheet(isPresented:onDismiss:))
+    @State private var pendingSOSFromNoti: Int64?
+    // เคส SOS ที่ต้องไปมาร์คแจ้งเตือนว่าอ่านแล้ว แต่ตอนได้เรื่องมายังหาแถวนั้นใน noti.items ไม่เจอ —
+    // ทรงเดียวกับ pendingReadCheckpoint ด้านบนทุกประการ เหตุผลเดียวกัน
+    @State private var pendingReadSOSId: Int64?
 
     init() {
+        // ดูคอมเมนต์ยาวที่ประกาศ @StateObject private var sos ด้านบนว่าทำไมต้องอ่านจากดิสก์ตรงนี้
+        // แทนที่จะพึ่ง @EnvironmentObject session
+        _sos = StateObject(wrappedValue: SOSStore(currentUserId: Session.currentUserIdFromDisk()))
         #if DEBUG
         _tab = State(initialValue: UserDefaults.standard.integer(forKey: "uitestTab"))
         // ตั้งเส้นทางของแท็บกลุ่มตั้งแต่ก่อนเรนเดอร์เฟรมแรก — เดิมตั้งใน `.task` ของ GroupTabView
@@ -84,6 +114,18 @@ struct MainTabView: View {
                 }
             }
             .tint(Color.wbwGold)
+            // ปุ่ม SOS ลอยมุมล่างขวา เหนือแถบแท็บ · แนบด้วย .overlay บน TabView เอง (ไม่ใช่ลูกของ
+            // แท็บไหนสักแท็บ) จึงไม่หายไปและไม่รีสตาร์ตตอนสลับแท็บ ตรงกับที่ตั้งใจไว้ว่าอยู่นอก
+            // TabView — แท็บมี 5 อันเต็มแล้ว เพิ่มอันที่ 6 แปลว่าต้องสลับแท็บก่อนกด ช้าและหาไม่เจอ
+            // ตอนตกใจ (ดูคอมเมนต์เต็มที่ SOSButton) · zIndex เริ่มต้น (ไม่ตั้งเอง) วางไว้ใต้แบนเนอร์แชท
+            // (zIndex 1) โดยตั้งใจ — แชทเต็มจอทับได้ตามปกติเหมือนที่มันทับเนื้อหาแท็บอื่นอยู่แล้ว
+            // ส่วนตอนกดครบจริง SOSStatusView เปิดเป็น fullScreenCover ซึ่งอยู่เหนือทุกชั้นเสมอไม่ว่า
+            // zIndex จะเป็นเท่าไหร่ ปุ่มจึงถูกบังสนิทระหว่างมีเคสเปิดอยู่โดยไม่ต้องเขียนโค้ดกันเอง
+            .overlay(alignment: .bottomTrailing) {
+                SOSButton(store: sos, token: session.token ?? "", showStatus: $showSOSStatus)
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 90)
+            }
             .task {
                 // เรียกครั้งแรกตอน mount ด้วย ไม่ใช่แค่รอ onChange(of: tab) ข้างล่าง —
                 // host.suppressed อยู่ที่ host ซึ่งอายุยาวกว่า MainTabView instance นี้ (เช่น รอบก่อนออก
@@ -92,6 +134,23 @@ struct MainTabView: View {
                 // เพราะไม่มี tab เก่าให้เทียบเลยด้วยซ้ำ — ไม่เรียกตรงนี้ suppressed จะค้างผิดจนกว่าจะมีคน
                 // สลับแท็บจริงครั้งแรก ซึ่งอาจไม่เกิดเลยถ้าผู้ใช้อยู่ Home เฉยๆ ตั้งแต่ต้น)
                 updateSceneGate()
+
+                // มีเคส SOS ค้างจากรอบก่อน (relaunch) — SOSStore.init() กู้ draft/status ให้เห็นทันที
+                // ในตัว แต่ไม่เริ่ม retry loop ให้เองโดยตั้งใจ (ดูคอมเมนต์ที่ resumeIfNeeded) เปิดจอ
+                // สถานะและสั่งให้ไปต่อที่นี่ ก่อนงานโหลดปกติข้างล่าง — เคส SOS สำคัญกว่า badge ที่ยังไม่
+                // อ่าน ไม่ await inline เพราะ resumeIfNeeded รอผลเน็ตได้นานเป็นสิบวิ (ทางเดียวกับที่
+                // raise() เองก็ยิงผ่าน Task { } แยกจาก SOSButton ไม่ใช่ await ตรงๆ) บล็อกอยู่ตรงนี้จะดึง
+                // การโหลด noti/profile/progress ทั้งหมดข้างล่างช้าตามไปด้วยทั้งที่ไม่เกี่ยวกันเลย
+                if sos.status != nil { showSOSStatus = true }
+                Task { await sos.resumeIfNeeded(token: session.token ?? "") }
+
+                // ขอสิทธิ์ตำแหน่งให้คนที่ "ล็อกอินค้างอยู่แล้ว" ด้วย — Session.save(_:) เป็นทางเดียวที่
+                // เคยเรียก requestPermission() ซึ่งยิงตอนล็อกอินสำเร็จเท่านั้น คนที่ล็อกอินค้างอยู่ก่อน
+                // อัปเดตมาเป็น build นี้ (คือเกือบทุกคนในวันงาน) จึงไม่มีทางถูกถามเลยสักครั้ง แล้ว
+                // oneShot/cachedFix ทั้งคู่คืน nil เงียบๆ ตอน .notDetermined โดยไม่ขอสิทธิ์ให้ — กด SOS
+                // ไปโดยไม่มีพิกัดติดไปด้วยและไม่มีอะไรบอก · เรียกทุกครั้งที่ mount ได้ปลอดภัย ขอเฉพาะ
+                // ตอน .notDetermined เท่านั้น (ดู SOSLocator.requestPermissionIfNeeded)
+                SOSLocator.shared.requestPermissionIfNeeded()
 
                 // push ที่แตะไว้ตอนแอปยังไม่ทันเปิด (cold launch) — didReceive มักโพสต์ก่อนหน้านี้จะติดตั้ง
                 // .onReceive ทัน (มีสแปลชคั่นก่อนถึงจะ mount MainTabView) โพสต์ทิ้งไปเงียบๆ ไม่มีคนรับ ดึงมา
@@ -180,6 +239,16 @@ struct MainTabView: View {
                 if !markFeedbackNotiRead(checkpointId: id) { pendingReadCheckpoint = id }
                 PendingPush.clear()   // รับสดแล้ว — เคลียร์กัน mount ถัดไปดึงไปเล่นซ้ำ (ดู PendingPush.clear())
             }
+            // แตะ push เคส SOS ของเพื่อน (ทั้งแบบแอปปิดอยู่แล้วเล่นซ้ำจาก PendingPush และแบบรับสด) —
+            // ทรงเดียวกับ .openCheckinFeedback ด้านบนทุกประการ
+            .onReceive(NotificationCenter.default.publisher(for: .openSOSCase)) { note in
+                guard let raw = note.userInfo?["sos_id"] as? String, let id = Int64(raw)
+                else { return }   // payload ไม่มีเลขเคส = เปิดจอเปล่าไม่ได้ ทิ้งเงียบๆ ดีกว่าเปิดผิดเคส
+                sosFriendTarget = SOSFriendTarget(id: id)
+                // ยังไม่เจอแถวที่จะมาร์ค = จำไว้ลองใหม่ (ดูคอมเมนต์ที่ pendingReadSOSId)
+                if !markSOSNotiRead(sosId: id) { pendingReadSOSId = id }
+                PendingPush.clear()   // รับสดแล้ว — เคลียร์กัน mount ถัดไปดึงไปเล่นซ้ำ (ดู PendingPush.clear())
+            }
             // push ขอความเห็นมาถึงตอนแอปเปิดอยู่ — willPresent กดของระบบทิ้งไปแล้ว ต้องมีของแทนจริงๆ
             // ให้เห็น ไม่ใช่เงียบไปจนกว่า poll รอบถัดไป (นานสุด 60 วิ) · progress ใหม่พา toast เช็คอินมา
             // ผ่าน newlyPending ส่วนรายการแจ้งเตือนใหม่พา badge กระดิ่งมา (ดู AppDelegate.willPresent)
@@ -189,12 +258,24 @@ struct MainTabView: View {
                     await noti.load(token: session.token ?? "")
                 }
             }
+            // push เคส SOS ของเพื่อนมาถึงตอนแอปเปิดอยู่ — willPresent กดของระบบทิ้งไปแล้วเหมือนกัน (ดู
+            // AppDelegate.willPresent) ไม่มี toast เฉพาะของ SOS แบบที่ checkin มี (toastBases/newlyPending)
+            // รีเฟรชรายการแจ้งเตือนพอ ผู้ใช้เห็นการ์ดใหม่สีแดง + badge กระดิ่งขึ้นทันที แล้วแตะเข้าเอง
+            // ได้ (เข้าทางการ์ดในรายการ ไม่ใช่ทางนี้เปิดจอให้ตรงๆ — เหตุผลเดียวกับ checkinFeedbackArrived
+            // ด้านบน: push ที่มาถึงเฉยๆ ไม่ใช่การขออนุญาตแทรกจอที่ผู้ใช้กำลังใช้อยู่)
+            .onReceive(NotificationCenter.default.publisher(for: .sosArrived)) { _ in
+                Task { await noti.load(token: session.token ?? "") }
+            }
             // รายการแจ้งเตือนเปลี่ยน (โหลดครั้งแรกจบ หรือโหลดใหม่แล้วได้ของเพิ่ม) — ถ้ามี push ค้างรอ
             // มาร์คอยู่ ลองใหม่ · ค้างไว้จนกว่าจะมาร์คได้จริง ไม่ล้างทิ้งตอนลองแล้วพลาด เพราะเคสที่ต้อง
             // การคือ "แถวยังมาไม่ถึง" ซึ่งแก้ด้วยการรอรอบถัดไปเท่านั้น (ดูคอมเมนต์ที่ pendingReadCheckpoint)
             .onChange(of: noti.items) { _, _ in
-                guard let cp = pendingReadCheckpoint, markFeedbackNotiRead(checkpointId: cp) else { return }
-                pendingReadCheckpoint = nil
+                if let cp = pendingReadCheckpoint, markFeedbackNotiRead(checkpointId: cp) {
+                    pendingReadCheckpoint = nil
+                }
+                if let sid = pendingReadSOSId, markSOSNotiRead(sosId: sid) {
+                    pendingReadSOSId = nil
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .openNotificationsTab)) { _ in
                 showNotifications = true   // noti ไม่มี tab แล้ว → เปิดเป็น sheet
@@ -309,12 +390,19 @@ struct MainTabView: View {
         // ฟอร์มเกิดตอน UIKit บอกเองว่าปิดจบแล้วจริง — ไม่ต้องเดาความยาว transition ซึ่งถ้าเดาพลาด
         // (iOS เปลี่ยน, ลด motion, เครื่องช้า) จะพังแบบเงียบสนิท คือแตะการ์ดแล้วไม่มีอะไรเกิดขึ้น
         .sheet(isPresented: $showNotifications, onDismiss: {
-            guard let id = pendingFeedbackFromNoti else { return }
-            pendingFeedbackFromNoti = nil
-            feedbackCheckpoint = FeedbackTarget(id: id)
+            if let id = pendingFeedbackFromNoti {
+                pendingFeedbackFromNoti = nil
+                feedbackCheckpoint = FeedbackTarget(id: id)
+            } else if let id = pendingSOSFromNoti {
+                pendingSOSFromNoti = nil
+                sosFriendTarget = SOSFriendTarget(id: id)
+            }
         }) {
             NotificationsView(store: noti, token: session.token ?? "", onOpenFeedback: { id in
                 pendingFeedbackFromNoti = id
+                showNotifications = false
+            }, onOpenSOS: { id in
+                pendingSOSFromNoti = id
                 showNotifications = false
             })
         }
@@ -341,6 +429,27 @@ struct MainTabView: View {
                 .environmentObject(checkpoints)
                 .environmentObject(feedback)
         }
+        // จอที่เพื่อนในกลุ่มเห็นเมื่อมีคนกด SOS — .sheet ไม่ใช่ .fullScreenCover เหมือน SOSStatusView
+        // ด้านล่าง โดยตั้งใจ: นี่คือจอของ "เพื่อน" ไม่ใช่จอของตัวเองที่กำลังรอความช่วยเหลืออยู่ — อ่านแล้ว
+        // ปัดปิดได้ปกติ ไม่มีปุ่มยกเลิก/โทรฉุกเฉินที่ต้องบังคับให้เต็มจอเหมือนตอนเป็นคนกดเอง (ทรงเดียวกับ
+        // FeedbackView ด้านบน ซึ่งก็เป็น .sheet เหมือนกัน)
+        //
+        // .id(target.id) ด้วยเหตุผลเดียวกับ FeedbackView ด้านบน: กลุ่มเดียวกันมีมากกว่าหนึ่งเคสเปิดพร้อม
+        // กันได้จริง (สเปกไม่ได้จำกัดไว้) เคสที่สองมาระหว่างจอของเคสแรกเปิดค้างต้องได้ @State ชุดใหม่
+        // ทั้งชุด (sosCase/loadError) ไม่ใช่ของเคสแรกค้างอยู่ในจอที่ควรเป็นของเคสที่สอง
+        .sheet(item: $sosFriendTarget) { target in
+            SOSFriendView(sosId: target.id, token: session.token ?? "")
+                .id(target.id)
+        }
+        // จอสถานะ SOS เต็มจอทันทีที่กดครบ ไม่ใช่ toast — คนกดต้องเห็นว่าเกิดอะไรขึ้น และปุ่มยกเลิก/โทร
+        // ต้องอยู่ตรงหน้า ไม่ใช่ค้นหาจากที่ไหน (ดูคอมเมนต์เต็มที่ SOSStatusView) · fullScreenCover ไม่รับ
+        // swipe ปิดเองแบบ .sheet โดยธรรมชาติของมันเอง — ทางเดียวที่จอนี้ปิดได้คือ showSOSStatus ถูกตั้ง
+        // false ตรงๆ ซึ่งเกิดได้จาก (1) ปุ่ม "ปิดหน้านี้"/dismiss() ข้างในตอนเคส closed หรือ (2)
+        // .onChange(of: store.status) ข้างในตอนยกเลิกแบบยังไม่ถึงเซิร์ฟเวอร์ (status กลายเป็น nil ทันที)
+        // — ไม่มีทางถูกปัดหลุดมือขณะเคสยังเปิดอยู่ (queued/received/onTheWay) เลย
+        .fullScreenCover(isPresented: $showSOSStatus) {
+            SOSStatusView(store: sos, token: session.token ?? "")
+        }
         // MainTabView หายทั้งจอ (ล็อกเอาต์เท่านั้น — RootView สลับ MainTabView/StaffScanView ตาม role บน
         // session.user ตัวเดียวกัน ไปไม่ถึง role ใหม่ได้โดยไม่ผ่าน logout()+login ก่อน) — logout() ไม่แตะ
         // profile.me เลย ("ยังไม่ authenticated" แค่ session.user เป็น nil) ดังนั้น
@@ -355,6 +464,16 @@ struct MainTabView: View {
             // Session ไม่ได้ถือ store ไว้ ดูคอมเมนต์ที่นั่น)
             progress.clear()
             checkpoints.clear()
+            // เคส SOS ที่ยังค้างอยู่ — ล้างหรือไม่ล้างขึ้นกับว่าออกจากระบบทางไหน ไม่ใช่ล้างเสมอ
+            // (แก้จากรีวิว Task 14 รอบสอง: ที่นี่เคยเขียนว่า "ทุกทางยืนยันมาก่อนแล้ว" ซึ่งไม่จริง —
+            // .wbwUnauthorized ใน Session.init ยิง logout() เองทันทีที่เจอ 401 จากไหนก็ได้ในแอป
+            // โดยไม่มีการยืนยันจากผู้ใช้เลย ถ้าล้างตรงนี้แบบไม่มีเงื่อนไข คนที่มีเคสฉุกเฉินเปิดอยู่จะ
+            // ถูกเด้งไปหน้า login พร้อมเคสหายไปเงียบๆ กลางเหตุฉุกเฉิน) ส่ง session.lastLogoutWasAutomatic
+            // ให้ SOSStore.handleLogout(automatic:) ตัดสินใจเอง — ล็อกเอาต์ที่ผู้ใช้กดเองผ่าน
+            // SettingsView (ซึ่งมี .alert("ออกจากระบบใช่หรือไม่") ถามยืนยันก่อนเรียก session.logout()
+            // เสมออยู่แล้ว) ยังล้างเหมือนเดิมทุกอย่าง ดูคอมเมนต์ยาวที่ handleLogout(automatic:) สำหรับ
+            // เหตุผลเต็มและความเสี่ยงที่เหลืออยู่
+            sos.handleLogout(automatic: session.lastLogoutWasAutomatic)
         }
     }
 
@@ -422,11 +541,31 @@ struct MainTabView: View {
         Task { try? await APIClient.shared.markRead(token: session.token ?? "", id: id) }
         return true
     }
+
+    /// มาร์คแจ้งเตือน SOS เคสนี้ว่าอ่านแล้ว — ทรงเดียวกับ markFeedbackNotiRead ด้านบนทุกประการ เหตุผล
+    /// เดียวกัน: เส้นทาง push พาเข้าจอเพื่อนตรงๆ ไม่ผ่าน NotificationsView ซึ่งเป็นที่เดียวที่ markAllRead
+    /// ทำงาน ไม่ทำตรงนี้ badge กระดิ่งจะค้างเลขของเคสที่ผู้ใช้เปิดดูไปแล้ว
+    ///
+    /// คืน false เมื่อยังหาแถวที่ยังไม่อ่านของเคสนี้ไม่เจอ — ผู้เรียกเก็บไว้ลองใหม่เอง (ดู pendingReadSOSId)
+    @discardableResult
+    private func markSOSNotiRead(sosId: Int64) -> Bool {
+        guard let i = noti.items.firstIndex(where: {
+            $0.sosId == sosId && $0.isUnread
+        }) else { return false }
+        let id = noti.items[i].id
+        noti.items[i].readAt = ISO8601DateFormatter().string(from: Date())
+        Task { try? await APIClient.shared.markRead(token: session.token ?? "", id: id) }
+        return true
+    }
 }
 
 /// ห่อ checkpoint id ให้ `.sheet(item:)` ใช้ได้ — Int ไม่ conform Identifiable เอง
 /// (ดูคอมเมนต์ที่ .sheet(item:) ว่าทำไมไม่เติม conformance ให้ Int ตรงๆ)
 private struct FeedbackTarget: Identifiable { let id: Int }
+
+/// ห่อเคส SOS id ให้ `.sheet(item:)` ใช้ได้ — ทรงเดียวกับ FeedbackTarget ด้านบนทุกประการ เหตุผลเดียวกัน
+/// Int64 ไม่ conform Identifiable เอง (ชนิดเดียวกับ SOSCase.id — ดู APIClient+SOS.swift)
+private struct SOSFriendTarget: Identifiable { let id: Int64 }
 
 /// พื้นป่าเปล่า (Event/Voucher ยังไม่ออกแบบเนื้อหาใน DOI-APP)
 struct ForestBlank: View {

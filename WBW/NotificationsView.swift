@@ -50,6 +50,9 @@ struct NotificationsView: View {
     /// แตะการ์ดขอความเห็น (checkpoint id ที่มันพูดถึง) — Task 11 ผูกว่าเปิดอะไรต่อ การ์ดประกาศทั่วไป
     /// ไม่เรียกตัวนี้เลย (feedbackCheckpointId เป็น nil)
     let onOpenFeedback: (Int) -> Void
+    /// แตะการ์ด SOS (เลขเคสที่มันพูดถึง) — พาไปจอเพื่อนที่กดขอความช่วยเหลือ
+    /// การ์ดประกาศทั่วไป/การ์ดขอความเห็นไม่เรียกตัวนี้เลย (`sosId` เป็น nil)
+    let onOpenSOS: (Int64) -> Void
 
     @Environment(\.dismiss) private var dismiss
     /// ตรึง "ตอนนี้" ไว้ตอนเปิดจอ ไม่ใช่เรียก `Date()` ระหว่างสร้าง body — ไม่งั้นแถวที่นั่งอยู่เฉย ๆ
@@ -94,11 +97,16 @@ struct NotificationsView: View {
         }
     }
 
-    /// เฉพาะการ์ดขอความเห็นกดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
+    /// เฉพาะการ์ดขอความเห็นกับการ์ด SOS กดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
     @ViewBuilder
     private func row(_ item: NotificationItem) -> some View {
         if let checkpointId = item.feedbackCheckpointId {
             Button { onOpenFeedback(checkpointId) } label: {
+                NotiRow(item: item, now: openedAt, showsChevron: true)
+            }
+            .buttonStyle(.plain)
+        } else if let sosId = item.sosId {
+            Button { onOpenSOS(sosId) } label: {
                 NotiRow(item: item, now: openedAt, showsChevron: true)
             }
             .buttonStyle(.plain)
@@ -110,8 +118,10 @@ struct NotificationsView: View {
 
 /// ประกาศ 1 แถว — ไอคอนในวงกลมสีตามระดับความสำคัญ
 ///
-/// การ์ดขอความเห็น (feedbackCheckpointId != nil) มีสี/ไอคอนของตัวเอง เช็คก่อน switch ตาม
-/// item.level เดิมเสมอ ไม่งั้นประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย
+/// การ์ดขอความเห็น (feedbackCheckpointId != nil) กับการ์ด SOS (sosId != nil) มีสี/ไอคอนของตัวเอง
+/// เช็คก่อน switch ตาม item.level เดิมเสมอ ไม่งั้นประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย —
+/// เช็คจาก `feedbackCheckpointId`/`sosId` ไม่ใช่ `item.type` ตรง ๆ ตัวเดียวกับที่
+/// `NotificationsView.row` ใช้ตัดสินว่าจะห่อ Button ไหม สองที่จึงไม่มีทางไม่ตรงกัน
 private struct NotiRow: View {
     let item: NotificationItem
     let now: Date
@@ -120,9 +130,12 @@ private struct NotiRow: View {
     let showsChevron: Bool
 
     private var isFeedback: Bool { item.feedbackCheckpointId != nil }
+    private var isSOS: Bool { item.sosId != nil }
 
     private var accent: Color {
         if isFeedback { return Color.wbwGreen }
+        // เคส SOS แดงเสมอ ไม่ว่า level ที่ backend ใส่มาจะเป็นอะไร
+        if isSOS { return Color(red: 0.84, green: 0.27, blue: 0.27) }
         switch item.level {
         case "emergency": return Color(red: 0.84, green: 0.27, blue: 0.27) // แดง
         case "warning":   return Color.wbwGold
@@ -131,6 +144,7 @@ private struct NotiRow: View {
     }
     private var icon: String {
         if isFeedback { return "checkmark.seal.fill" }
+        if isSOS { return "sos" }   // ไอคอนเดียวกับที่จอเคสของเจ้าหน้าที่ใช้
         switch item.level {
         case "emergency": return "exclamationmark.triangle.fill"
         case "warning":   return "exclamationmark.triangle"

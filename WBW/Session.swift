@@ -4,9 +4,18 @@ import Foundation
 final class Session: ObservableObject {
     @Published var user: AuthUser?
     @Published var token: String?
+    /// true เฉพาะตอน logout() ล่าสุดถูกเรียกจาก authObserver (401 อัตโนมัติ) ไม่ใช่จากปุ่มที่ผู้ใช้กด
+    /// เอง — MainTabView.onDisappear อ่านค่านี้ตัดสินใจว่าจะล้างเคส SOS ที่ค้างอยู่หรือไม่ (ผ่าน
+    /// SOSStore.handleLogout(automatic:) ดูคอมเมนต์ยาวที่นั่น) ค่าเริ่มต้น false เพราะ logout()
+    /// เขียนทับค่านี้ทุกครั้งที่ถูกเรียกไม่ว่าทางไหน (พบจากรีวิว Task 14 รอบสอง) ไม่มีทางค้างค่าเก่า
+    /// ข้ามการล็อกเอาต์ครั้งถัดไป
+    @Published private(set) var lastLogoutWasAutomatic = false
 
-    /// `static` เพราะ `DemoMode.active` อ่านคีย์นี้ตรง ๆ เพื่อดูว่ากำลังอยู่ในโหมดเดโม่ไหม —
-    /// เก็บสถานะเดโม่ไว้คนละที่กับ token จะไม่ตรงกันทันทีที่แอปถูกฆ่าคาโหมดเดโม่
+    /// **ทั้งคู่ต้องเป็น `static` และเปิดให้อ่านนอกคลาส** — `DemoMode.active` อ่าน `tokenKey`
+    /// ตรง ๆ เพื่อดูว่ากำลังอยู่ในโหมดเดโม่ไหม (เก็บสถานะเดโม่ไว้คนละที่กับ token จะไม่ตรงกัน
+    /// ทันทีที่แอปถูกฆ่าคาโหมดเดโม่) และ `currentUserIdFromDisk()` ด้านล่างต้องอ่าน `userKey`
+    /// ได้โดยไม่ต้องมี `Session` instance อยู่ก่อน — แหล่งเดียวกัน ไม่ใช่ string ซ้ำสองที่ต้องคอย
+    /// แก้พร้อมกันเอง
     static let tokenKey = "wbw.token"
     static let userKey = "wbw.user"
     private var authObserver: NSObjectProtocol?
@@ -14,12 +23,14 @@ final class Session: ObservableObject {
     init() {
         token = UserDefaults.standard.string(forKey: Self.tokenKey)
         // 401 จากที่ไหนก็ตาม (token หมดอายุ/เปลี่ยน secret) → logout อัตโนมัติ (แทนจอว่าง)
+        // automatic: true — ไม่มีการยืนยันจากผู้ใช้เกิดขึ้นเลยสักครั้งในเส้นทางนี้ (ดูคอมเมนต์ที่
+        // lastLogoutWasAutomatic และ logout(automatic:) ว่าทำไมเรื่องนี้สำคัญ)
         authObserver = NotificationCenter.default.addObserver(
             forName: .wbwUnauthorized, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.token != nil else { return }
-                self.logout()
+                self.logout(automatic: true)
             }
         }
         if let data = UserDefaults.standard.data(forKey: Self.userKey) {
@@ -34,7 +45,11 @@ final class Session: ObservableObject {
         // device token เลย และ push ทดสอบไม่ได้เลยสักครั้งโดยไม่มีอะไรฟ้อง (เสียเวลาไล่หา
         // มาแล้วรอบหนึ่ง — เห็นแค่ device_token ค้างที่ 0 โดยไม่มี error ที่ไหนเลย)
         //
-        // เขียนให้เหมือน save() ทุกอย่าง เพื่อให้ hook นี้เทียบเท่าการ login จริง ไม่ใช่ครึ่งใบ
+        // เขียนให้เหมือน save() แทบทุกอย่าง เพื่อให้ hook นี้เทียบเท่าการ login จริง ไม่ใช่ครึ่งใบ —
+        // ข้อยกเว้นเดียวที่ตั้งใจ: **ไม่** เรียก SOSLocator.shared.requestPermission() ที่นี่ hook นี้
+        // มีไว้ข้ามการพิมพ์รหัสผ่านตอนเทส UI ไม่ใช่ให้เจอกล่องขอสิทธิ์ตำแหน่งจริงทุกครั้งที่ launch
+        // ด้วย flag นี้ ผลคือ authorization ค้างที่ .notDetermined เท่านั้น — เป็นสถานะของระบบที่
+        // ตรวจสอบได้ตรงๆ ไม่ใช่ contract ที่ซ่อนอยู่แบบที่เคยพลาดกับ UserDefaults ด้านบน
         // เข้าโหมดเดโม่ตอน launch — มีไว้ถ่ายสกรีนช็อตให้ App Store โดยไม่ต้องมีตัวกดจอ
         // (เครื่องนี้ไม่มี idb) ตัวโหมดเดโม่เองอยู่ใน Release ปกติ แค่ "ทางเข้าอัตโนมัติ" ที่เป็น DEBUG
         if UserDefaults.standard.bool(forKey: "uitestDemo") {
@@ -56,10 +71,11 @@ final class Session: ObservableObject {
         #endif
     }
 
-    /// เข้าโหมดเดโม่ — เทียบเท่า `save(_:)` ทุกอย่าง **ยกเว้นไม่ลงทะเบียน FCM**
+    /// เข้าโหมดเดโม่ — เทียบเท่า `save(_:)` ทุกอย่าง **ยกเว้นไม่ลงทะเบียน FCM และไม่ขอสิทธิ์ตำแหน่ง**
     ///
     /// ลงทะเบียน device token ด้วย token ปลอมจะได้ 401 จาก backend ซึ่ง `APIClient.send` แปลเป็น
-    /// `.wbwUnauthorized` แล้ว `Session` จะเตะตัวเองออกจากโหมดเดโม่ทันทีที่เพิ่งเข้ามา
+    /// `.wbwUnauthorized` แล้ว `Session` จะเตะตัวเองออกจากโหมดเดโม่ทันทีที่เพิ่งเข้ามา ·
+    /// ส่วนสิทธิ์ตำแหน่งไม่ขอเพราะโหมดนี้มีไว้ให้ผู้รีวิวเดินดูจอ ไม่ใช่ให้เจอกล่องขอสิทธิ์จริง
     func startDemo() {
         // ล้างของค้างจากรอบเดโม่ก่อนหน้า — ถ้าปล่อยไว้ ข้อความที่ reviewer คนก่อนพิมพ์ทิ้งไว้
         // จะโผล่ค้างอยู่ในแชทของรอบถัดไป
@@ -87,9 +103,20 @@ final class Session: ObservableObject {
         UserDefaults.standard.set(try? JSONEncoder().encode(res.user), forKey: Self.userKey)
         // ผูก device token กับผู้ใช้ที่เพิ่ง login (ถ้ามี FCM token แล้ว)
         PushManager.shared.registerCurrent()
+        // ขอสิทธิ์ตำแหน่งหลังล็อกอินสำเร็จเท่านั้น — ตอนเปิดแอปครั้งแรกผู้ใช้ยังไม่รู้ว่าแอปนี้คืออะไร
+        // และการขอสิทธิ์ตอนกด SOS คือทั้งช้าที่สุดและถูกปฏิเสธมากที่สุด (แนวเดียวกับที่วางแผนไว้กับ
+        // push notification — ดู push-notification-gaps) · เรียกผ่าน .shared ไม่ใช่ SOSLocator()
+        // ลอยๆ — ต้องมีคนถือ CLLocationManager ข้างในไว้จนกว่า OS จะเก็บกล่องขอสิทธิ์เสร็จ ไม่งั้น ARC
+        // เก็บทันทีที่จบ statement (ดูคอมเมนต์ที่ SOSLocator.shared) · เรียกตรงๆ ได้โดยไม่ต้อง await
+        // (SOSLocator เป็น @MainActor เหมือน Session ตรงนี้เอง ไม่ข้าม actor และ save() เองก็ไม่ใช่ async)
+        SOSLocator.shared.requestPermission()
     }
 
-    func logout() {
+    /// automatic: true เฉพาะตอนเรียกจาก authObserver ด้านบน (401 ที่ไม่มีใครขอ) · ปุ่ม "ออกจากระบบ"
+    /// ทั้งสองจอ (SettingsView, StaffScanView) เรียกแบบไม่ใส่ค่านี้ = false เสมอ ค่าเริ่มต้นจึงตรงกับ
+    /// เส้นทางที่พบบ่อยที่สุด (พบจากรีวิว Task 14 รอบสอง — ดูคอมเมนต์ที่ lastLogoutWasAutomatic)
+    func logout(automatic: Bool = false) {
+        lastLogoutWasAutomatic = automatic
         // โหมดเดโม่ไม่เคยลงทะเบียน device token ไว้ (ดู startDemo) — ยิง unregister ด้วย token
         // ปลอมจะได้ 401 กลับมาแล้ววน .wbwUnauthorized เข้า logout ซ้ำอีกรอบ
         let wasDemo = DemoMode.active
@@ -123,5 +150,21 @@ final class Session: ObservableObject {
         // แล้วเปิดฟอร์มให้คะแนนฐานของคนก่อนหน้าให้เอง — ตัว MainTabView เคลียร์เฉพาะตอนรับสดได้เท่านั้น
         PendingPush.clear()
         if wasDemo { Self.clearDemoCaches() }
+    }
+
+    /// อ่าน user id ปัจจุบันตรงจาก UserDefaults โดยไม่ต้องมี Session instance เลย — ใช้ตอนที่ยังไม่มี
+    /// @EnvironmentObject ให้อ่านได้ (พบจากรีวิว Task 14 รอบสาม: MainTabView ต้องรู้ user id ตอนสร้าง
+    /// @StateObject ของ SOSStore เอง ซึ่งเกิดก่อนที่ environment จะถูกฉีดเข้ามาตามลำดับของ SwiftUI —
+    /// @StateObject default-value expression อ้าง @EnvironmentObject ไม่ได้ ดูคอมเมนต์ที่ SOSStore.init)
+    ///
+    /// ปลอดภัยเพราะ save()/logout() เขียนทั้ง in-memory (user/token) และ UserDefaults (คีย์เดียวกันนี้)
+    /// ในฟังก์ชันเดียวกันก่อน return เสมอ ไม่มีช่องให้สองที่ไม่ตรงกัน — คืน "" (ไม่ใช่ nil) เมื่อยังไม่
+    /// เคย login เลยหรือ decode ไม่ผ่าน เพื่อให้ SOSStore.init เทียบตรงๆ กับ SOSDraft.ownerId (String
+    /// ไม่ใช่ String?) ได้โดยไม่ต้อง unwrap
+    static func currentUserIdFromDisk() -> String {
+        guard let data = UserDefaults.standard.data(forKey: userKey),
+              let user = try? JSONDecoder().decode(AuthUser.self, from: data)
+        else { return "" }
+        return user.userId
     }
 }

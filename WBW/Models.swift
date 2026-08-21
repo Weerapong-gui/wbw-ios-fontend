@@ -132,7 +132,8 @@ struct NotificationItem: Codable, Identifiable, Equatable {
     let level: String
     let audience: String?
     let audienceId: String?
-    /// ชี้ไปวัตถุที่แจ้งเตือนนี้พูดถึง · ตอนนี้ใช้เฉพาะ type == "checkin_feedback" = checkpoint_id
+    /// ชี้ไปวัตถุที่แจ้งเตือนนี้พูดถึง · สองชนิดที่ใช้ตอนนี้: type == "checkin_feedback" = checkpoint_id,
+    /// type == "sos" = sos_event id (ดู feedbackCheckpointId/sosId ด้านล่าง ซึ่งเป็นสองทางอ่านค่านี้)
     let refId: String?
     let createdAt: String?
     var readAt: String?
@@ -143,6 +144,25 @@ struct NotificationItem: Codable, Identifiable, Equatable {
     var feedbackCheckpointId: Int? {
         guard type == "checkin_feedback", let refId else { return nil }
         return Int(refId)
+    }
+
+    /// เลขเคส SOS ที่แจ้งเตือนนี้พูดถึง · nil = ไม่ใช่แจ้งเตือนชนิดนี้
+    var sosId: Int64? {
+        guard type == "sos", let refId else { return nil }
+        return Int64(refId)
+    }
+
+    /// เวลาแบบไทยสั้นๆ (16 ก.ค. 09:02)
+    var timeText: String {
+        guard let createdAt else { return "" }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let d = iso.date(from: createdAt) ?? ISO8601DateFormatter().date(from: createdAt)
+        guard let d else { return "" }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "th_TH")
+        f.dateFormat = "d MMM HH:mm"
+        return f.string(from: d)
     }
 }
 
