@@ -94,6 +94,9 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestPassBottom` | flag | เปิดหน้าบัตรโดยเลื่อนลงสุด — ปุ่ม SOS อยู่ใต้การ์ดซึ่งสูงกว่าจอ ไม่มีแฟลกนี้ก็ถ่ายไม่เห็น | `-uitestTab 4` |
 | `-uitestStaffSOSCase <แบบ>` | `fine` / `coarse` | ยัดเคส SOS ตัวอย่างหนึ่งใบเข้าแท็บ SOS ของเจ้าหน้าที่ (ปิด long-poll ไปด้วย) — `coarse` ให้พิกัด ±450 ม. ซึ่งเป็นแบบเดียวที่วาดวงความคลาดเคลื่อน | `-uitestStaffScreen` |
 | `-uitestCameraDenied` | flag | บังคับจอเจ้าหน้าที่ให้แสดงสถานะ "ไม่ได้รับสิทธิ์กล้อง" — `simctl privacy revoke` รีเซ็ตเป็น "ยังไม่เคยถาม" ไม่ใช่ "ปฏิเสธ" จึงตั้งจากภายนอกไม่ได้ | `-uitestToken <jwt>` + `-uitestRole staff` |
+| `-uitestSOSStatus` | flag | เปิดจอสถานะ SOS ตรง ๆ พร้อมเคสจำลองที่สถานะ `.received` — ทางเข้าจริงคือกดปุ่มค้าง 3 วินาที ซึ่งถ่ายรูปไม่ได้ที่นี่ | `-uitestTab 4` |
+| `-uitestLocationPrimer` | flag | เปิดจออธิบายก่อนกล่องขอสิทธิ์ตำแหน่ง (`LocationPrimerSheet`) — ทางเข้าจริงต้องล็อกอินบัญชีจริงบนเครื่องที่ยังไม่เคยตอบกล่องขอสิทธิ์ | `-uitestDemo` |
+| `-uitestNotiLoadFailed` | flag | บังคับหน้าประกาศให้แสดงสาขา "ยิงไม่ถึงเซิร์ฟเวอร์" (มีปุ่มลองใหม่) — ตัดเน็ตของซิมจากข้างนอกทำไม่ได้ | `-uitestNotifications` |
 | `-uitestCredits` | flag | เปิดหน้าเครดิต/สัญญาอนุญาตตรงๆ (จากหน้าตั้งค่า) — หน้านี้เป็นเงื่อนไขสัญญาอนุญาต ต้องถ่ายให้เห็นจริงได้ | `-uitestProfile` + `-uitestSettings` |
 | `-uitestMapHeading <องศา>` | int | ทับมุมกล้อง yaw ของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
 | `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว (ปิด intro ไปด้วย) | `-uitestTab 1` |
