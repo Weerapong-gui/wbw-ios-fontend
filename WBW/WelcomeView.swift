@@ -13,7 +13,8 @@ struct WelcomeView: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: geo.size.height * 0.28)
 
-                Text("Welcome to")
+                // จอแรกสุดของแอป — ต้องเป็นไทยเหมือนที่เหลือ (ดู `HardcodedCopyTests`)
+                Text("welcome_title")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.35), radius: 8, y: 2)
@@ -28,7 +29,7 @@ struct WelcomeView: View {
                 // ยังไม่ login → ปุ่ม Get started (liquid glass) · login แล้ว → ไม่มีปุ่ม
                 if !loggedIn {
                     Button { onContinue() } label: {
-                        Text("Get started")
+                        Text("welcome_action_start")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(.white)
                             .frame(width: 190, height: 46)

@@ -13,7 +13,9 @@ struct LoginView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer()
 
-                Text("Hey,\nWelcome back")
+                // คีย์นี้มีครบสองภาษามาตลอด แค่ไม่เคยถูกเรียก — แอปตั้ง development region
+                // เป็น th คนไทยจึงเคยเห็นจอแรกเป็นอังกฤษ (ดู `HardcodedCopyTests`)
+                Text("login_greeting")
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.35), radius: 8, y: 2)
@@ -52,7 +54,7 @@ struct LoginView: View {
                         if busy {
                             ProgressView().tint(.wbwInk)
                         } else {
-                            Text("Sign In")
+                            Text("login_action_submit")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.23, green: 0.17, blue: 0.07))
                         }
@@ -77,7 +79,7 @@ struct LoginView: View {
                     Text("login_demo_title")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.white)
-                        .frame(width: 200, height: 42)
+                        .frame(width: 200, height: Config.Tap.minTarget)
                         .glassSurface(Capsule(), interactive: true)
                 }
                 .buttonStyle(.plain)
@@ -141,10 +143,10 @@ struct LoginView: View {
             Group {
                 if obscure {
                     SecureField("", text: $password, prompt:
-                        Text("Password").foregroundStyle(.white.opacity(0.55)))
+                        Text("login_field_password").foregroundStyle(.white.opacity(0.55)))
                 } else {
                     TextField("", text: $password, prompt:
-                        Text("Password").foregroundStyle(.white.opacity(0.55)))
+                        Text("login_field_password").foregroundStyle(.white.opacity(0.55)))
                 }
             }
             .foregroundStyle(.white)
