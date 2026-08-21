@@ -35,6 +35,19 @@ struct GroupTabView: View {
                 }
             }
         }
+        // พื้นหลังของทั้งแท็บอยู่ที่นี่ **จุดเดียว** ไม่ใช่จอละอัน
+        //
+        // `ForestBackground` วาด `AppBackdrop()` ใน `.background{}` ของ view ที่เรียกมัน ใส่ทีละจอ
+        // แล้วภาพจะเลื่อนไปกับเฟรมของจอลูกตอน push/pop ขณะที่ `RootView` วาดสำเนาที่นิ่งอยู่ข้างล่าง
+        // = ภาพไถลข้ามจอทุกครั้งที่เดินเข้าออก (มองไม่เห็นตอนพื้นเป็นสีเรียบ เห็นชัดตอนเป็นภาพ)
+        // แขวนไว้ที่ stack เฟรมไม่ขยับ ภาพจึงนิ่ง · แถมได้ `TabRootOpaqueBackgroundRemover`
+        // ตัวเดียวแทนที่จะเป็นสี่ และ `host.day/plantStep` ถูกเขียนครั้งเดียวต่อการเข้าแท็บ
+        // แทนที่จะเขียนทุก push (ทุกครั้งที่เขียน `MainTabView.body` ทั้งก้อนถูก invalidate)
+        .forestBackground(day: ForestMath.dayStill)
+        // แถบหัวจอเป็นพื้นผิวของระบบ ไม่ได้อยู่ใต้กติกา `wbwOnBackdrop` ของเรา — บังคับให้มัน
+        // คิดว่าตัวเองอยู่บนพื้นมืดเสมอ ไม่งั้นหัวข้อกับปุ่มกลับที่ระบบสร้างเองจะเป็นสีเข้ม
+        // บนภาพมืดในโหมดสว่าง (อาการเดียวกับที่ `Config.swift` เตือนไว้เรื่อง `wbwInk` บนภาพ)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 }
 
@@ -54,7 +67,6 @@ struct GroupHomeView: View {
 
     var body: some View {
         ZStack {
-            Color.wbwBg.ignoresSafeArea()
             VStack(spacing: 20) {
                 VStack(spacing: 6) {
                     Text("group_my_group").font(.system(size: 14)).foregroundStyle(.secondary)
@@ -81,20 +93,34 @@ struct GroupHomeView: View {
                 // ปุ่มจาง ๆ ที่กดไม่ได้ชวนให้กดซ้ำแล้วสงสัยว่าแอปค้าง
                 if quota > 0 {
                     Button(role: .destructive) { confirmLeave = true } label: {
+                        // แดงของระบบบนภาพพื้นหลังได้ 3.1:1 · `wbwDanger` ยิ่งแย่กว่าในโหมดสว่าง
+                        // (ขาสว่างของมันคือ #C0503A = 2.4:1) ปุ่มนี้ไม่มีพื้นของตัวเอง
                         Text(leaving ? "group_leaving" : "group_leave")
-                            .font(.system(size: 15)).foregroundStyle(.red)
+                            .font(.system(size: 15)).foregroundStyle(Color.wbwOnBackdropDanger)
                     }
                     .disabled(leaving)
                 }
 
                 if let error {
-                    Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
+                    Text(error).font(.footnote).foregroundStyle(Color.wbwOnBackdropDanger)
+                        .multilineTextAlignment(.center)
                 }
             }
             .padding(20).padding(.top, 8)
         }
-        .navigationTitle(String(format: Loc.t("group_number"), groupNo))
+        .clearsHostOpaqueBackground()
         .navigationBarTitleDisplayMode(.inline)
+        // หัวข้อวางบนภาพพื้นหลัง จึงต้องเป็น principal item ที่กำหนดสีเอง ไม่ใช่ `.navigationTitle`
+        // — ตัวนั้นเรนเดอร์ด้วย `UIColor.label` ซึ่งพลิกตามธีม แล้วหัวข้อจะเป็นสีเข้มบนภาพมืด
+        // ในโหมดสว่าง (ถ่ายพิสูจน์แล้ว) · `.toolbarColorScheme(.dark)` ที่ `GroupTabView`
+        // ก็ไม่ช่วย มันคุมพื้นแถบ ไม่ได้คุมสีหัวข้อ · ท่าเดียวกับ `SettingsView`
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(String(format: Loc.t("group_number"), groupNo))
+                    .font(.headline)
+                    .foregroundStyle(Color.wbwOnBackdrop)
+            }
+        }
         // วาดกล่องเอง ไม่ใช่ .alert — alert ของ SwiftUI ใส่ Image ไม่ได้ และจอนี้ต้องโชว์หัวใจ
         // บอกสิทธิ์คงเหลือ (ดูคอมเมนต์หัว LeaveGroupDialog)
         .overlay {

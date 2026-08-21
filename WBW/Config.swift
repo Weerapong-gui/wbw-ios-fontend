@@ -47,9 +47,15 @@ enum Config {
 
     /// ฉากป่า 3D — ปิดชั่วคราว (เครื่องทำงานหนัก) เปิดกลับได้ที่ค่านี้ค่าเดียว
     ///
-    /// ปิด = ทุกจอที่เรียก .forestBackground() ได้พื้นทึบ Color.wbwForestVoid แทน และ
+    /// ปิด = ทุกจอที่เรียก .forestBackground() ได้ภาพ `AppBackdrop` แทน และ
     /// ForestSceneView/ForestOverlay ไม่ถูก mount เลยสักครั้ง (ดู ForestSceneHost.shouldClaim)
     /// โค้ดและ asset ของฉากยังอยู่ครบ ไม่ได้ถูกลบ
+    ///
+    /// **จะเปิดกลับต้องแก้ `MainTabView.updateSceneGate()` ก่อน** ตอนนี้มันกดฉากไว้ทุกแท็บยกเว้น
+    /// 0 กับ 4 · แท็บ 2 (กลุ่ม/แชท) และแท็บ 3 (กิจกรรม/SU RUN) เรียก `forestBackground` แต่โดนกด
+    /// พอเปิดฉาก จอพวกนั้นจะได้ `Color.clear` จาก ForestBackground ขณะที่ RootView ก็ข้าม
+    /// AppBackdrop ไปแล้วเพราะ forest3D เปิด = **จอดำสนิททั้งใบ** ต้องเติมสองแท็บนี้เข้า
+    /// allow-list ของ `updateSceneGate()` หรือหาทางให้มันวาดภาพแทนตอนถูกกด
     static let forest3D = false
 
     /// โมเดลแผนที่ 3D ที่แท็บ Map — ปิดได้ด้วยค่าเดียวนี้ถ้าเครื่องรับไม่ไหว

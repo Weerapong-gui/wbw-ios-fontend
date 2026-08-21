@@ -63,11 +63,12 @@ struct ChatDayPill: View {
 struct ChatUnreadDivider: View {
     var body: some View {
         HStack(spacing: 8) {
-            Rectangle().fill(Color.red.opacity(0.25)).frame(height: 1)
+            // แดงของระบบบนภาพพื้นหลังได้แค่ 2.2:1 — เส้นนี้ไม่มีพื้นของตัวเอง วางบนภาพตรง ๆ
+            Rectangle().fill(Color.wbwOnBackdropDanger.opacity(0.25)).frame(height: 1)
             Text("chat_new_messages")
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Color.red.opacity(0.7))
-            Rectangle().fill(Color.red.opacity(0.25)).frame(height: 1)
+                .foregroundStyle(Color.wbwOnBackdropDanger.opacity(0.7))
+            Rectangle().fill(Color.wbwOnBackdropDanger.opacity(0.25)).frame(height: 1)
         }
         .padding(.vertical, 8)
     }
@@ -104,8 +105,10 @@ struct ChatBubble: View {
             }
             VStack(alignment: isMine ? .trailing : .leading, spacing: 2) {
                 if !isMine && layout.isFirstInGroup {
+                    // นอกฟอง = วางบนภาพพื้นหลังตรง ๆ ใช้ `.secondary` ไม่ได้ (มันพลิกตามธีม
+                    // แต่ภาพไม่พลิก โหมดสว่างจะได้ชื่อสีเข้มบนภาพมืด = หายไป)
                     Text(message.senderName)
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(Color.wbwOnBackdropMuted)
                         .padding(.leading, 4)
                 }
                 HStack(alignment: .bottom, spacing: 4) {
@@ -122,7 +125,7 @@ struct ChatBubble: View {
             if revealOffset > 1 && !layout.showTime {
                 Text(ChatFormat.time(message.displayTime))
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.wbwOnBackdropMuted)   // นอกฟอง
                     .frame(width: 48)
                     .offset(x: 56 - revealOffset)
                     .opacity(Double(revealOffset / 56))
@@ -167,7 +170,8 @@ struct ChatBubble: View {
 
     @ViewBuilder private var stateIcon: some View {
         switch message.state {
-        case .pending: Image(systemName: "clock").font(.caption2).foregroundStyle(.secondary)
+        case .pending: Image(systemName: "clock").font(.caption2)
+                           .foregroundStyle(Color.wbwOnBackdropMuted)   // นอกฟอง
         case .sent:    EmptyView()      // สถานะ "ส่งแล้ว/อ่านแล้ว" ย้ายไปบรรทัดสรุปใต้ข้อความล่าสุด
         case .failed:  Button(action: onRetry) {
                            Image(systemName: "exclamationmark.circle.fill")
@@ -191,7 +195,7 @@ struct ChatReadStatusLine: View {
     var body: some View {
         Text(text)
             .font(.caption2)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.wbwOnBackdropMuted)   // วางบนภาพพื้นหลังตรง ๆ ไม่มีพื้นของตัวเอง
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, 4).padding(.top, 2).padding(.bottom, 6)
             .animation(.easeOut(duration: 0.2), value: text)

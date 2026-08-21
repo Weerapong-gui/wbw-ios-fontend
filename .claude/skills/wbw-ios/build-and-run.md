@@ -72,7 +72,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 |---|---|---|---|
 | `-uitestDemo` | flag | เข้าโหมดเดโม่ตอน launch (ข้อมูลจำลองครบทุกจอ ไม่ยิงเน็ตเลย ไม่ตั้งค่า Firebase) — ใช้ถ่ายสกรีนช็อต App Store | — |
 | `-uitestDemoNoGroup` | flag | โปรไฟล์เดโม่แบบยังไม่มีกลุ่ม → แท็บ 3 เป็นจอ "เข้ากลุ่ม" แทนแชท | `-uitestDemo` |
-| `-uitestRunStart` | flag | กด "เริ่มเดิน" ให้เอง — คู่กับ `xcrun simctl location <dev> start ...` ตัวเลขบน HUD จึงมาจากการคำนวณจริง | `-uitestTab 2` |
+| `-uitestRunStart` | flag | กด "เริ่มเดิน" ให้เอง — คู่กับ `xcrun simctl location <dev> start ...` ตัวเลขบน HUD จึงมาจากการคำนวณจริง | `-uitestTab 3` แล้วกดเข้า SU RUN |
 | `-uitestToken <jwt>` | JWT string | ล็อกอินทันทีด้วย token นี้ (`Session.swift`) — ข้าม splash ด้วย | — |
 | `-uitestUser <username>` | string, default `tester` | คู่กับ `-uitestToken` เป็นชื่อผู้ใช้ | — |
 | `-uitestRole participant` | string, default `participant` | คู่กับ `-uitestToken` เป็น role | — |
@@ -80,7 +80,8 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestTab 0-4` | int | แท็บเริ่มต้นตอน launch เท่านั้น (ดูตาราง index ด้านล่าง) | — |
 | `-uitestTabSequence "<วิ>:<แท็บ>,..."` | string | สลับแท็บสดระหว่างแอปรันอยู่ เช่น `"6:4,12:0"` | — |
 | `-uitestChat` | flag | เปิดหน้าแชทกลุ่มตรงๆ | — |
-| `-uitestGroupHome` | flag | เปิดหน้า "กลุ่มของฉัน" ตรงๆ (ปกติอยู่หลังการกดหัวจอแชท) | `-uitestTab 3` + ต้องมีกลุ่มอยู่แล้ว |
+| `-uitestGroupHome` | flag | เปิดหน้า "กลุ่มของฉัน" ตรงๆ (ปกติอยู่หลังการกดหัวจอแชท) | `-uitestTab 2` + ต้องมีกลุ่มอยู่แล้ว |
+| `-uitestGroupMembers` | flag | เปิดหน้ารายชื่อสมาชิกตรงๆ **ผ่านสาขาแชท** (แถบแท็บซ่อน) — ชนะ `-uitestGroupHome` ถ้าส่งมาทั้งคู่ · อีกทางเข้าหนึ่ง (จากหน้าจับกลุ่ม แถบแท็บโชว์) ต้องกดมือ | `-uitestTab 2` + ต้องมีกลุ่มอยู่แล้ว |
 | `-uitestLeaveConfirm` | flag | เปิดกล่องยืนยันออกจากกลุ่มค้างไว้ให้ถ่ายรูป | `-uitestGroupHome` |
 | `-uitestChatCloseAfter <วินาที>` | double | ปิดแชทเองหลัง N วิ (แอปยัง foreground) | — |
 | `-uitestNotifications` | flag | เปิดหน้าแจ้งเตือนตรงๆ | — |
@@ -112,9 +113,12 @@ index แท็บ (สำหรับ `-uitestTab`/`-uitestTabSequence`):
 |---|---|
 | 0 | Home |
 | 1 | Map |
-| 2 | SU RUN |
-| 3 | Group |
+| 2 | Group |
+| 3 | กิจกรรม (SU RUN อยู่หลังการกดในแท็บนี้) |
 | 4 | QR |
+
+ตารางนี้เคยสลับ 2 กับ 3 ไว้ผิด — ค่าจริงอ่านได้จาก `Tab(value:)` ใน `WBW/MainTabView.swift:57-78`
+แก้แล้ว 2026-08-21 หลังส่ง `-uitestTab 3` แล้วได้แท็บกิจกรรมแทนแท็บกลุ่ม
 
 ## รันบนเครื่องจริง (รันจริงล่าสุด 2026-08-03 — iPhone 13 ต่อ SUS local)
 

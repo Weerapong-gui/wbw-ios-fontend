@@ -15,7 +15,6 @@ struct GroupJoinView: View {
 
     var body: some View {
         ZStack {
-            Color.wbwBg.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
                 ScrollView {
@@ -30,10 +29,13 @@ struct GroupJoinView: View {
                             )
                         }
                         if groups.loaded && groups.filteredGroups.isEmpty && groups.matchedPeople.isEmpty {
-                            Text("group_none_found").foregroundStyle(.secondary).padding(.top, 40)
+                            Text("group_none_found").foregroundStyle(Color.wbwOnBackdropMuted).padding(.top, 40)
                         }
                     }
                     .padding(16)
+                    // แถบแท็บลอยทับการ์ดใบสุดท้ายครึ่งใบถ้าไม่เว้น (ระยะวัดจากเครื่องจริงสองรุ่น
+                    // ดูคอมเมนต์ที่ `ForestSceneHost.tabBarClearance`)
+                    .padding(.bottom, ForestSceneHost.tabBarClearance)
                 }
             }
             if let error {
@@ -42,6 +44,7 @@ struct GroupJoinView: View {
                     .padding(.bottom, 30).frame(maxHeight: .infinity, alignment: .bottom)
             }
         }
+        .clearsHostOpaqueBackground()
         .navigationBarHidden(true)
         .task { if !groups.loaded { await groups.load(token: session.token ?? "") } }
         .alert(Text(String(format: Loc.t("group_join_confirm"), pendingJoin?.groupNumber ?? 0)),
@@ -84,7 +87,9 @@ struct GroupJoinView: View {
     // ผลค้นหาคน
     private var peopleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("group_people_found").font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+            // หัวข้อ section วางบนภาพพื้นหลัง ไม่ใช่บนการ์ด (แถวข้างล่างเท่านั้นที่มีพื้น)
+            Text("group_people_found").font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.wbwOnBackdropMuted)
             ForEach(groups.matchedPeople) { p in
                 HStack(spacing: 10) {
                     ProfileAvatar(name: p.firstName ?? "", photoUrl: nil, size: 34)

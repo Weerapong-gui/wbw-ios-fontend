@@ -15,9 +15,11 @@ struct GroupMembersView: View {
         ScrollView {
             LazyVStack(spacing: 10) {
                 if loading {
-                    ProgressView().padding(.top, 40)
+                    // ไม่ระบุ tint แล้วมันตกทอด `.tint(Color.wbwGold)` จาก `MainTabView`
+                    // ซึ่งเป็นสีเข้มในโหมดสว่าง = spinner หายไปกับภาพพื้นหลัง
+                    ProgressView().tint(Color.wbwOnBackdrop).padding(.top, 40)
                 } else if members.isEmpty {
-                    Text("group_members_empty").foregroundStyle(.secondary).padding(.top, 40)
+                    Text("group_members_empty").foregroundStyle(Color.wbwOnBackdropMuted).padding(.top, 40)
                 } else {
                     ForEach(members) { m in
                         Button { selected = m } label: { row(m) }.buttonStyle(.plain)
@@ -26,9 +28,19 @@ struct GroupMembersView: View {
             }
             .padding(16)
         }
-        .background(Color.wbwBg)
-        .navigationTitle(String(format: Loc.t("group_number"), groupNumber))
+        .clearsHostOpaqueBackground()
         .navigationBarTitleDisplayMode(.inline)
+        // หัวข้อวางบนภาพพื้นหลัง จึงต้องเป็น principal item ที่กำหนดสีเอง ไม่ใช่ `.navigationTitle`
+        // — ตัวนั้นเรนเดอร์ด้วย `UIColor.label` ซึ่งพลิกตามธีม แล้วหัวข้อจะเป็นสีเข้มบนภาพมืด
+        // ในโหมดสว่าง (ถ่ายพิสูจน์แล้ว) · `.toolbarColorScheme(.dark)` ที่ `GroupTabView`
+        // ก็ไม่ช่วย มันคุมพื้นแถบ ไม่ได้คุมสีหัวข้อ · ท่าเดียวกับ `SettingsView`
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(String(format: Loc.t("group_number"), groupNumber))
+                    .font(.headline)
+                    .foregroundStyle(Color.wbwOnBackdrop)
+            }
+        }
         .task {
             members = await groups.members(groupId: groupId, token: session.token ?? "")
             loading = false

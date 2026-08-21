@@ -45,7 +45,11 @@ struct MainTabView: View {
         // ตั้งเส้นทางของแท็บกลุ่มตั้งแต่ก่อนเรนเดอร์เฟรมแรก — เดิมตั้งใน `.task` ของ GroupTabView
         // ซึ่งยิงตอน root ยังเป็นหน้าจับกลุ่มอยู่ (profile ยังโหลดไม่เสร็จ) พอ profile มาถึงแล้ว root
         // สลับเป็นจอแชท NavigationStack ทิ้ง path ที่ push ไว้ ผลคือแฟลกไม่มีผลอะไรเลยแบบเงียบ ๆ
-        if UserDefaults.standard.bool(forKey: "uitestGroupHome") {
+        if UserDefaults.standard.bool(forKey: "uitestGroupMembers") {
+            // จอสมาชิกเข้าถึงได้สองทาง (จากหน้าจับกลุ่ม = แถบแท็บโชว์ / จากในแชท = แถบแท็บซ่อน)
+            // ทางนี้คือทางที่สอง ซึ่งเป็นทางที่ระยะล่างกับแถบหัวจอต่างจากอีกทางหนึ่ง
+            _groupPath = State(initialValue: [.home, .members])
+        } else if UserDefaults.standard.bool(forKey: "uitestGroupHome") {
             _groupPath = State(initialValue: [.home])
         }
         #endif

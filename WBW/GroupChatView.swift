@@ -35,7 +35,10 @@ struct GroupChatView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button { onBack() } label: {
+                    // ระบุสีเอง — ไม่ระบุแล้วมันตกทอด `.tint(Color.wbwGold)` จาก `MainTabView`
+                    // ซึ่งเป็นสีเข้มในโหมดสว่าง = ลูกศรจมหายไปกับภาพพื้นหลัง
                     Image(systemName: "chevron.left").font(.body.weight(.semibold))
+                        .foregroundStyle(Color.wbwOnBackdrop)
                 }
                 .accessibilityLabel("action_back")
             }
@@ -50,9 +53,10 @@ struct GroupChatView: View {
                     VStack(spacing: 1) {
                         HStack(spacing: 4) {
                             Text(String(format: Loc.t("group_number_str"), profile.me?.groupNumber.map(String.init) ?? ""))
-                                .font(.headline).foregroundStyle(Color.wbwInk)
+                                .font(.headline).foregroundStyle(Color.wbwOnBackdrop)
                             Image(systemName: "chevron.right")
-                                .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(Color.wbwOnBackdropMuted)
                         }
                         // ยังไม่รู้จำนวน = ไม่โชว์ ไม่ใช่โชว์ "0 คน" — memberCount มาจากผลลัพธ์
                         // ของ sync (ChatSession:260) ซึ่งยังไม่กลับมาตอนเปิดจอครั้งแรก หรือ
@@ -60,14 +64,14 @@ struct GroupChatView: View {
                         // ในห้องที่มีคนคุยกันอยู่อ่านว่าแอปพัง (กติกาเดียวกับ TrailConditionsRow)
                         if store.memberCount > 0 {
                             Text(String(format: Loc.t("chat_members_count"), store.memberCount))
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.caption).foregroundStyle(Color.wbwOnBackdropMuted)
                         }
                     }
                 }
                 .buttonStyle(.plain)
             }
         }
-        .background(Color.wbwBg.ignoresSafeArea())
+        .clearsHostOpaqueBackground()
         .sensoryFeedback(.impact(weight: .light), trigger: sentTick)
         // overload closure แทน .error ตรงๆ — ตัวเดิมสั่นทุกครั้งที่ค่าเปลี่ยนไม่ว่าทิศไหน แม้แต่ retry สำเร็จ
         // (1 ล้มเหลว → 0) ก็นับว่า "เปลี่ยน" เหมือนกัน สั่น error ทั้งที่จริงๆ ส่งสำเร็จแล้ว
