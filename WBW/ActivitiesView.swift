@@ -95,24 +95,21 @@ private struct EventCard: View {
             .padding(.top, 18)
             .padding(.bottom, 16)
 
-            // เต็มความกว้าง — เส้นที่เว้นขอบสองข้างอ่านเป็นเส้นใต้ของย่อหน้าข้างบน
-            // ไม่ใช่รอยต่อระหว่างสองส่วนของการ์ด
-            Rectangle()
-                .fill(Color.glassSheerBorder)
-                .frame(height: 1)
-
-            HStack {
-                Text("event_details")
-                    .font(.wbwLabelSmall)
-                    .kerning(1.8)
-                    .foregroundStyle(Color.wbwOnBackdrop)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.body)
-                    .foregroundStyle(Color.wbwOnBackdropMuted)
-            }
-            .padding(.horizontal, 18)
-            .frame(height: 52)
+            // **ตรงนี้เคยมีแถว "ดูรายละเอียด ›" — ถอดออกโดยตั้งใจ ห้ามใส่กลับโดยไม่อ่านก่อน**
+            //
+            // มันเป็น `HStack` ของ `Text` กับ `chevron.right` เต็มความกว้าง สูง 52pt ซึ่งอ่าน
+            // เป็นปุ่มทุกประการ แต่ไม่เคยมี `Button` หรือ `NavigationLink` อยู่เลยสักตัวในไฟล์นี้
+            // กดแล้วไม่มีอะไรเกิดขึ้น
+            //
+            // นี่คือรูปแบบเดียวกับที่ repo นี้โดน Guideline 2.1 ตีกลับมาแล้วที่หน้าล็อกอิน
+            // (`Text("Don't have an account? Sign up")` ที่กดไม่ได้ — ดูคอมเมนต์ที่ `LoginView`)
+            // ผู้ตรวจกดทุกอย่างบนจอ
+            //
+            // ใส่กลับได้เมื่อมีปลายทางจริงแล้วเท่านั้น และต้องทำเป็น `NavigationLink` ไม่ใช่ `Text`
+            // — ปลายทางที่คอมเมนต์หัวไฟล์พูดถึงคือ `SURunView` ซึ่งมีอยู่ครบแล้วแต่ยังไม่มีใคร
+            // อ้างถึงเลยทั้งแอป (เจ้าของงานตัดสินใจ 2026-08-22 ว่ายังไม่ต่อรอบนี้)
+            //
+            // `WBWTests/FakeAffordanceTests.swift` กันไม่ให้ลูกศรกลับมาโดยไม่มีของกดได้
         }
         // ต้นทางใช้ `GlassSheer` (ขาว 12%) เพราะ **Android ไม่มี Liquid Glass จริง** จึงต้อง
         // ประมาณด้วยพื้นผิวบวกเส้นผม (คอมเมนต์ของต้นทางเขียนไว้ตรง ๆ) — ฝั่ง iOS มีของจริง
