@@ -120,9 +120,6 @@
 "event_status_upcoming" = "เร็ว ๆ นี้";
 "event_status_live" = "กำลังจัด";
 "event_details" = "ดูรายละเอียด";
-"event_step_comp_title" = "แข่งนับก้าว";
-"event_step_comp_date" = "1–14 ส.ค. 2569";
-"event_step_comp_desc" = "สะสมก้าวให้ได้มากที่สุดในสองสัปดาห์ แล้วไต่อันดับกระดานผู้นำ ทุกก้าวบนเส้นทางมีความหมาย";
 "event_wbw_title" = "Walk Beyond the Wild";
 "event_wbw_date" = "16 ส.ค. 2569";
 "event_wbw_desc" = "อีเวนต์หลักของเส้นทาง ออกเดินสำรวจธรรมชาติ เช็กอินทุกฐาน แล้วปลูกต้นไม้ของคุณให้เติบโตเต็มที่";

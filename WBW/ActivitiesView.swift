@@ -15,12 +15,10 @@ struct ActivitiesView: View {
                     .font(.wbwBodyMedium)
                     .foregroundStyle(Color.wbwOnBackdropMuted)
 
-                EventCard(title: "event_step_comp_title",
-                          date: "event_step_comp_date",
-                          description: "event_step_comp_desc",
-                          status: "event_status_upcoming",
-                          systemImage: "figure.walk")
-
+                // การ์ด "แข่งนับก้าว" เคยอยู่ตรงนี้ — ถอดออก 2026-08-22 พร้อมฟีเจอร์ SU RUN
+                // ที่ถูกลบทั้งชุด · การ์ดโฆษณาว่า "สะสมก้าวให้ได้มากที่สุด แล้วไต่อันดับกระดาน
+                // ผู้นำ" ซึ่งแอปทำไม่ได้อีกแล้ว — โฆษณาความสามารถที่ไม่มีคือเหตุตีกลับของ Apple
+                // ตรง ๆ ไม่ต่างจากปุ่มที่กดไม่ได้
                 EventCard(title: "event_wbw_title",
                           date: "event_wbw_date",
                           description: "event_wbw_desc",

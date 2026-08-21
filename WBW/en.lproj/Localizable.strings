@@ -121,9 +121,6 @@
 "event_status_upcoming" = "Upcoming";
 "event_status_live" = "Live now";
 "event_details" = "View details";
-"event_step_comp_title" = "Step Competition";
-"event_step_comp_date" = "1–14 Aug 2026";
-"event_step_comp_desc" = "Log the most steps over two weeks and climb the leaderboard. Every step on the trail counts.";
 "event_wbw_title" = "Walk Beyond the Wild";
 "event_wbw_date" = "16 Aug 2026";
 "event_wbw_desc" = "The main trail event. Walk the wild, check in at every base, and grow your tree to full bloom.";

@@ -23,6 +23,42 @@ final class SURunRemovalTests: XCTestCase {
             .sorted()
     }
 
+    /// การ์ด "แข่งนับก้าว" ต้องหายไปพร้อมฟีเจอร์
+    ///
+    /// การ์ดโฆษณาว่า "สะสมก้าวให้ได้มากที่สุด แล้วไต่อันดับกระดานผู้นำ" ซึ่งแอปทำไม่ได้แล้ว —
+    /// โฆษณาความสามารถที่ไม่มีคือเหตุตีกลับตรง ๆ ไม่ต่างจากปุ่มที่กดไม่ได้
+    func testTheStepCompetitionCardIsGoneToo() throws {
+        let view = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("WBW/ActivitiesView.swift"),
+            encoding: .utf8)
+        let code = view.components(separatedBy: .newlines)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+        XCTAssertFalse(code.contains("event_step_comp"),
+                       "การ์ดแข่งนับก้ายังอยู่ ทั้งที่แอปนับก้าวไม่ได้แล้ว")
+
+        for language in ["th", "en"] {
+            let table = try String(
+                contentsOf: Self.repoRoot
+                    .appendingPathComponent("WBW/\(language).lproj/Localizable.strings"),
+                encoding: .utf8)
+            XCTAssertFalse(table.contains("event_step_comp"),
+                           "\(language) ยังมีคีย์ของการ์ดที่ถอดไปแล้ว")
+        }
+    }
+
+    /// จอ QR เต็มจอถูกลบไปด้วย (โค้ดตาย ไม่มีใครอ้างถึง) แต่ **ตัวสร้าง QR ต้องอยู่ต่อ** —
+    /// หน้าบัตรผู้เข้าร่วมเรียกใช้จริง จึงถูกแยกออกมาเป็น `WBW/QRCode.swift`
+    func testQRGeneratorSurvivedTheScreenItLivedIn() throws {
+        let fm = FileManager.default
+        XCTAssertFalse(fm.fileExists(atPath:
+            Self.repoRoot.appendingPathComponent("WBW/MyQRCodeView.swift").path),
+            "MyQRCodeView ยังอยู่")
+        XCTAssertTrue(fm.fileExists(atPath:
+            Self.repoRoot.appendingPathComponent("WBW/QRCode.swift").path),
+            "ตัวสร้าง QR หายไปด้วย — หน้าบัตรผู้เข้าร่วมจะคอมไพล์ไม่ผ่าน")
+    }
+
     /// ไฟล์กับโฟลเดอร์ต้องไม่เหลืออยู่จริง ไม่ใช่แค่ไม่มีใครเรียก
     func testNoSURunFilesRemain() throws {
         for path in ["WBW/SURun", "WBW/SURunView.swift", "WBW/Resources/route_wbw.json"] {
