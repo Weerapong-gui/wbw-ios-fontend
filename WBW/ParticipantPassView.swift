@@ -80,25 +80,23 @@ struct ParticipantPassView: View {
 
     // MARK: - ปุ่มขอความช่วยเหลือ
 
-    /// **คำอธิบายจำเป็น ไม่ใช่ของประดับ** — วงกลมแดง 64pt ที่นั่งอยู่ใต้บัตรเฉย ๆ ไม่มีอะไรบอกว่า
-    /// คืออะไรและต้องกดยังไง · ตอนที่มันลอยเป็นปุ่มมุมจอ รูปทรงลอยเองบอกว่า "กดได้" อยู่แล้ว
-    /// พอมาอยู่ในสายเนื้อหา มันต้องมีป้ายของตัวเอง
+    /// ปุ่มยาวเท่าการ์ด ไม่ใช่วงกลมลอย — ความกว้างไม่ได้กำหนดที่นี่ ปุ่มยืดเต็ม `VStack`
+    /// ที่การ์ดอยู่ด้วยกัน จึงตรงขอบกับการ์ดเองโดยอัตโนมัติ
     ///
-    /// ตัวอักษรวางบนภาพพื้นหลังตรง ๆ จึงใช้ `wbwOnBackdrop` ไม่ใช่ `.secondary`
+    /// หัวข้ออยู่**บนปุ่ม** ไม่ใช่ใต้ปุ่ม — แถบแดงกว้างเต็มจอที่เขียนแค่ "SOS" แล้วมีบรรทัด
+    /// "ขอความช่วยเหลือฉุกเฉิน" ซ้ำอยู่ข้างใต้คือการพูดสองรอบ · เหลือแค่คำอธิบายวิธีกด
+    ///
+    /// คำอธิบายวางบนภาพพื้นหลังตรง ๆ จึงใช้ `wbwOnBackdropMuted` ไม่ใช่ `.secondary`
     /// (ดูกติกาที่ `Config.swift` หมวดตัวอักษรบนพื้นภาพ)
     private var sosSection: some View {
-        VStack(spacing: 10) {
-            SOSButton(store: sos, token: token, showStatus: $showSOSStatus)
-            Text("sos_pass_title")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.wbwOnBackdrop)
+        VStack(spacing: 8) {
+            SOSButton(store: sos, token: token, showStatus: $showSOSStatus, shape: .wide)
             Text("sos_pass_hint")
                 .font(.system(size: 12))
                 .foregroundStyle(Color.wbwOnBackdropMuted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
         .padding(.top, 4)
     }
 

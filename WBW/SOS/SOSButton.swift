@@ -31,7 +31,19 @@ struct SOSHoldProgress {
     }
 }
 
-/// ปุ่มสีแดง 64pt · กดค้าง วงแหวนวิ่งครบ 3 วิ แล้วเปิดจอสถานะทันที
+/// ทรงของปุ่ม — **ตรรกะกดค้างเหมือนกันทุกประการ ต่างกันแค่ชั้นการวาด**
+///
+/// มีสองทรงเพราะปุ่มนี้อยู่สองที่ที่ต้องการคนละอย่าง: ฝั่งเจ้าหน้าที่เป็นปุ่มลอยนอก `TabView`
+/// (ต้องกดได้ทันทีจากทุกแท็บ ดูคอมเมนต์ที่ `RootView`) ส่วนฝั่งผู้เข้าร่วมนั่งอยู่ในสายเนื้อหา
+/// ใต้การ์ดบัตร ซึ่งวงกลมเล็ก ๆ ลอยกลางที่ว่างไม่เข้าพวกกับอะไรบนหน้านั้นเลย
+enum SOSButtonShape {
+    /// ปุ่มลอย 64pt — **ค่าเริ่มต้น** จุดเรียกของเจ้าหน้าที่จึงไม่ต้องรู้เรื่องนี้เลย
+    case circle
+    /// เต็มความกว้างของที่ที่มันอยู่ (หน้าบัตร)
+    case wide
+}
+
+/// ปุ่มขอความช่วยเหลือ · กดค้างครบ 3 วิ แล้วเปิดจอสถานะทันที
 ///
 /// **อยู่สองที่ คนละโหมดกัน** — ฝั่งผู้เข้าร่วมอยู่ใต้การ์ดบัตรในแท็บ QR แท็บเดียว
 /// (`ParticipantPassView`) ฝั่งเจ้าหน้าที่อยู่ที่ `RootView`
@@ -58,6 +70,8 @@ struct SOSButton: View {
     /// แบบ async ยังไม่ทันได้รัน — ธงนี้จึงเป็นตัวกันจริงหนึ่งเดียวที่ตั้งแบบ synchronous ในบรรทัดเดียวกับ
     /// ที่เช็ค ไม่พึ่งจังหวะ re-render หรือจังหวะ Task ใดๆ เลย รีเซ็ตกลับ false เฉพาะตอนเริ่มกดค้างรอบใหม่
     @State private var firedThisHold = false
+    /// ดูคอมเมนต์ที่ `SOSButtonShape` — ค่าเริ่มต้นเป็นวงกลมเพื่อไม่ให้จุดเรียกเดิมต้องแก้
+    var shape: SOSButtonShape = .circle
 
     /// มีเคสเปิดอยู่จริงไหมตอนนี้ — ปิดไปแล้วหรือไม่มีเคสเลยไม่นับ กดใหม่ได้เสมอ (ดูคอมเมนต์ที่
     /// SOSStatus.isActive) เช็คสองจุด: (1) ตอนกดลง กันไม่ให้เริ่มนับถอยหลังใหม่ทับเคสที่เปิดอยู่
@@ -67,14 +81,14 @@ struct SOSButton: View {
     private var caseIsActive: Bool { store.status?.isActive ?? false }
 
     var body: some View {
-        ZStack {
-            Circle().fill(.red).frame(width: 64, height: 64)
-            Circle()
-                .trim(from: 0, to: model.progress)
-                .stroke(.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .frame(width: 58, height: 58)
-            Text("SOS").font(.headline.bold()).foregroundStyle(.white)
+        // ชั้นการวาดเลือกตามทรง · ทุก modifier ข้างล่างนี้ (ตัวขับเวลา ป้ายช่วยการเข้าถึง และ
+        // gesture) ต้องอยู่ชั้นนอกร่วมกันทั้งสองทรง ไม่ใช่เขียนซ้ำในแต่ละสาขา — ส่วนพวกนั้น
+        // คือส่วนที่ผิดแล้วเจ็บที่สุดของไฟล์นี้ (ดูคอมเมนต์ที่ `firedThisHold` กับ `caseIsActive`)
+        Group {
+            switch shape {
+            case .circle: circleBody
+            case .wide:   wideBody
+            }
         }
         .overlay {
             if pressing {
@@ -103,6 +117,49 @@ struct SOSButton: View {
                     model.release(at: Date().timeIntervalSince1970)
                 }
         )
+    }
+
+    private var circleBody: some View {
+        ZStack {
+            Circle().fill(.red).frame(width: 64, height: 64)
+            Circle()
+                .trim(from: 0, to: model.progress)
+                .stroke(.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: 58, height: 58)
+            Text("SOS").font(.headline.bold()).foregroundStyle(.white)
+        }
+    }
+
+    /// แคปซูลเต็มความกว้าง — ความกว้างมาจากที่ที่มันถูกวาง ไม่กำหนดเอง จึงตรงกับการ์ดบัตร
+    /// ที่อยู่ใน `VStack` เดียวกันโดยอัตโนมัติ
+    ///
+    /// ความคืบหน้าเป็น**แถบที่กวาดจากซ้ายไปขวา** ไม่ใช่วงแหวนรอบขอบ — `.trim` บนแคปซูลกว้าง
+    /// จะได้เส้นวิ่งรอบขอบซึ่งอ่านไม่ออกว่าไปถึงไหนแล้ว
+    private var wideBody: some View {
+        ZStack(alignment: .leading) {
+            Capsule().fill(.red)
+            // `GeometryReader` อยู่ใน `ZStack` ที่ถูกตรึงความสูงด้วย `.frame(height:)` ข้างล่าง
+            // แล้วเท่านั้น ไม่งั้นมันจะดันความสูงของปุ่มแทนที่จะเติมข้างใน
+            GeometryReader { geo in
+                Capsule()
+                    .fill(.white.opacity(0.28))
+                    .frame(width: geo.size.width * CGFloat(model.progress))
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "sos").font(.title3.bold())
+                Text(caseIsActive ? "sos_pass_active" : "sos_pass_title")
+                    .font(.system(size: 16, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+        }
+        .frame(height: 56)
+        .clipShape(Capsule())
+        // คลิปแล้วพื้นที่รับนิ้วต้องยังเต็มแคปซูล ไม่ใช่เฉพาะตรงที่มีสีวาดอยู่
+        .contentShape(Capsule())
     }
 
     private func tick(_ now: Date) {
