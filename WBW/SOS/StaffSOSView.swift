@@ -467,7 +467,10 @@ struct StaffSOSAlertView: View {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 26))
                             .foregroundStyle(.white.opacity(0.7))
+                            .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                            .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("action_close")
                 }
 
                 ScrollView {

@@ -76,6 +76,7 @@ struct GroupJoinView: View {
                     .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
                     .contentShape(Rectangle())
             }
+            .accessibilityLabel("action_back")
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("group_search_placeholder", text: $groups.search)

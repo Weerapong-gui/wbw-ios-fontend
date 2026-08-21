@@ -64,8 +64,10 @@ struct TicketView: View {
     private var topBar: some View {
         HStack {
             Button { dismiss() } label: { barIcon("chevron.left") }
+                .accessibilityLabel("action_back")
             Spacer()
             Button { showSettings = true } label: { barIcon("gearshape.fill") }
+                .accessibilityLabel("action_settings")
         }
         .padding(.top, 6)
     }
@@ -191,6 +193,7 @@ struct TicketView: View {
                 Image(uiImage: img)
                     .resizable().interpolation(.none).scaledToFit()
                     .frame(height: 60).frame(maxWidth: .infinity)
+                    .accessibilityLabel("profile_barcode_label")
             } else {
                 Rectangle().fill(Color(white: 0.9)).frame(height: 60)
             }
@@ -232,6 +235,7 @@ struct MedicalIdView: View {
                                 .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
                                 .contentShape(Rectangle())
                         }
+                        .accessibilityLabel("action_close")
                         Spacer()
                     }
                     Text("Medical ID")

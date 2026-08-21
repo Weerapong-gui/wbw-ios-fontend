@@ -203,6 +203,8 @@ struct GroupChatView: View {
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(Color.wbwGreen, in: Capsule())
                     .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+                    .frame(minHeight: Config.Tap.minTarget)
+                    .contentShape(Rectangle())
             }
             .padding(.bottom, 10)
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -229,6 +231,7 @@ struct GroupChatView: View {
                     .frame(width: 44, height: 44)
                     .background(Color.wbwGreen.opacity(empty ? 0.35 : 1), in: Circle())
             }
+            .accessibilityLabel("action_send")
             .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         .padding(.horizontal, 14).padding(.vertical, 8)

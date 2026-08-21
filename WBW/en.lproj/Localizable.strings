@@ -381,3 +381,13 @@
 "location_primer_body" = "Your location is used only while the app is open, for three things: placing you on the event map, measuring distance and pace once you start walking, and sending your position to staff when you press the emergency help button.";
 "location_primer_why_now" = "We ask now because there is no time to answer this during a real emergency. You can say no and still use SOS, but staff will only see the last base you checked in at.";
 "location_primer_later" = "Not now";
+
+/* VoiceOver labels for icon-only buttons */
+"login_show_password" = "Show password";
+"login_hide_password" = "Hide password";
+"action_settings" = "Settings";
+"action_logout" = "Sign out";
+"action_send" = "Send";
+"action_retry_send" = "Send this message again";
+"profile_barcode_label" = "Participant number barcode";
+"profile_qr_mine_label" = "My personal QR code for staff to scan";

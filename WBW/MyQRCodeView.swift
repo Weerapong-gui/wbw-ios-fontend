@@ -44,6 +44,9 @@ struct MyQRCodeView: View {
                     .padding(28)
                     .frame(width: 300, height: 300)
                     .background(.white, in: RoundedRectangle(cornerRadius: 24))
+                    // ทั้งจอมีของอยู่ชิ้นเดียว — ไม่มีป้ายแล้ว VoiceOver อ่านได้แค่ "รูปภาพ"
+                    // (ตัวเดียวกันที่ ParticipantPassView มีป้ายอยู่แล้ว ที่นี่ตกหล่น)
+                    .accessibilityLabel("profile_qr_mine_label")
             } else {
                 RoundedRectangle(cornerRadius: 24).fill(.white)
                     .frame(width: 300, height: 300)

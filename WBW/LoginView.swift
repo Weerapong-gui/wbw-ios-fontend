@@ -152,11 +152,16 @@ struct LoginView: View {
             .foregroundStyle(.white)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
+            // ไอคอนวาด 15pt ได้ แต่พื้นที่รับนิ้วต้องไม่ต่ำกว่า 44 (Config.Tap.minTarget) —
+            // ปุ่มนี้อยู่บนจอแรกที่ผู้รีวิว App Store เห็น และเป็นปุ่มเล็กที่สุดในแอปทั้งตัว
             Button { obscure.toggle() } label: {
                 Image(systemName: obscure ? "eye.slash" : "eye")
                     .foregroundStyle(.white.opacity(0.7))
                     .font(.system(size: 15))
+                    .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel(obscure ? "login_show_password" : "login_hide_password")
         }
         .glassCapsule()
     }

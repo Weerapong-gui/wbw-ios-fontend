@@ -97,6 +97,10 @@ struct GroupHomeView: View {
                         // (ขาสว่างของมันคือ #C0503A = 2.4:1) ปุ่มนี้ไม่มีพื้นของตัวเอง
                         Text(leaving ? "group_leaving" : "group_leave")
                             .font(.system(size: 15)).foregroundStyle(Color.wbwOnBackdropDanger)
+                            // `Text` เปล่าไม่มี padding ของตัวเอง พื้นที่รับนิ้วจึงสูงเท่าบรรทัด
+                            // ตัวอักษร (~20pt) — ขยายชั้นนอก ไม่ใช่ทำตัวอักษรให้ใหญ่ขึ้น
+                            .frame(minHeight: Config.Tap.minTarget)
+                            .contentShape(Rectangle())
                     }
                     .disabled(leaving)
                 }

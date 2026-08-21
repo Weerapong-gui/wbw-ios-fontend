@@ -278,6 +278,10 @@ struct Map3DScreen: View {
                         .font(.title2)
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.white.opacity(0.8))
+                        // ไอคอน 22pt ลอยอยู่บนแผนที่ที่ลากได้ — พลาดแล้วกลายเป็นการลากแผนที่แทน
+                        // ไม่ใช่แค่ "ไม่มีอะไรเกิดขึ้น"
+                        .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("action_close")

@@ -120,7 +120,10 @@ struct StaffScanView: View {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
+                    .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("action_logout")
         }
         .padding(.horizontal, 22)
         .padding(.top, 8)
@@ -136,6 +139,9 @@ struct StaffScanView: View {
                             .foregroundStyle(selected == cp.id ? Color.wbwForestVoid : .white)
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(selected == cp.id ? Color.wbwOnBackdrop : Color.white.opacity(0.12), in: Capsule())
+                            // ชิปวาดสูง ~32pt ตามดีไซน์ ขยายเฉพาะพื้นที่รับนิ้ว กราฟิกคงเดิม
+                            .frame(minHeight: Config.Tap.minTarget)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }

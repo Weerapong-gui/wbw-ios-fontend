@@ -154,6 +154,8 @@ struct FeedbackView: View {
                 .stroke(picked ? Color.wbwGreen : Color.wbwInk.opacity(0.14), lineWidth: 1))
         }
         .buttonStyle(.plain)
+        // ที่เลือกอยู่ต่างกันแค่สีพื้นกับสีเส้น — VoiceOver ไม่มีทางรู้ถ้าไม่บอก
+        .accessibilityAddTraits(picked ? .isSelected : [])
         .disabled(answered)
     }
 

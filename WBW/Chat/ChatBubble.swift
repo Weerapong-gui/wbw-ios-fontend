@@ -178,10 +178,15 @@ struct ChatBubble: View {
         case .pending: Image(systemName: "clock").font(.caption2)
                            .foregroundStyle(Color.wbwOnBackdropMuted)   // นอกฟอง
         case .sent:    EmptyView()      // สถานะ "ส่งแล้ว/อ่านแล้ว" ย้ายไปบรรทัดสรุปใต้ข้อความล่าสุด
+        // ปุ่มเดียวที่กู้ข้อความที่ส่งไม่ออกได้ และเป็นปุ่มที่เล็กที่สุดในแท็บแชท (~13pt)
         case .failed:  Button(action: onRetry) {
                            Image(systemName: "exclamationmark.circle.fill")
                                .font(.footnote).foregroundStyle(.red)
+                               .frame(width: Config.Tap.minTarget,
+                                      height: Config.Tap.minTarget)
+                               .contentShape(Rectangle())
                        }
+                       .accessibilityLabel("action_retry_send")
         }
     }
 }

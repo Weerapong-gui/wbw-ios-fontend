@@ -191,8 +191,13 @@ struct SettingsView: View {
                 .background {
                     if selected { Capsule().fill(Color.passSurface) }
                 }
+                // ชิปวาดสูง ~31pt ตามดีไซน์ — ขยายเฉพาะพื้นที่รับนิ้ว กราฟิกคงเดิม
+                .frame(minHeight: Config.Tap.minTarget)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // สีพื้นอย่างเดียวบอกไม่ได้ว่าอันไหนถูกเลือก — VoiceOver ต้องได้ยินด้วย
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     /// ภาษาที่เครื่องกำลังใช้กับแอปนี้ — อ่านจาก `preferredLocalizations` ไม่ใช่ `Locale.current`
@@ -221,6 +226,7 @@ struct SettingsView: View {
                     .stroke(Color.glassSheerBorder.opacity(selected ? 2.4 : 1), lineWidth: 1))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func toggleRow(_ titleKey: LocalizedStringKey, _ subtitleKey: LocalizedStringKey,
@@ -235,9 +241,13 @@ struct SettingsView: View {
                     .foregroundStyle(Color.wbwOnBackdropMuted)
             }
             Spacer(minLength: 8)
+            // `labelsHidden()` ซ่อนป้ายจาก VoiceOver ไปด้วย ไม่ใช่แค่จากสายตา — ตัวหนังสือ
+            // ข้างซ้ายเป็น `Text` คนละตัวใน HStack เดียวกัน ไม่ได้ผูกกับสวิตช์นี้เลย
+            // ผลคือ VoiceOver อ่านได้แค่ "สวิตช์ ปิด" สามครั้งติดกันโดยไม่รู้ว่าอะไรปิด
             Toggle("", isOn: isOn)
                 .labelsHidden()
                 .tint(Color.wbwGreen)
+                .accessibilityLabel(titleKey)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
