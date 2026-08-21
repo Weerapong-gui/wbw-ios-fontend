@@ -67,7 +67,7 @@
 "bloom_stage_5" = "บานเต็มที่";
 "home_stage_preview" = "ดูตัวอย่าง · %1$@";
 "home_bloom_hint" = "ดอกไม้ของคุณจะบานขึ้นอีกนิดทุกครั้งที่เช็คอินแต่ละฐาน";
-"home_stage_preview_hint" = "นี่คือตัวอย่างล่วงหน้า — แตะระดับของคุณเพื่อกลับ";
+"home_stage_preview_hint" = "นี่คือตัวอย่างล่วงหน้า แตะระดับของคุณเพื่อกลับ";
 "home_greeting" = "สวัสดี, %1$@";
 "home_weather_feels" = "รู้สึก %1$ld°";
 "home_air_aqi" = "AQI %1$ld";
@@ -135,7 +135,7 @@
 "event_step_comp_desc" = "สะสมก้าวให้ได้มากที่สุดในสองสัปดาห์ แล้วไต่อันดับกระดานผู้นำ ทุกก้าวบนเส้นทางมีความหมาย";
 "event_wbw_title" = "Walk Beyond the Wild";
 "event_wbw_date" = "16 ส.ค. 2569";
-"event_wbw_desc" = "อีเวนต์หลักของเส้นทาง — ออกเดินสำรวจธรรมชาติ เช็กอินทุกฐาน แล้วปลูกต้นไม้ของคุณให้เติบโตเต็มที่";
+"event_wbw_desc" = "อีเวนต์หลักของเส้นทาง ออกเดินสำรวจธรรมชาติ เช็กอินทุกฐาน แล้วปลูกต้นไม้ของคุณให้เติบโตเต็มที่";
 "coming_soon" = "เร็ว ๆ นี้";
 "coming_soon_desc" = "ส่วนนี้ของเส้นทางกำลังจัดทำอยู่";
 "notifications_subtitle" = "อัปเดตล่าสุดจากทีมงานเดินรอบดอย";
@@ -154,7 +154,7 @@
 "settings_theme_light" = "สว่าง";
 "settings_theme_dark" = "มืด";
 "settings_theme_auto" = "อัตโนมัติ";
-"settings_appearance_hint" = "อัตโนมัติจะปรับตามช่วงเวลาของกิจกรรม — สว่างตอนกลางวัน มืดตอนกลางคืน";
+"settings_appearance_hint" = "อัตโนมัติจะปรับตามช่วงเวลาของกิจกรรม สว่างตอนกลางวัน มืดตอนกลางคืน";
 "settings_notifications" = "การแจ้งเตือน";
 "settings_noti_announcements" = "ประกาศ";
 "settings_noti_announcements_desc" = "ประกาศของกิจกรรม";
@@ -197,7 +197,7 @@
 "error_load_checkpoints" = "โหลดข้อมูลฐานไม่สำเร็จ";
 "lang_code" = "th";
 "settings_credits" = "เครดิตและสัญญาอนุญาต";
-"credits_body" = "ข้อมูลแผนที่\nแผนที่ 3 มิติของพื้นที่งานสร้างจากภาพถ่ายดาวเทียม Satlas ของ Allen Institute for AI ส่วนอาคาร ถนน และแหล่งน้ำมาจาก OpenStreetMap\n\nSatlas · Allen Institute for AI\n© OpenStreetMap contributors\nopenstreetmap.org/copyright\n\nโมเดล 3 มิติ\nต้นไม้โดย Poly by Google · ภูเขาหิมะโดย Matthew Creighton · ภูเขาโดย jeremy · เนินหิมะโดย Nebel · พงหญ้าโดย Jarlan Perez — สัญญาอนุญาต CC BY 4.0 ผ่าน poly.pizza\nก้อนหินโดย Quaternius และป้ายบอกทางโดย Kenney — CC0";
+"credits_body" = "ข้อมูลแผนที่\nแผนที่ 3 มิติของพื้นที่งานสร้างจากภาพถ่ายดาวเทียม Satlas ของ Allen Institute for AI ส่วนอาคาร ถนน และแหล่งน้ำมาจาก OpenStreetMap\n\nSatlas · Allen Institute for AI\n© OpenStreetMap contributors\nopenstreetmap.org/copyright\n\nโมเดล 3 มิติ\nต้นไม้โดย Poly by Google · ภูเขาหิมะโดย Matthew Creighton · ภูเขาโดย jeremy · เนินหิมะโดย Nebel · พงหญ้าโดย Jarlan Perez\nสัญญาอนุญาต CC BY 4.0 ผ่าน poly.pizza\nก้อนหินโดย Quaternius และป้ายบอกทางโดย Kenney\nสัญญาอนุญาต CC0";
 
 
 /* ข้อผิดพลาดจาก APIClient — ขึ้นเป็นข้อความในกล่องเตือน ไม่ใช่ log */
@@ -246,7 +246,7 @@
 "group_quota_remaining" = "สิทธิ์ออกจากกลุ่มคงเหลือ %1$lld ครั้ง";
 "group_quota_none" = "สิทธิ์ออกจากกลุ่มของท่านหมดแล้ว";
 "chat_members_count" = "สมาชิก %1$lld คน";
-"chat_offline_queued" = "ออฟไลน์ — ข้อความจะส่งเมื่อกลับมามีสัญญาณ";
+"chat_offline_queued" = "ออฟไลน์อยู่ ข้อความจะส่งเมื่อกลับมามีสัญญาณ";
 "chat_new_messages" = "ข้อความใหม่";
 "chat_new_messages_count" = "ข้อความใหม่ %1$lld";
 "chat_message" = "ข้อความ";
@@ -270,7 +270,7 @@
 "walk_route_title" = "เส้นทางเดินรอบดอย";
 "walk_stat_time" = "เวลา";
 "walk_pace_unit" = "นาที/กม.";
-"walk_no_location" = "ยังไม่ได้ให้สิทธิ์ตำแหน่ง — ดูเส้นทางได้ แต่จับระยะไม่ได้";
+"walk_no_location" = "ยังไม่ได้ให้สิทธิ์ตำแหน่ง ดูเส้นทางได้ แต่จับระยะไม่ได้";
 "walk_tracking" = "กำลังจับระยะ · นับเฉพาะตอนเปิดแอปอยู่";
 "scan_title" = "สแกนเช็คอิน";
 "scan_role_staff" = "เจ้าหน้าที่";

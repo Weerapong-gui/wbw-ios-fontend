@@ -90,6 +90,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestProfile` | flag | เปิดหน้าโปรไฟล์ตรงๆ (จาก Home) | แท็บ Home ต้องขึ้นก่อน (index 0 — ค่าเริ่มต้นของ `-uitestTab` อยู่แล้วถ้าไม่ส่งอย่างอื่นมาทับ) |
 | `-uitestMedical` | flag | เปิดหน้าข้อมูลการแพทย์ตรงๆ (จาก Ticket) | `-uitestProfile` |
 | `-uitestSettings` | flag | เปิดหน้าตั้งค่าตรงๆ (จาก Ticket) | `-uitestProfile` |
+| `-uitestCredits` | flag | เปิดหน้าเครดิต/สัญญาอนุญาตตรงๆ (จากหน้าตั้งค่า) — หน้านี้เป็นเงื่อนไขสัญญาอนุญาต ต้องถ่ายให้เห็นจริงได้ | `-uitestProfile` + `-uitestSettings` |
 | `-uitestMapHeading <องศา>` | int | ทับมุมกล้อง yaw ของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
 | `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว (ปิด intro ไปด้วย) | `-uitestTab 1` |
 | `-uitestMapDistance <ร้อยเท่า>` | int | ทับระยะกล้อง — `80` = 0.8 (ซูมเข้าสุด), `400` = 4.0 (ออกสุด) | `-uitestTab 1` |

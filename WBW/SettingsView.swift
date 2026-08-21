@@ -12,6 +12,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
     @State private var showLogoutConfirm = false
+    @State private var showCredits = false
 
     var body: some View {
         ScrollView {
@@ -127,6 +128,15 @@ struct SettingsView: View {
                             titleVisibility: .visible) {
             Button("settings_logout", role: .destructive) { session.logout() }
             Button("settings_logout_cancel", role: .cancel) {}
+        }
+        // เปิดหน้าเครดิตตรงๆ เพื่อถ่ายภาพยืนยัน — ทรงเดียวกับ `-uitestSettings` ที่ `TicketView`
+        // (เครื่องนี้ไม่มีตัวกดจอ) · หน้านี้เป็นเงื่อนไขสัญญาอนุญาต จึงต้องมีทางถ่ายให้เห็นจริง
+        // ไม่ใช่เชื่อว่าเทสเนื้อหาผ่านแล้วแปลว่าเรนเดอร์ถูก
+        .navigationDestination(isPresented: $showCredits) { CreditsView() }
+        .task {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "uitestCredits") { showCredits = true }
+            #endif
         }
         // ต่อสวิตช์ประกาศกับการลงทะเบียนจริง — ปิดแล้วต้องปิดจริง ไม่ใช่แค่จำค่าไว้
         .onChange(of: settings.notiEnabled) { _, on in

@@ -68,7 +68,7 @@
 "bloom_stage_5" = "Full bloom";
 "home_stage_preview" = "Preview · %1$@";
 "home_bloom_hint" = "Your flower opens a little further at every base you check in at";
-"home_stage_preview_hint" = "A look ahead — tap your own stage to go back";
+"home_stage_preview_hint" = "A look ahead. Tap your own stage to go back";
 "home_greeting" = "Hi, %1$@";
 "role_participant" = "Participant";
 "home_weather_feels" = "Feels %1$ld°";
@@ -136,7 +136,7 @@
 "event_step_comp_desc" = "Log the most steps over two weeks and climb the leaderboard. Every step on the trail counts.";
 "event_wbw_title" = "Walk Beyond the Wild";
 "event_wbw_date" = "16 Aug 2026";
-"event_wbw_desc" = "The main trail event — walk the wild, check in at every base, and grow your tree to full bloom.";
+"event_wbw_desc" = "The main trail event. Walk the wild, check in at every base, and grow your tree to full bloom.";
 "coming_soon" = "Coming soon";
 "coming_soon_desc" = "This part of the trail is still being built.";
 "notifications_subtitle" = "The latest from the trail team";
@@ -155,7 +155,7 @@
 "settings_theme_light" = "Light";
 "settings_theme_dark" = "Dark";
 "settings_theme_auto" = "Auto";
-"settings_appearance_hint" = "Auto follows the event’s day cycle — light by day, dark at night";
+"settings_appearance_hint" = "Auto follows the event’s day cycle. Light by day, dark at night";
 "settings_notifications" = "NOTIFICATIONS";
 "settings_noti_announcements" = "Announcements";
 "settings_noti_announcements_desc" = "event announcements";
@@ -193,11 +193,11 @@
 "settings_logout_cancel" = "Cancel";
 "home_greeting_thai" = "Hi, %1$@";
 "about_event_body" = "Walk Beyond the Wild is the MFU Student Union hiking-trail event. Walk the 8.36 km route around the doi, check in at every base, and grow your flower to full bloom.\n\nDate: 29 August 2026\nStart: Thong Chai Lawn";
-"help_contact_body" = "How do I sign in?\nUse the student ID and password you registered with.\n\nHow do I check in at a base?\nShow your pass QR to a marshal, or give them your bib number.\n\nSomething is wrong\nFind a marshal in an orange vest — every base has a first-aid kit.";
+"help_contact_body" = "How do I sign in?\nUse the student ID and password you registered with.\n\nHow do I check in at a base?\nShow your pass QR to a marshal, or give them your bib number.\n\nSomething is wrong\nFind a marshal in an orange vest. Every base has a first-aid kit.";
 "error_load_checkpoints" = "Could not load the bases";
 "lang_code" = "en";
 "settings_credits" = "Credits & licences";
-"credits_body" = "Map data\nThe 3D map of the event area is built from Satlas satellite imagery by the Allen Institute for AI. Its buildings, roads and water come from OpenStreetMap.\n\nSatlas · Allen Institute for AI\n© OpenStreetMap contributors\nopenstreetmap.org/copyright\n\n3D models\nTree by Poly by Google, Mountain with Snow by Matthew Creighton, Mountain by jeremy, Snowy Hills by Nebel and Grass Patch 01 by Jarlan Perez — CC BY 4.0, via poly.pizza.\nRocks by Quaternius and Signpost by Kenney — CC0.";
+"credits_body" = "Map data\nThe 3D map of the event area is built from Satlas satellite imagery by the Allen Institute for AI. Its buildings, roads and water come from OpenStreetMap.\n\nSatlas · Allen Institute for AI\n© OpenStreetMap contributors\nopenstreetmap.org/copyright\n\n3D models\nTree by Poly by Google, Mountain with Snow by Matthew Creighton, Mountain by jeremy, Snowy Hills by Nebel and Grass Patch 01 by Jarlan Perez.\nLicensed CC BY 4.0, via poly.pizza.\nRocks by Quaternius and Signpost by Kenney.\nLicensed CC0.";
 
 
 /* ข้อผิดพลาดจาก APIClient — ขึ้นเป็นข้อความในกล่องเตือน ไม่ใช่ log */
@@ -218,7 +218,7 @@
 "error_leave_failed" = "Couldn’t leave the group";
 "error_send_failed" = "Message not sent";
 "error_feedback_failed" = "Couldn’t send your feedback";
-"error_server_busy" = "The server is busy — try again in a moment";
+"error_server_busy" = "The server is busy. Try again in a moment";
 "error_demo_no_checkin" = "Check-in isn’t available in demo mode";
 "error_not_in_group" = "You are no longer in this group";
 
@@ -239,14 +239,14 @@
 "group_leave" = "Leave group";
 "group_leave_confirm" = "Leave group %1$lld?";
 "group_quota_join_left" = "Join group %1$lld and you will still have %2$lld group changes left";
-"group_quota_join_none" = "You have no group changes left — join group %1$lld and you cannot change again";
-"group_quota_leave_none" = "You have no group changes left — you cannot leave group %1$lld";
-"group_quota_leave_last" = "Leaving group %1$lld spends your last change — you may pick one more group, and then you stay in it";
+"group_quota_join_none" = "You have no group changes left. Join group %1$lld and you cannot change again";
+"group_quota_leave_none" = "You have no group changes left. You cannot leave group %1$lld";
+"group_quota_leave_last" = "Leaving group %1$lld spends your last change. You may pick one more group, and then you stay in it";
 "group_quota_leave_left" = "After leaving group %1$lld you will have %2$lld group changes left";
 "group_quota_remaining" = "%1$lld group changes left";
 "group_quota_none" = "No group changes left";
 "chat_members_count" = "%1$lld in this group";
-"chat_offline_queued" = "Offline — messages will send when you are back in range";
+"chat_offline_queued" = "Offline. Messages will send when you are back in range";
 "chat_new_messages" = "New messages";
 "chat_new_messages_count" = "New messages %1$lld";
 "chat_message" = "Message";
@@ -261,7 +261,7 @@
 
 /* หน้าที่เหลือ: ล็อกอิน · ประกาศ · เดิน · สแกน · แผนที่ · ความเห็น */
 "login_demo_title" = "Try the app (Demo)";
-"login_demo_desc" = "Walk through every screen with sample data — no account needed";
+"login_demo_desc" = "Walk through every screen with sample data. No account needed";
 "login_missing_fields" = "Enter your student ID and password";
 "notifications_empty_desc" = "Announcements from the trail team will appear here";
 "action_done" = "Done";
@@ -270,7 +270,7 @@
 "walk_route_title" = "The trail around the doi";
 "walk_stat_time" = "Time";
 "walk_pace_unit" = "min/km";
-"walk_no_location" = "Location access is off — you can see the route but distance will not be tracked";
+"walk_no_location" = "Location access is off. You can see the route but distance will not be tracked";
 "walk_tracking" = "Tracking · counts only while the app is open";
 "scan_title" = "Check-in scanner";
 "scan_role_staff" = "Staff";
@@ -278,7 +278,7 @@
 "scan_action_checkin" = "Check in";
 "scan_already_checked_in" = "Already checked in at this base";
 "scan_checked_in" = "Checked in";
-"scan_medical_warning" = "Has medical information — take care";
+"scan_medical_warning" = "Has medical information. Take care";
 "scan_next" = "Scan the next person";
 "map_base_number" = "Base %1$lld";
 "map_disabled" = "The 3D map is off for now";
@@ -287,7 +287,7 @@
 "map_reset_camera" = "Back to the starting view";
 "map_tap_pin_hint" = "Tap a red pin to see the base";
 "map_not_checked_in" = "Not checked in";
-"bloom_chip_label" = "%1$@ — stage %2$lld of %3$lld";
+"bloom_chip_label" = "%1$@, stage %2$lld of %3$lld";
 "checkin_toast_title" = "Checked in at %1$@";
 "checkin_toast_more" = "Tap to rate this base · %1$lld more bases to rate";
 "checkin_toast_rate" = "Tap to rate this base";
@@ -298,9 +298,9 @@
 "feedback_like" = "Liked it";
 "feedback_note_hint" = "Tell us about it… (optional)";
 "feedback_named" = "The team can see who answered";
-"feedback_thanks" = "Feedback sent — thank you";
+"feedback_thanks" = "Feedback sent. Thank you";
 "feedback_send" = "Send feedback";
-"feedback_not_checked_in" = "The server says you have not checked in at this base (this should not happen) — close the form and open it again";
-"feedback_send_failed" = "Not sent — try again";
+"feedback_not_checked_in" = "The server says you have not checked in at this base (this should not happen). Close the form and open it again";
+"feedback_send_failed" = "Not sent. Try again";
 "walk_distance_m_short" = "%1$lld m";
 "credits_3d_models" = "3D models: see WBW/Resources/models/CREDITS.md · CC BY";
