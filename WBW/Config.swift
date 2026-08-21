@@ -58,6 +58,15 @@ enum Config {
     /// allow-list ของ `updateSceneGate()` หรือหาทางให้มันวาดภาพแทนตอนถูกกด
     static let forest3D = false
 
+    /// พื้นที่กดขั้นต่ำตาม Human Interface Guidelines — **44×44 pt ไม่ใช่ขนาดที่ตาเห็น**
+    ///
+    /// ปุ่มวาดเล็กกว่านี้ได้ (ปุ่มกลม 40pt ในดีไซน์ยังเป็น 40pt) แต่พื้นที่รับนิ้วต้องไม่ต่ำกว่า 44
+    /// — ขยายด้วย `.frame(minWidth:minHeight:)` ชั้นนอก หรือ `.contentShape` ไม่ใช่ด้วยการ
+    /// ทำให้กราฟิกใหญ่ขึ้น · App Review ยกข้อนี้ประกอบ Guideline 4.0 ได้
+    enum Tap {
+        static let minTarget: CGFloat = 44
+    }
+
     /// โมเดลแผนที่ 3D ที่แท็บ Map — ปิดได้ด้วยค่าเดียวนี้ถ้าเครื่องรับไม่ไหว
     ///
     /// ปิด = แท็บ Map โชว์การ์ดข้อความแทน ไม่โหลด map.usdz เลยสักครั้ง (ดู Map3DScreen.shouldRender)

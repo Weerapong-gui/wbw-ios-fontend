@@ -24,6 +24,12 @@ struct RootView: View {
 
     // staff/admin → หน้าสแกนเช็คอิน · participant → home ปกติ
     private var isStaff: Bool {
+        #if DEBUG
+        // จอเจ้าหน้าที่อยู่หลังบัญชี staff จริงซึ่งโหมดเดโม่ไม่ครอบ และ `-uitestToken` ปลอม
+        // ก็ไปไม่ถึงเพราะ backend ตอบ 401 แล้วเด้งกลับหน้าล็อกอิน — ไม่มีทางถ่ายจอนี้ได้เลย
+        // ถ้าไม่มีแฟลก · ทรงเดียวกับ `-uitestCredits`/`-uitestGroupMembers`
+        if UserDefaults.standard.bool(forKey: "uitestStaffScreen") { return true }
+        #endif
         let role = session.user?.role
         return role == "staff" || role == "admin"
     }
