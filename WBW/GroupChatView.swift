@@ -199,9 +199,9 @@ struct GroupChatView: View {
             Button { scrollToBottom(proxy) } label: {
                 Label(String(format: Loc.t("chat_new_messages_count"), newBelow), systemImage: "arrow.down")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.wbwOnGreen)
                     .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(Color.wbwGold, in: Capsule())
+                    .background(Color.wbwGreen, in: Capsule())
                     .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
             }
             .padding(.bottom, 10)
@@ -219,11 +219,15 @@ struct GroupChatView: View {
                 .padding(.horizontal, 16).padding(.vertical, 10)
                 .background(Color.wbwSurface,
                             in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            // ปิดกับเปิดเป็นปุ่มเดียวกันคนละสถานะ ไม่ใช่คนละปุ่ม — ของเดิมสลับเป็น `Color.gray`
+            // ตอนปิด ซึ่งได้ 2.8:1 กับตัวไอคอนขาว **ทั้งสองธีม** ไม่ใช่แค่ตอนเปิด
             Button { send() } label: {
+                let empty = draft.trimmingCharacters(in: .whitespaces).isEmpty
                 Image(systemName: "paperplane.fill")
-                    .font(.body.weight(.semibold)).foregroundStyle(.white)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.wbwOnGreen.opacity(empty ? 0.5 : 1))
                     .frame(width: 44, height: 44)
-                    .background(draft.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray : Color.wbwGold, in: Circle())
+                    .background(Color.wbwGreen.opacity(empty ? 0.35 : 1), in: Circle())
             }
             .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
         }

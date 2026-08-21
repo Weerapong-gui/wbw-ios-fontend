@@ -148,7 +148,10 @@ struct ChatBubble: View {
             VStack(alignment: .trailing, spacing: 2) { messageText; time }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(isMine ? Color.wbwGold : Color.wbwSurface,
+        // ฟองฝั่งเราเป็นเขียวสถานะ ไม่ใช่ `wbwGold` — ตัวนั้นเป็น alias ของ `wbwAccent`
+        // (#E9EEE0 ในโหมดมืด) คู่กับตัวอักษร `.white` ตายตัวจากยุคที่มันยังเป็นสีทอง = ขาวบนขาว
+        // ฝั่งเขาคง `wbwSurface` + `wbwInk` ไว้ คู่นั้นจับคู่กันเองอยู่แล้วทั้งสองธีม
+        .background(isMine ? Color.wbwGreen : Color.wbwSurface,
                     in: ChatBubbleShape(isMine: isMine,
                                         isFirstInGroup: layout.isFirstInGroup,
                                         isLastInGroup: layout.isLastInGroup))
@@ -157,14 +160,16 @@ struct ChatBubble: View {
     private var messageText: some View {
         Text(message.body)
             .font(.body)
-            .foregroundStyle(isMine ? .white : Color.wbwInk)
+            .foregroundStyle(isMine ? Color.wbwOnGreen : Color.wbwInk)
     }
 
     @ViewBuilder private var time: some View {
         if layout.showTime {
             Text(ChatFormat.time(message.displayTime))
                 .font(.caption2)
-                .foregroundStyle(isMine ? .white.opacity(0.7) : .secondary)
+                // ฝั่งเขาคง `.secondary` ได้ — เวลาตัวนี้อยู่**ใน**ฟองที่มีพื้น `wbwSurface`
+                // ต่างจากเวลาที่เผยตอนปัดซ้ายซึ่งอยู่นอกฟอง
+                .foregroundStyle(isMine ? Color.wbwOnGreen.opacity(0.7) : .secondary)
         }
     }
 

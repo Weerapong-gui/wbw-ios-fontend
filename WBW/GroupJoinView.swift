@@ -134,8 +134,12 @@ private struct GroupCard: View {
             NavigationLink { GroupMembersView(groupId: group.groupId, groupNumber: group.groupNumber) } label: {
                 HStack(spacing: 12) {
                     ZStack {
-                        Circle().fill(Color.wbwGold.opacity(0.15)).frame(width: 46, height: 46)
-                        Text("\(group.groupNumber)").font(.system(size: 18, weight: .heavy)).foregroundStyle(Color.wbwGold)
+                        // `wbwAccent` ไม่ใช่ `wbwGold` — ค่าเท่ากันเป๊ะ (ตัวหลังเป็น alias) แต่ชื่อเดิม
+                        // ถูกประกาศไว้ใน `Config.swift` ว่าโค้ดใหม่ห้ามใช้ · วงนี้อยู่บนการ์ดทึบ
+                        // ที่มี ink ของตัวเอง จึงอ่านออกทั้งสองธีมอยู่แล้ว ไม่ต้องเปลี่ยนสี
+                        Circle().fill(Color.wbwAccent.opacity(0.15)).frame(width: 46, height: 46)
+                        Text("\(group.groupNumber)").font(.system(size: 18, weight: .heavy))
+                            .foregroundStyle(Color.wbwAccent)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text(String(format: Loc.t("group_number"), group.groupNumber)).font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.wbwInk)
@@ -150,15 +154,25 @@ private struct GroupCard: View {
             }
             .buttonStyle(.plain)
 
-            // ปุ่มเข้ากลุ่ม
+            // ปุ่มเข้ากลุ่ม — ทึบเทาเข้ม ตัวหนังสือสีอ่อน คงที่ทั้งสองธีม
+            //
+            // ของเดิมคือ `wbwGold` + `.white` ซึ่งเขียนไว้ตอน `wbwGold` ยังเป็นสีทองจริง
+            // ตอนนี้มันเป็น alias ของ `wbwAccent` = #E9EEE0 ในโหมดมืด = **ขาวบนขาว**
+            //
+            // เส้นขอบผมไม่ใช่ของประดับ: ในโหมดมืด `wbwSolid` (#2F3B2B) ต่างจากการ์ด
+            // `wbwSurface` (#1A2318) แค่ราว 1.3:1 เส้นขอบคือสิ่งที่บอกว่าตรงนี้มีปุ่มอยู่
+            // (ท่าเดียวกับทุกแผ่นใน `GlassSurface.swift`)
             Button(action: onJoin) {
                 Group {
-                    if joining { ProgressView().tint(.white) }
+                    if joining { ProgressView().tint(Color.wbwOnBackdrop) }
                     else { Text(group.isFull ? "group_full" : "group_join").font(.system(size: 13, weight: .semibold)) }
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(group.isFull ? Color.wbwOnBackdropMuted : Color.wbwOnBackdrop)
                 .frame(width: 74, height: 34)
-                .background(group.isFull ? Color.gray : Color.wbwGold, in: Capsule())
+                // พื้นทึบเต็มทั้งสองสถานะ หรี่แค่ตัวอักษร — ลดความทึบของพื้นแล้วสีการ์ดจะซึมขึ้นมา
+                // ผสม ทำให้ตัวอักษร muted บนการ์ดสีอ่อนในโหมดสว่างจางจนอ่านไม่ออก (ถ่ายเจอจริง)
+                .background(Color.wbwSolid, in: Capsule())
+                .overlay(Capsule().stroke(Color.glassSheerBorder, lineWidth: 1))
             }
             .disabled(group.isFull || joining)
         }
