@@ -223,12 +223,12 @@ struct StaffSOSCard: View {
             }
             Text(c.fullName).font(.title3.bold())
             Text("BIB \(c.bib.map(String.init) ?? "-") · กลุ่ม \(c.groupNumber.map(String.init) ?? "-")")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.wbwForestVoid.opacity(0.65))
 
             Text(c.checkpointName.map { "ใกล้\($0)" } ?? "ไม่ทราบฐาน")
             Text("\(c.positionLabel) · \(c.accuracyLabel)")
                 .font(.caption)
-                .foregroundStyle(c.isCoarse ? .orange : .secondary)
+                .foregroundStyle(c.isCoarse ? Color.orange : Color.wbwForestVoid.opacity(0.65))
             if c.isCoarse {
                 Text("พิกัดหยาบ อย่าเชื่อฐานที่ระบบเดา")
                     .font(.caption).foregroundStyle(.orange)
@@ -254,7 +254,8 @@ struct StaffSOSCard: View {
             }
 
             if c.resolved {
-                Label("ปิดแล้ว", systemImage: "flag.checkered").foregroundStyle(.secondary)
+                Label("ปิดแล้ว", systemImage: "flag.checkered")
+                    .foregroundStyle(Color.wbwForestVoid.opacity(0.65))
             } else if let by = c.ackedByName {
                 // เคสถูกรับไปแล้วโดยใครสักคน (อาจเป็นเจ้าหน้าที่คนอื่นที่กดก่อน) — โชว์ชื่อคนรับแทนปุ่ม
                 // "กำลังไป" เสมอ ไม่ใช่แค่ตอนที่เรากดเอง จุดนี้เองที่กันเคสถูก ack ซ้ำสอง: พอ ackedByName
@@ -291,6 +292,11 @@ struct StaffSOSCard: View {
         .padding()
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        // พื้นการ์ดขาวตายตัว ตัวอักษรจึงต้องตายตัวด้วย — ค่าปริยาย `.primary` พลิกเป็นขาว
+        // ในโหมดมืด แล้วทั้งการ์ดกลายเป็นขาวบนขาว · `.tint` ด้วยเพราะปุ่มกับ `Link` บนการ์ดนี้
+        // รับสีจาก tint ที่ตกทอดมา ซึ่งเป็น `wbwGold` (= #E9EEE0 ในโหมดมืด) จากแถบแท็บ
+        .foregroundStyle(Color.wbwForestVoid)
+        .tint(Color.wbwForestVoid)
     }
 
     /// ล้อม busy รอบคำสั่งเดียว — ทุกปุ่มบนการ์ดนี้ผ่านทางนี้ทางเดียว จะได้ไม่มีปุ่มไหนลืม
@@ -312,7 +318,10 @@ struct StaffSOSView: View {
 
     var body: some View {
         ZStack {
-            Color.wbwInk.ignoresSafeArea()
+            // **พื้นตายตัว ไม่ใช่ `wbwInk`** — `wbwInk` พลิกเป็น #E9EEE0 ในโหมดมืด (ค่าปริยาย
+            // ของแอป) ขณะที่จอนี้เขียนตัวอักษรเป็น `.white` ตายตัว = ขาวบนขาวทั้งจอ
+            // อาการเดียวกับที่เจอใน `StaffScanView` (แก้ 2026-08-21)
+            Color.wbwForestVoid.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
                 // ฟีดพังต้องเห็น ไม่ใช่ปล่อยให้จอโชว์ชุดเก่าค้างไว้แล้วดูปกติดี (ดูคอมเมนต์ยาวที่
@@ -390,7 +399,10 @@ struct StaffSOSAlertView: View {
 
     var body: some View {
         ZStack {
-            Color.wbwInk.ignoresSafeArea()
+            // **พื้นตายตัว ไม่ใช่ `wbwInk`** — `wbwInk` พลิกเป็น #E9EEE0 ในโหมดมืด (ค่าปริยาย
+            // ของแอป) ขณะที่จอนี้เขียนตัวอักษรเป็น `.white` ตายตัว = ขาวบนขาวทั้งจอ
+            // อาการเดียวกับที่เจอใน `StaffScanView` (แก้ 2026-08-21)
+            Color.wbwForestVoid.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Label("มีเหตุฉุกเฉินใหม่", systemImage: "sos")

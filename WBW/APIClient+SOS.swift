@@ -42,6 +42,8 @@ extension APIClient {
     /// ทุก error ออกทาง AppError.retryable หรือ .offline เท่านั้น ไม่มีทางออกอื่น
     /// ผู้เรียก (SOSStore) จึงไม่มีเส้นทางไหนเลยที่จะลบเคสทิ้ง
     func raiseSOS(token: String, draft: SOSDraft) async throws -> SOSCase {
+        // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
+        if DemoMode.active { return await MainActor.run { DemoSOS.raise(draft) } }
         guard let url = URL(string: "\(Config.apiBase)/me/sos") else {
             throw AppError.retryable("URL ไม่ถูกต้อง")
         }
@@ -86,6 +88,8 @@ extension APIClient {
     enum SOSCancelOutcome: Equatable { case canceled, alreadyAcked, tooLate }
 
     func cancelSOS(token: String, id: Int64) async throws -> SOSCancelOutcome {
+        // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
+        if DemoMode.active { return await MainActor.run { DemoSOS.cancel() } }
         guard let url = URL(string: "\(Config.apiBase)/me/sos/\(id)/cancel") else {
             throw AppError.retryable("URL ไม่ถูกต้อง")
         }
@@ -171,6 +175,8 @@ extension APIClient {
     /// timeoutInterval ตั้งเป็น wait + 10 — ค่าเริ่มต้น 60 วิของ URLSession ยาวกว่า
     /// long-poll 25 วิอยู่แล้วก็จริง แต่ผูกไว้ให้ชัดกันคนเพิ่ม wait แล้วลืมแก้ฝั่งนี้
     func activeSOS(token: String, wait: Int) async throws -> SOSCase? {
+        // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
+        if DemoMode.active { return await MainActor.run { DemoSOS.active() } }
         guard let url = URL(string: "\(Config.apiBase)/me/sos/active?wait=\(wait)") else {
             throw AppError.retryable("URL ไม่ถูกต้อง")
         }
@@ -197,7 +203,14 @@ extension APIClient {
 
     /// เคสหนึ่งอัน สำหรับเพื่อนในกลุ่ม · 404 = ไม่ใช่กลุ่มเรา
     func sosCase(token: String, id: Int64) async throws -> SOSCase {
-        try await getSOSDecoded("/me/sos/\(id)", token: token, SOSCase.self)
+        // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
+        if DemoMode.active {
+            guard let c = await MainActor.run(body: { DemoSOS.active() }), c.id == id else {
+                throw AppError.retryable(Loc.t("error_network_short"))
+            }
+            return c
+        }
+        return try await getSOSDecoded("/me/sos/\(id)", token: token, SOSCase.self)
     }
 
     /// อักขระที่ปลอดภัยจริงในค่าของ query parameter หนึ่งตัว
@@ -217,6 +230,9 @@ extension APIClient {
     }()
 
     func staffSOSFeed(token: String, since: String?, wait: Int) async throws -> [SOSStaffCase] {
+        // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
+        // เจ้าหน้าที่ไม่มีในโหมดเดโม่ (DemoMode เป็น participant เสมอ) — ฟีดว่างคือคำตอบที่ถูก
+        if DemoMode.active { return [] }
         var path = "/staff/sos?wait=\(wait)"
         if let since,
            let esc = since.addingPercentEncoding(withAllowedCharacters: Self.sosQueryValueAllowed) {
@@ -241,12 +257,16 @@ extension APIClient {
 
     @discardableResult
     func ackSOS(token: String, id: Int64) async throws -> Bool {
-        try await postSOSAction("/staff/sos/\(id)/ack", token: token, body: nil)
+        // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
+        if DemoMode.active { return true }
+        return try await postSOSAction("/staff/sos/\(id)/ack", token: token, body: nil)
     }
 
     @discardableResult
     func resolveSOS(token: String, id: Int64, reason: String) async throws -> Bool {
-        try await postSOSAction("/staff/sos/\(id)/resolve", token: token, body: ["reason": reason])
+        // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
+        if DemoMode.active { return true }
+        return try await postSOSAction("/staff/sos/\(id)/resolve", token: token, body: ["reason": reason])
     }
 
     private func postSOSAction(_ path: String, token: String, body: [String: Any]?) async throws -> Bool {

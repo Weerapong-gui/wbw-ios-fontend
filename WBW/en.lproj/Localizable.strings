@@ -285,6 +285,7 @@
 "scan_camera_denied" = "The app does not have camera access, so QR scanning is off. Turn it on in Settings, or check people in with their BIB number below.";
 "scan_camera_missing" = "No camera on this device. Check people in with their BIB number below.";
 "scan_open_settings" = "Open Settings";
+"demo_sos_checkpoint" = "Wat Phrachao Lanthong (demo)";
 "map_base_number" = "Base %1$lld";
 "map_disabled" = "The 3D map is off for now";
 "map_failed" = "Couldn’t open the map";

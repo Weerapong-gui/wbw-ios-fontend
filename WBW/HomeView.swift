@@ -112,6 +112,9 @@ struct HomeView: View {
                 .multilineTextAlignment(.center)
                 .padding(.top, 2)
 
+            // เว้นทางให้ปุ่ม SOS ที่ลอยอยู่มุมล่างขวา (MainTabView.overlay — 56pt + ขอบ 20)
+            // บรรทัดนี้เป็นบรรทัดสุดท้ายของจอ จึงเป็นบรรทัดเดียวที่วิ่งไปชนปุ่มได้ · ไม่ขยับตัวปุ่ม
+            // เพราะตำแหน่งมันคือสิ่งที่ต้องเดาได้ตอนตกใจ ไม่ใช่สิ่งที่ยืดหยุ่นตามจอที่มันบังเอิญลอยอยู่บน
             Text(previewStage == nil
                  ? Loc.t("home_bloom_hint")
                  : Loc.t("home_stage_preview_hint"))
@@ -119,6 +122,7 @@ struct HomeView: View {
                 .foregroundStyle(Color.wbwOnBackdropMuted)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 58)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.horizontal, 18)
