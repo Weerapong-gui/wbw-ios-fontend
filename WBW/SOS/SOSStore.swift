@@ -17,6 +17,19 @@ final class SOSStore: ObservableObject {
     /// ไม่มีสัญญาณอะไรให้จอเห็นเลยว่าหยุดไปแล้ว
     @Published private(set) var statusCheckStopped = false
 
+    #if DEBUG
+    /// ยัดเคสที่ "เจ้าหน้าที่รับแล้ว" เข้าไปตรงๆ เพื่อถ่ายจอสถานะ — คู่กับ `-uitestSOSStatus`
+    ///
+    /// ทางเข้าจริงคือกดปุ่มค้าง 3 วินาที ซึ่งถ่ายไม่ได้เลยที่นี่ (ไม่มี tap tooling) และ `raise()`
+    /// ตัวจริงก็ยิงเน็ต · เลือกสถานะ `.received` เพราะเป็นสถานะที่ทำให้ปุ่มยกเลิกหายไปตามกติกา
+    /// 15 วินาที = สถานะที่เคย **ขังผู้ใช้ไว้ในจอนี้ถาวร** ซึ่งคือสิ่งที่ต้องพิสูจน์ว่าแก้แล้ว
+    func raiseForScreenshot() {
+        draft = SOSDraft(clientId: "screenshot", deviceTime: "2026-08-21T09:00:00Z",
+                         forOther: false, ownerId: "demo-user")
+        status = .received
+    }
+    #endif
+
     private var outbox: SOSOutbox { SOSOutbox() }
     private let locator: SOSLocator
     private let callFallbackDelay: Duration

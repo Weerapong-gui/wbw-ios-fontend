@@ -196,6 +196,14 @@ struct MainTabView: View {
                 // ต้องมีเหตุมาจากข้างนอก: push, การ์ดที่แตะ, หรือฐานใหม่จาก poll)
                 let uitestFeedbackId = UserDefaults.standard.integer(forKey: "uitestFeedback")
                 if uitestFeedbackId > 0 { feedbackCheckpoint = FeedbackTarget(id: uitestFeedbackId) }
+                // เปิดจอสถานะ SOS ตรงๆ พร้อมเคสจำลองหนึ่งใบ — ทางเข้าจริงคือ "กดปุ่มค้าง 3 วินาที"
+                // ซึ่งถ่ายไม่ได้เลยในสภาพแวดล้อมนี้ (ไม่มี tap tooling) · จอนี้เป็นจอที่เคยขังผู้รีวิว
+                // ไว้ออกไม่ได้ ปุ่ม "ย่อลง" ที่เพิ่งเพิ่มจึงต้องมีสกรีนช็อตยืนยันว่ามันโผล่จริง
+                // ไม่ใช่เชื่อว่าเทสผ่านแล้วแปลว่าเรนเดอร์ถูก
+                if UserDefaults.standard.bool(forKey: "uitestSOSStatus") {
+                    sos.raiseForScreenshot()
+                    showSOSStatus = true
+                }
                 // จำลอง "แตะสลับแท็บ" แบบ headless (ไม่มี tap tooling ในสภาพแวดล้อมนี้) ใช้ verify การสลับแท็บ
                 // "จริง" ในโปรเซสเดียวกัน ต่างจาก -uitestTab (ตั้งค่าเริ่มต้นตอน launch เท่านั้น) ตรงที่นี่คือ
                 // transition สดๆ ระหว่างแอปรันอยู่ — จำเป็นสำหรับพิสูจน์บั๊กที่พึ่ง state ค้างข้าม transition
