@@ -153,6 +153,37 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
+    /// **ประกาศเกินก็เป็นเหตุให้ถูกตีกลับ ไม่ใช่แค่ประกาศขาด**
+    ///
+    /// manifest เคยประกาศ `PhotosorVideos` โดยคอมเมนต์บอกว่ามาจาก "รูปโปรไฟล์ที่ผู้ใช้เลือกเอง
+    /// ผ่าน PhotosPicker" — แต่ `PhotosUI` / `PhotosPicker` / `PHPicker` ไม่มีอยู่ในโค้ดแอปเลย
+    /// สักบรรทัด รูปโปรไฟล์อ่านจาก URL ของเซิร์ฟเวอร์อย่างเดียว (`ProfileStore.photoUrl`)
+    ///
+    /// Apple เทียบ manifest กับ Privacy Nutrition Label ที่กรอกใน App Store Connect เอง
+    /// สองอันไม่ตรงกันเมื่อไหร่ก็เป็นคำถามกลับมาทันที
+    func testPrivacyManifestDoesNotDeclareDataTheAppNeverCollects() throws {
+        let manifest = try plist("WBW/PrivacyInfo.xcprivacy")
+        let declared = (manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? [])
+            .compactMap { $0["NSPrivacyCollectedDataType"] as? String }
+
+        XCTAssertFalse(declared.contains("NSPrivacyCollectedDataTypePhotosorVideos"), """
+            manifest ประกาศว่าเก็บรูป/วิดีโอ แต่แอปไม่มีตัวเลือกรูปเลยสักตัว
+            """)
+
+        // ค้ำอีกทาง: ถ้ามีคนเพิ่ม PhotosPicker เข้ามาจริงในอนาคต เทสข้างบนต้องถูกแก้พร้อมกัน
+        let sources = try FileManager.default
+            .subpathsOfDirectory(atPath: Self.repoRoot.appendingPathComponent("WBW").path)
+            .filter { $0.hasSuffix(".swift") }
+        let usesPhotos = try sources.contains { path in
+            let text = try String(
+                contentsOf: Self.repoRoot.appendingPathComponent("WBW/\(path)"), encoding: .utf8)
+            return text.contains("import PhotosUI") || text.contains("PhotosPicker")
+        }
+        XCTAssertFalse(usesPhotos, """
+            มีโค้ดเลือกรูปเข้ามาแล้ว — ต้องประกาศ PhotosorVideos กลับเข้า manifest และแก้เทสนี้
+            """)
+    }
+
     func testPrivacyManifestDeclaresPreciseLocation() throws {
         let manifest = try plist("WBW/PrivacyInfo.xcprivacy")
         let types = manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? []
