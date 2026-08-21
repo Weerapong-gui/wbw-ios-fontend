@@ -280,6 +280,9 @@ struct ParticipantPassView: View {
                 .foregroundStyle(Color.passInk)
                 .frame(width: 40, height: 40)
                 .glassSurface(Circle())
+                // พื้นที่รับนิ้ว 44 ตาม HIG · แผ่นกระจกยังกว้าง 40
+                .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

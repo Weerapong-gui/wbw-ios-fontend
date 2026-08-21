@@ -228,6 +228,9 @@ struct MedicalIdView: View {
                                 .foregroundStyle(.white)
                                 .frame(width: 40, height: 40)
                                 .background(Color.white.opacity(0.12), in: Circle())
+                                // พื้นที่รับนิ้ว 44 ตาม HIG · วงกลมยังกว้าง 40
+                                .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                                .contentShape(Rectangle())
                         }
                         Spacer()
                     }

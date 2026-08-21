@@ -72,6 +72,9 @@ struct GroupJoinView: View {
                     .foregroundStyle(Color.wbwInk)
                     .frame(width: 40, height: 40)
                     .background(Color.wbwSurface, in: Circle())
+                    // วงกลมยังกว้าง 40 · พื้นที่รับนิ้ว 44 ตาม HIG
+                    .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                    .contentShape(Rectangle())
             }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -177,6 +180,9 @@ private struct GroupCard: View {
                 // ผสม ทำให้ตัวอักษร muted บนการ์ดสีอ่อนในโหมดสว่างจางจนอ่านไม่ออก (ถ่ายเจอจริง)
                 .background(Color.wbwSolid, in: Capsule())
                 .overlay(Capsule().stroke(Color.glassSheerBorder, lineWidth: 1))
+                // แคปซูลยังสูง 34 ตามดีไซน์ · ขยายเฉพาะพื้นที่รับนิ้วเป็น 44 ตาม HIG
+                .frame(width: 74, height: Config.Tap.minTarget)
+                .contentShape(Rectangle())
             }
             .disabled(group.isFull || joining)
         }
