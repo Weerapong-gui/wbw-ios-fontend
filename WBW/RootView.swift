@@ -191,6 +191,8 @@ private struct StaffHomeView: View {
     // จอสถานะเต็มจอของ "เคสตัวเจ้าหน้าที่เอง" — Bool ตรงๆ ทรงเดียวกับ MainTabView.showSOSStatus
     // ทุกประการ (ดูคอมเมนต์ที่นั่นว่าทำไมต้องเป็น Bool แยก ไม่ใช่ binding ที่คำนวณจาก status)
     @State private var showStaffSOSStatus = false
+    /// จออธิบายก่อนกล่องขอสิทธิ์ตำแหน่งฝั่งเจ้าหน้าที่ — ดู `LocationPrimer`
+    @State private var showStaffLocationPrimer = false
 
     /// แท็บเริ่มต้นของจอเจ้าหน้าที่ — 1 (เคส SOS) เฉพาะตอนถ่ายภาพยืนยันด้วย `-uitestStaffSOSCase`
     static var initialStaffTab: Int {
@@ -238,6 +240,18 @@ private struct StaffHomeView: View {
         // $showSOSStatus) ทุกประการ
         .fullScreenCover(isPresented: $showStaffSOSStatus) {
             SOSStatusView(store: staffOwnSOS, token: session.token ?? "")
+        }
+        // เจ้าหน้าที่มีปุ่ม SOS ของตัวเองเหมือนกัน จึงต้องเจอจออธิบายชุดเดียวกับผู้เข้าร่วม —
+        // ทรงเดียวกับที่ MainTabView ทำทุกประการ (ดูคอมเมนต์ที่นั่น)
+        .sheet(isPresented: $showStaffLocationPrimer) {
+            LocationPrimerSheet()
+                .presentationDetents([.medium, .large])
+        }
+        .task {
+            guard LocationPrimer.shouldShowNow else { return }
+            try? await Task.sleep(for: .seconds(1))
+            guard LocationPrimer.shouldShowNow else { return }
+            showStaffLocationPrimer = true
         }
         // เคสใหม่ของ "คนอื่น" เข้าตอนกำลังก้มสแกน QR — badge มุมจอไม่มีทางถูกเห็น ต้องทับทั้งจอ (ดู
         // คอมเมนต์ที่ StaffSOSStore.newCase) ใช้ .fullScreenCover(item:) ผูกตรงกับ $sosStaff.newCase —

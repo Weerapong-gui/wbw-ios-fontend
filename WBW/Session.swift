@@ -103,13 +103,16 @@ final class Session: ObservableObject {
         UserDefaults.standard.set(try? JSONEncoder().encode(res.user), forKey: Self.userKey)
         // ผูก device token กับผู้ใช้ที่เพิ่ง login (ถ้ามี FCM token แล้ว)
         PushManager.shared.registerCurrent()
-        // ขอสิทธิ์ตำแหน่งหลังล็อกอินสำเร็จเท่านั้น — ตอนเปิดแอปครั้งแรกผู้ใช้ยังไม่รู้ว่าแอปนี้คืออะไร
-        // และการขอสิทธิ์ตอนกด SOS คือทั้งช้าที่สุดและถูกปฏิเสธมากที่สุด (แนวเดียวกับที่วางแผนไว้กับ
-        // push notification — ดู push-notification-gaps) · เรียกผ่าน .shared ไม่ใช่ SOSLocator()
-        // ลอยๆ — ต้องมีคนถือ CLLocationManager ข้างในไว้จนกว่า OS จะเก็บกล่องขอสิทธิ์เสร็จ ไม่งั้น ARC
-        // เก็บทันทีที่จบ statement (ดูคอมเมนต์ที่ SOSLocator.shared) · เรียกตรงๆ ได้โดยไม่ต้อง await
-        // (SOSLocator เป็น @MainActor เหมือน Session ตรงนี้เอง ไม่ข้าม actor และ save() เองก็ไม่ใช่ async)
-        SOSLocator.shared.requestPermission()
+        // **ตรงนี้เคยเรียก `SOSLocator.shared.requestPermission()` ตรง ๆ — ห้ามใส่กลับ**
+        //
+        // กล่องขอสิทธิ์ของระบบเด้งใส่คนที่เพิ่งเห็นหน้า Home เป็นครั้งแรกโดยไม่มีอะไรบนจอบอกว่า
+        // เอาไปทำอะไร ซึ่ง Guideline 5.1.1 เขียนไว้ตรง ๆ ว่าต้องขอพร้อมบริบท · repo นี้เพิ่งแก้
+        // อาการหน้าตาเหมือนกันเป๊ะไปรอบหนึ่งแล้ว (แท็บ SU RUN ขอสิทธิ์เองตอน TabView mount ทุกแท็บ
+        // พร้อมกัน — `docs/appstore-1.0-8-verification.md` §5) แต่บรรทัดนี้รอดมา
+        //
+        // เจตนาเดิม (ขอล่วงหน้าเพราะตอนกด SOS สายเกินไปและถูกปฏิเสธมากที่สุด) ยังอยู่ครบ —
+        // ย้ายไปที่ `LocationPrimerSheet` ซึ่งอธิบายก่อนแล้วค่อยเรียกกล่องของระบบเมื่อผู้ใช้กดปุ่ม
+        // ประตูว่าจะโชว์เมื่อไหร่อยู่ที่ `LocationPrimer.shouldShow`
     }
 
     /// automatic: true เฉพาะตอนเรียกจาก authObserver ด้านบน (401 ที่ไม่มีใครขอ) · ปุ่ม "ออกจากระบบ"

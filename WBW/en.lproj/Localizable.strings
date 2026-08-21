@@ -375,3 +375,9 @@
 "sos_staff_resolve_unreachable" = "Couldn't reach them";
 "sos_staff_new_case" = "New emergency";
 "sos_staff_see_all" = "See all cases";
+
+/* Explainer shown before the system location prompt (Guideline 5.1.1 — ask in context) */
+"location_primer_title" = "Use your location";
+"location_primer_body" = "Your location is used only while the app is open, for three things: placing you on the event map, measuring distance and pace once you start walking, and sending your position to staff when you press the emergency help button.";
+"location_primer_why_now" = "We ask now because there is no time to answer this during a real emergency. You can say no and still use SOS, but staff will only see the last base you checked in at.";
+"location_primer_later" = "Not now";

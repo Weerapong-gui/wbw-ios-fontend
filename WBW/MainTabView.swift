@@ -34,6 +34,8 @@ struct MainTabView: View {
     // (closed) ต้องปิดจอได้ด้วยปุ่ม "ปิดหน้านี้" (ดู SOSStatusView) โดยไม่ต้องล้าง sos.status ไปด้วย —
     // ถ้าผูกตรงกับ status != nil การกดปิดจะไม่มีผลอะไรเพราะ status ยังไม่ nil อยู่ดี
     @State private var showSOSStatus = false
+    /// จออธิบายก่อนกล่องขอสิทธิ์ตำแหน่งของระบบ — ดู `LocationPrimer`
+    @State private var showLocationPrimer = false
     // ฐานที่กำลังเปิดหน้าให้ความเห็นอยู่ (nil = ไม่มีจอเปิด) — จุดบรรจบของทั้ง 4 ทางเข้า: แตะ push ตอน
     // แอปปิด (PendingPush → .openCheckinFeedback), push ตอนแอปเปิด, แตะการ์ดในหน้าแจ้งเตือน,
     // และ toast จาก poll 60 วิ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว ไม่มีทางลัดอื่นไป FeedbackView
@@ -464,6 +466,29 @@ struct MainTabView: View {
         // — ไม่มีทางถูกปัดหลุดมือขณะเคสยังเปิดอยู่ (queued/received/onTheWay) เลย
         .fullScreenCover(isPresented: $showSOSStatus) {
             SOSStatusView(store: sos, token: session.token ?? "")
+        }
+        // จออธิบายก่อนกล่องขอสิทธิ์ตำแหน่ง · เป็น `.sheet` ไม่ใช่ `.fullScreenCover` โดยตั้งใจ —
+        // ปัดทิ้งได้ เพราะนี่ไม่ใช่จอฉุกเฉินและการบังคับให้ตอบคือสิ่งที่ทำให้คนกด "ไม่อนุญาต"
+        // · หน่วง 1 วิให้จอ Home วาดเสร็จก่อน ไม่งั้นชีตขึ้นทับจอที่ยังว่างอยู่ ซึ่งไม่มีบริบทอะไร
+        // ให้อ่านเลย = แย่พอ ๆ กับกล่องของระบบที่เพิ่งย้ายออกไป
+        .sheet(isPresented: $showLocationPrimer) {
+            LocationPrimerSheet()
+                .presentationDetents([.medium, .large])
+        }
+        .task {
+            #if DEBUG
+            // ถ่ายจอนี้ตรง ๆ — ทางเข้าจริงต้องล็อกอินบัญชีจริงบนเครื่องที่ยังไม่เคยตอบกล่องขอสิทธิ์
+            // ซึ่งที่นี่ทำไม่ได้ (token ปลอมโดน 401 เด้งกลับหน้าล็อกอิน และโหมดเดโม่ถูกกันจอนี้ไว้
+            // โดยตั้งใจ) · จอที่มีไว้ตอบ Guideline 5.1.1 ต้องมีสกรีนช็อตยืนยันว่าเรนเดอร์จริง
+            if UserDefaults.standard.bool(forKey: "uitestLocationPrimer") {
+                showLocationPrimer = true
+                return
+            }
+            #endif
+            guard LocationPrimer.shouldShowNow else { return }
+            try? await Task.sleep(for: .seconds(1))
+            guard LocationPrimer.shouldShowNow else { return }
+            showLocationPrimer = true
         }
         // MainTabView หายทั้งจอ (ล็อกเอาต์เท่านั้น — RootView สลับ MainTabView/StaffScanView ตาม role บน
         // session.user ตัวเดียวกัน ไปไม่ถึง role ใหม่ได้โดยไม่ผ่าน logout()+login ก่อน) — logout() ไม่แตะ
