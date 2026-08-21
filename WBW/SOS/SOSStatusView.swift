@@ -35,9 +35,10 @@ struct SOSStatusView: View {
                 // ต้องบอกตรงๆ ว่าหยุดแล้ว ไม่ใช่ปล่อยให้จอค้างสถานะเก่าเงียบๆ โดยดูเหมือนยังติดตามอยู่
                 // (พบจากรีวิว Task 14 รอบสาม)
                 warningBox {
-                    Text("หยุดเช็คสถานะอัตโนมัติแล้ว สัญญาณอาจหลุดนานเกินไป — ที่เห็นอาจไม่ใช่ล่าสุด")
+                    Text("sos_status_stopped")
                         .multilineTextAlignment(.center)
-                    Button("เช็คสถานะอีกครั้ง") { store.retryStatusCheck(token: token) }
+                    Button("sos_status_recheck") { store.retryStatusCheck(token: token) }
+                        .sosTapTarget()
                 }
             }
 
@@ -48,15 +49,18 @@ struct SOSStatusView: View {
             forOtherRow
 
             if canCancel {
-                Button("กดผิด · ยกเลิก", role: .destructive) {
+                Button("sos_status_cancel", role: .destructive) {
                     Task { cancelOutcome = await store.cancel(token: token) }
                 }
+                .sosTapTarget()
             }
 
-            if store.showCallFallback {
+            // เบอร์มาจากเซิร์ฟเวอร์ ไม่ใช่ลิเทอรัล — `URL(string:)!` ที่เคยอยู่ตรงนี้ crash ทันที
+            // ถ้าเบอร์ที่ส่งมามีช่องว่างหรือตัวอักษรพ่วง · ต่อไม่ได้ = ซ่อนปุ่ม ไม่ใช่พังทั้งจอ
+            if store.showCallFallback, let callURL = Config.emergencyPhoneURL {
                 // ทางออกสุดท้ายเมื่อข้อมูลไปไม่ถึง — เสียง/SMS ไปได้ไกลกว่าดาต้าบนดอย
-                Link(destination: URL(string: "tel://\(Config.emergencyPhone)")!) {
-                    Label("โทรหาทีมกลาง \(Config.emergencyPhone)", systemImage: "phone.fill")
+                Link(destination: callURL) {
+                    Label(Loc.t("sos_status_call_center", Config.emergencyPhone), systemImage: "phone.fill")
                         .frame(maxWidth: .infinity).padding()
                         .background(.red).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -64,9 +68,20 @@ struct SOSStatusView: View {
             }
 
             if cancelOutcome == .alreadyAcked || cancelOutcome == .tooLate {
-                Text("เจ้าหน้าที่รับเรื่องแล้ว ยกเลิกไม่ได้ ให้โทรบอกแทน")
+                Text("sos_status_already_acked")
                     .foregroundStyle(.secondary)
             }
+
+            minimizeRow
+
+            // ปุ่ม SOS สื่อว่า "กดแล้วมีคนมาช่วยแน่นอน" ซึ่งเกินจริง — แอปนี้แจ้งทีมงานของกิจกรรม
+            // ไม่ใช่หน่วยกู้ชีพ · แอปอยู่หมวด Health & Fitness ซึ่ง Apple อ่านละเอียดที่สุดเรื่อง
+            // การอ้างความสามารถทางการแพทย์/ฉุกเฉิน และผู้ใช้จริงบนดอยก็ต้องรู้ว่ายังต้องโทร 1669 เอง
+            Text("sos_not_emergency_service")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding()
         .onAppear {
@@ -89,6 +104,36 @@ struct SOSStatusView: View {
         }
     }
 
+    /// ทางออกจากจอนี้ที่ **มีอยู่ทุกสถานะ** — ไม่ใช่แค่ตอนเคสปิดแล้ว
+    ///
+    /// จอนี้เป็น `.fullScreenCover` ซึ่งปัดปิดไม่ได้โดยธรรมชาติ (ตั้งใจ — ดูคอมเมนต์ที่
+    /// `MainTabView.fullScreenCover`) และของเดิมมีปุ่มพาออกทางเดียวคือ "ปิดหน้านี้" ที่โผล่เฉพาะ
+    /// `case .closed` ส่วนปุ่มยกเลิกก็หายไปเองเมื่อพ้น 15 วินาที · ผลคือ **เคสที่ค้างอยู่ใน
+    /// queued/received/onTheWay ขังคนกดไว้ในจอนี้ถาวร** ออกได้ทางเดียวคือ force-quit — ซึ่งใน
+    /// โหมดเดโม่ (ทางเข้าของผู้รีวิว App Store) เกิดขึ้นแน่นอน เพราะไม่มีเจ้าหน้าที่จริงมาปิดเคสให้
+    ///
+    /// ปุ่มนี้ **ไม่แตะเคส** — แค่ปิดจอ เคสยังเปิดอยู่และปุ่ม SOS ที่หน้าบัตรก็เปลี่ยนเป็น
+    /// `sos_pass_active` ("กำลังดำเนินการ · แตะดูสถานะ") ให้กดกลับเข้ามาได้ ทางกลับจึงไม่หายไปไหน
+    /// · ไม่เปลี่ยนไปใช้ `.sheet` เพราะจะได้ swipe ปิดหลุดมือระหว่างเหตุฉุกเฉิน ซึ่งคือสิ่งที่
+    /// `fullScreenCover` ถูกเลือกมากันตั้งแต่แรก
+    @ViewBuilder private var minimizeRow: some View {
+        if case .closed = store.status {
+            // สถานะนี้มีปุ่ม "ปิดหน้านี้" ของตัวเองอยู่แล้ว (statusBlock) ไม่ต้องมีสองปุ่มที่ทำเหมือนกัน
+            EmptyView()
+        } else {
+            VStack(spacing: 4) {
+                Button("sos_status_minimize") { dismiss() }
+                    .buttonStyle(.bordered)
+                    .sosTapTarget()
+                Text("sos_status_minimize_hint")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     /// สองสถานะที่ทำให้เคสนี้ไม่มีพิกัดติดไปด้วย แก้คนละทางกัน จึงต้องเป็นคนละแบนเนอร์
     ///
     /// เดิมเช็คแค่ `.denied` (พบจากรีวิวรอบสุดท้าย) — คนที่ล็อกอินค้างอยู่ก่อนอัปเดตมาเป็น build นี้
@@ -98,21 +143,23 @@ struct SOSStatusView: View {
     @ViewBuilder private var locationBanner: some View {
         if SOSLocator.shared.needsPermission {
             warningBox {
-                Text("ยังไม่ได้อนุญาตให้แอปใช้ตำแหน่ง เจ้าหน้าที่จะเห็นแค่ฐานล่าสุดที่คุณเช็คอิน")
+                Text("sos_status_loc_undecided")
                     .multilineTextAlignment(.center)
-                Button("อนุญาตตำแหน่ง") { SOSLocator.shared.requestPermission() }
+                Button("sos_status_loc_allow") { SOSLocator.shared.requestPermission() }
+                    .sosTapTarget()
             }
         } else if SOSLocator.shared.authorization == .denied
                     || SOSLocator.shared.authorization == .restricted {
             // บอกความจริงว่าเสียอะไรไป แทนที่จะเงียบแล้วให้เจ้าหน้าที่หาไม่เจอ
             warningBox {
-                Text("ไม่ได้อนุญาตตำแหน่ง เจ้าหน้าที่จะเห็นแค่ฐานล่าสุดที่คุณเช็คอิน")
+                Text("sos_status_loc_denied")
                     .multilineTextAlignment(.center)
-                Button("ไปตั้งค่า") {
+                Button("sos_status_open_settings") {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
                 }
+                .sosTapTarget()
             }
         }
     }
@@ -127,23 +174,23 @@ struct SOSStatusView: View {
     /// ข้อความยืนยันบอกจากค่าที่เซิร์ฟเวอร์สะท้อนกลับมาจริง ไม่ใช่บอกว่า "ส่งแล้ว" ทันทีที่กด
     @ViewBuilder private var noteRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            TextField("บอกเจ้าหน้าที่เพิ่มได้ (ไม่บังคับ)", text: $note, axis: .vertical)
+            TextField("sos_status_note_placeholder", text: $note, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .onChange(of: note) { _, _ in noteDelivered = nil }
 
             HStack {
                 switch noteDelivered {
                 case .some(true):
-                    Label("เจ้าหน้าที่เห็นข้อความนี้แล้ว", systemImage: "checkmark.circle")
+                    Label("sos_status_note_delivered", systemImage: "checkmark.circle")
                         .font(.caption).foregroundStyle(.secondary)
                 case .some(false):
-                    Label("ยังส่งไม่ถึง เก็บไว้ในเครื่องแล้ว กดส่งอีกครั้งได้", systemImage: "exclamationmark.circle")
+                    Label("sos_status_note_failed", systemImage: "exclamationmark.circle")
                         .font(.caption).foregroundStyle(.orange)
                 case nil:
                     EmptyView()
                 }
                 Spacer()
-                Button(sendingNote ? "กำลังส่ง…" : "ส่งข้อความ") {
+                Button(sendingNote ? "sos_status_note_sending" : "sos_status_note_send") {
                     sendingNote = true
                     Task {
                         noteDelivered = await store.attachNote(note, token: token)
@@ -151,6 +198,7 @@ struct SOSStatusView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .sosTapTarget()
                 .disabled(sendingNote || note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
@@ -168,7 +216,7 @@ struct SOSStatusView: View {
     /// เหลือทางเลือกเดียวเสมอ ไม่ใช่ให้เลือกอะไรตอนตกใจ — เลือกทีหลังบนจอนี้ได้ ตอนที่เคสถูกส่งไปแล้ว
     @ViewBuilder private var forOtherRow: some View {
         if isForOther {
-            Label("แจ้งไว้แล้วว่าคนที่เจ็บเป็นคนอื่น", systemImage: "person.2.fill")
+            Label("sos_status_for_other_done", systemImage: "person.2.fill")
                 .font(.callout).foregroundStyle(.orange)
         } else if store.status?.isActive == true {
             VStack(spacing: 6) {
@@ -183,14 +231,15 @@ struct SOSStatusView: View {
                         markingForOther = false
                     }
                 } label: {
-                    Label(markingForOther ? "กำลังแจ้ง…" : "คนที่เจ็บเป็นคนอื่น ไม่ใช่ฉัน",
+                    Label(markingForOther ? "sos_status_for_other_sending" : "sos_status_for_other",
                           systemImage: "person.2.fill")
                 }
                 .buttonStyle(.bordered)
+                .sosTapTarget()
                 .disabled(markingForOther)
 
                 if forOtherFailed {
-                    Label("ยังแจ้งไม่ถึงเจ้าหน้าที่ กดอีกครั้งได้", systemImage: "exclamationmark.circle")
+                    Label("sos_status_for_other_failed", systemImage: "exclamationmark.circle")
                         .font(.caption).foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -209,24 +258,38 @@ struct SOSStatusView: View {
     @ViewBuilder private var statusBlock: some View {
         switch store.status {
         case .queued:
-            Label("กำลังส่ง… ยังไม่ถึงเจ้าหน้าที่", systemImage: "arrow.up.circle")
+            Label("sos_status_queued", systemImage: "arrow.up.circle")
         case .received:
-            Label("ส่งถึงเจ้าหน้าที่แล้ว กำลังรอคนรับเรื่อง", systemImage: "checkmark.circle")
+            Label("sos_status_received", systemImage: "checkmark.circle")
         case .onTheWay:
-            Label("\(store.serverCase?.ackedByName ?? "เจ้าหน้าที่") กำลังไปหาคุณ",
+            Label(Loc.t("sos_status_on_the_way",
+                        store.serverCase?.ackedByName ?? Loc.t("sos_status_staff_fallback")),
                   systemImage: "figure.walk.circle.fill")
         case .closed(let reason):
             // เคสจบแล้ว (ยกเลิกเองหลังเคสถึงเซิร์ฟเวอร์แล้ว หรือเจ้าหน้าที่ปิดให้) — ต้องมีทางออก
             // จากจอเต็มจอนี้ด้วย บรีฟเดิมไม่มีปุ่มไหนพาออกจากสถานะนี้เลย (พบระหว่างทำงานนี้เอง — ไม่งั้น
             // คนกดติดอยู่ในจอที่ปิดเคสไปแล้วแต่กลับแอปไม่ได้)
             VStack(spacing: 16) {
-                Label(reason == "canceled_by_user" ? "ยกเลิกแล้ว" : "เรื่องจบแล้ว",
+                Label(reason == "canceled_by_user" ? "sos_case_canceled" : "sos_status_closed_done",
                       systemImage: "flag.checkered")
-                Button("ปิดหน้านี้") { dismiss() }
+                Button("sos_status_close") { dismiss() }
                     .buttonStyle(.borderedProminent)
+                    .sosTapTarget()
             }
         case nil:
             EmptyView()
         }
+    }
+}
+
+/// พื้นที่รับนิ้วขั้นต่ำตาม HIG สำหรับปุ่มบนจอ SOS
+///
+/// ปุ่มเกือบทั้งจอนี้เป็น `Button("ข้อความ")` เปล่า ๆ ซึ่ง SwiftUI ให้ความสูงเท่าบรรทัดข้อความ
+/// (~21pt) — ต่ำกว่า 44 ที่ `Config.Tap.minTarget` กำหนดไว้เกือบครึ่ง · นี่คือจอที่คนกดตอนมือสั่น
+/// และตอนตกใจ พลาดแล้วต้องเล็งใหม่คือสิ่งที่ยอมไม่ได้ที่สุดตรงนี้
+private extension View {
+    func sosTapTarget() -> some View {
+        frame(minWidth: Config.Tap.minTarget, minHeight: Config.Tap.minTarget)
+            .contentShape(Rectangle())
     }
 }

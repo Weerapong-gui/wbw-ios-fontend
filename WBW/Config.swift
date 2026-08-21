@@ -89,9 +89,25 @@ enum Config {
             ?? emergencyPhoneDefault
     }
 
+    /// `tel://` ของเบอร์ปัจจุบัน — **nil ได้** และคนเรียกต้องซ่อนปุ่มโทรเมื่อเป็น nil
+    ///
+    /// มีเพราะจอสถานะเคยต่อ `URL(string: "tel://\(Config.emergencyPhone)")!` ตรง ๆ ทั้งที่ค่านี้
+    /// มาจากเซิร์ฟเวอร์ ไม่ใช่ลิเทอรัลในโค้ด — เบอร์ที่มีช่องว่างหรือมีตัวอักษรพ่วงทำให้
+    /// `URL(string:)` คืน nil แล้ว `!` ก็ crash **บนจอฉุกเฉิน** ซึ่งเป็นจอที่ห้ามพังที่สุดในแอป
+    static var emergencyPhoneURL: URL? {
+        URL(string: "tel://\(emergencyPhone)")
+    }
+
+    /// เก็บเฉพาะอักขระที่ `tel://` รับได้จริง — ที่เหลือทิ้ง
+    ///
+    /// sanitize ที่ **ขาเข้า** ไม่ใช่ตอนอ่าน เพราะค่าที่เก็บไว้ยังถูกเอาไปโชว์เป็นข้อความบนปุ่มด้วย
+    /// ("โทรหาทีมกลาง …") ถ้าเก็บดิบแล้วค่อยกรองตอนต่อ URL ปุ่มจะโชว์เบอร์คนละตัวกับที่โทรออกจริง
+    /// · ค่าที่กรองแล้วไม่เหลือตัวเลขเลยถือว่าใช้ไม่ได้ ไม่เขียนทับของเดิม — ไม่งั้นค่า default
+    /// ที่ใช้งานได้จะถูกกลบด้วยขยะจากเซิร์ฟเวอร์แล้วไม่มีเบอร์ให้โทรทั้งงาน
     static func cacheEmergencyPhone(_ phone: String) {
-        guard !phone.isEmpty else { return }
-        UserDefaults.standard.set(phone, forKey: "wbw.emergencyPhone.\(backend.cacheNamespace)")
+        let cleaned = phone.filter { $0.isNumber || $0 == "+" || $0 == "-" || $0 == "#" || $0 == "*" }
+        guard cleaned.contains(where: \.isNumber) else { return }
+        UserDefaults.standard.set(cleaned, forKey: "wbw.emergencyPhone.\(backend.cacheNamespace)")
     }
 }
 

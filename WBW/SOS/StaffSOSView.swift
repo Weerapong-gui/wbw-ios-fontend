@@ -256,7 +256,7 @@ struct StaffSOSCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if c.forOther {
-                Label("คนอื่นเจ็บ — ไม่ทราบประวัติผู้บาดเจ็บ", systemImage: "exclamationmark.triangle.fill")
+                Label("sos_staff_for_other", systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
             }
             Text(c.fullName).font(.title3.bold())
@@ -268,7 +268,7 @@ struct StaffSOSCard: View {
                 .font(.caption)
                 .foregroundStyle(c.isCoarse ? Color.orange : Color.wbwForestVoid.opacity(0.65))
             if c.isCoarse {
-                Text("พิกัดหยาบ อย่าเชื่อฐานที่ระบบเดา")
+                Text("sos_staff_coarse_location")
                     .font(.caption).foregroundStyle(.orange)
             }
 
@@ -284,29 +284,31 @@ struct StaffSOSCard: View {
                 Text(notes).font(.callout).padding(8)
                     .background(.red.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
-            if let blood = c.bloodType { Text("กรุ๊ปเลือด \(blood)").font(.callout) }
+            if let blood = c.bloodType { Text(Loc.t("sos_staff_blood_type", blood)).font(.callout) }
             if let m = c.message { Text("\u{201c}\(m)\u{201d}").italic() }
 
             HStack {
-                if let phone = c.contactPhone {
-                    Link(destination: URL(string: "tel://\(phone)")!) {
-                        Label("โทรหาผู้แจ้ง", systemImage: "phone.fill")
+                // contact_phone มาจาก DB ตรง ๆ ไม่เคยถูกตรวจรูปแบบ — เบอร์ที่มีช่องว่างทำให้
+                // `URL(string:)!` เดิม crash จอเจ้าหน้าที่ทั้งใบตอนมีเคสจริงเข้ามา
+                if let phone = c.contactPhone, let callURL = URL(string: "tel://\(phone.filter { $0.isNumber || $0 == "+" })") {
+                    Link(destination: callURL) {
+                        Label("sos_staff_call_reporter", systemImage: "phone.fill")
                     }
                 }
                 if let lat = c.lat, let lng = c.lng,
                    let maps = SOSMapLink.appleMaps(lat: lat, lng: lng) {
-                    Link(destination: maps) { Label("เปิดแผนที่", systemImage: "map.fill") }
+                    Link(destination: maps) { Label("sos_map_open", systemImage: "map.fill") }
                 }
             }
 
             if c.resolved {
-                Label("ปิดแล้ว", systemImage: "flag.checkered")
+                Label("sos_staff_closed", systemImage: "flag.checkered")
                     .foregroundStyle(Color.wbwForestVoid.opacity(0.65))
             } else if let by = c.ackedByName {
                 // เคสถูกรับไปแล้วโดยใครสักคน (อาจเป็นเจ้าหน้าที่คนอื่นที่กดก่อน) — โชว์ชื่อคนรับแทนปุ่ม
                 // "กำลังไป" เสมอ ไม่ใช่แค่ตอนที่เรากดเอง จุดนี้เองที่กันเคสถูก ack ซ้ำสอง: พอ ackedByName
                 // ไม่ใช่ nil ปุ่มด้านล่างก็หายไปแล้ว ไม่มีทาง POST ack ซ้ำจาก UI นี้ได้อีก
-                Text("\(by) กำลังไป")
+                Text(Loc.t("sos_staff_on_the_way", by))
             } else {
                 // ตัวอักษรต้องสว่างเอง — `.borderedProminent` ย้อมพื้นด้วย tint ของการ์ด
                 // (`wbwForestVoid` เกือบดำ) ส่วน label รับสีจาก `.foregroundStyle` ของการ์ด
@@ -320,13 +322,13 @@ struct StaffSOSCard: View {
             }
 
             if !c.resolved {
-                Button("ปิดเคส") { showReasons = true }
+                Button("sos_staff_resolve") { showReasons = true }
                     .disabled(busy)
-                    .confirmationDialog("ปิดเคสเพราะ", isPresented: $showReasons) {
-                        Button("ช่วยแล้ว") { run { await store.resolve(id: c.id, reason: "helped", token: token) } }
-                        Button("แจ้งเท็จ") { run { await store.resolve(id: c.id, reason: "false_alarm", token: token) } }
-                        Button("ติดต่อไม่ได้") { run { await store.resolve(id: c.id, reason: "unreachable", token: token) } }
-                        Button("ยกเลิก", role: .cancel) {}
+                    .confirmationDialog("sos_staff_resolve_why", isPresented: $showReasons) {
+                        Button("sos_staff_resolve_helped") { run { await store.resolve(id: c.id, reason: "helped", token: token) } }
+                        Button("sos_staff_resolve_false") { run { await store.resolve(id: c.id, reason: "false_alarm", token: token) } }
+                        Button("sos_staff_resolve_unreachable") { run { await store.resolve(id: c.id, reason: "unreachable", token: token) } }
+                        Button("action_cancel", role: .cancel) {}
                     }
             }
 
@@ -412,7 +414,7 @@ struct StaffSOSView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("เคสฉุกเฉิน")
+                Text("sos_staff_title")
                     .font(.system(size: 22, weight: .heavy))
                     .foregroundStyle(.white)
                 Text(store.openCount > 0 ? "ค้างอยู่ \(store.openCount) เคส" : "ไม่มีเคสค้าง")
@@ -431,7 +433,7 @@ struct StaffSOSView: View {
             Image(systemName: "checkmark.shield")
                 .font(.system(size: 40))
                 .foregroundStyle(.white.opacity(0.35))
-            Text("ยังไม่มีเคสฉุกเฉิน")
+            Text("sos_staff_empty")
                 .foregroundStyle(.white.opacity(0.6))
         }
     }
@@ -457,7 +459,7 @@ struct StaffSOSAlertView: View {
             Color.wbwForestVoid.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Label("มีเหตุฉุกเฉินใหม่", systemImage: "sos")
+                    Label("sos_staff_new_case", systemImage: "sos")
                         .font(.title2.bold())
                         .foregroundStyle(.red)
                     Spacer()
@@ -472,7 +474,7 @@ struct StaffSOSAlertView: View {
                     StaffSOSCard(c: c, token: token, store: store)
                 }
 
-                Button("ดูรายการเคสทั้งหมด") { dismiss() }
+                Button("sos_staff_see_all") { dismiss() }
                     .buttonStyle(.bordered)
                     .tint(.white)
                     .frame(maxWidth: .infinity)
