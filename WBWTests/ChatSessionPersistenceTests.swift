@@ -7,6 +7,23 @@ import SwiftData
 /// เข้าถึงผ่าน testSetup(...) ซึ่งตั้งค่าตรงๆ โดยไม่เรียก start() (กัน Task ยิง network จริงตอนเทส)
 @MainActor
 final class ChatSessionPersistenceTests: XCTestCase {
+
+    /// **ปักว่าไม่ได้อยู่ในโหมดเดโม่** — เทสชุดนี้พิสูจน์เส้นทางเน็ตจริง แต่ `APIClient`
+    /// มีทางลัดของโหมดเดโม่อยู่ก่อนทุกฟังก์ชันที่ยิงเน็ต ถ้าโหมดเดโม่ติดอยู่คำขอจะไม่เคยออกไปถึง
+    /// `URLProtocol` ปลอมเลย · เทสยูนิตรันใน**โปรเซสเดียวกับแอป** จึงอ่าน `UserDefaults`
+    /// ใบเดียวกับที่ `Session.startDemo()` เขียน token เดโม่ทิ้งไว้ตอนรันแอปจริงบนซิมเครื่องเดียวกัน
+    ///
+    /// **นี่คือคำอธิบายของ "คลาสที่แกว่งเอง" ที่เอกสารหลายใบบันทึกไว้ว่าหาสาเหตุไม่ได้** —
+    /// มันไม่ได้แกว่ง มันแดงตรงกับตอนที่มีคนเปิดแอปโหมดเดโม่ค้างไว้ก่อนรันเทส
+    override func setUp() {
+        super.setUp()
+        DemoMode.forcedActive = false
+    }
+
+    override func tearDown() {
+        DemoMode.forcedActive = nil
+        super.tearDown()
+    }
     private func makeContext() -> ModelContext {
         let schema = Schema([ChatMessage.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)

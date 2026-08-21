@@ -69,6 +69,17 @@ final class FeedbackTransportTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        // **ปักว่าไม่ได้อยู่ในโหมดเดโม่** — เทสชุดนี้พิสูจน์เส้นทางเน็ตจริง แต่ `APIClient`
+        // มีทางลัดของโหมดเดโม่อยู่ก่อนทุกฟังก์ชันที่ยิงเน็ต (18 จุด) ถ้าโหมดเดโม่ติดอยู่ คำขอ
+        // จะไม่เคยออกไปถึง `URLProtocol` ปลอมเลย แล้วเทสจะฟ้องเป็นอย่างอื่น
+        //
+        // และมันติดได้โดยไม่มีใครในเทสตั้งเลย — เทสยูนิตรันใน**โปรเซสเดียวกับแอป** จึงอ่าน
+        // `UserDefaults` ใบเดียวกับที่ `Session.startDemo()` เขียน token เดโม่ทิ้งไว้ตอนรันแอปจริง
+        // บนซิมเครื่องเดียวกัน (`DemoMode.active` อ่านจาก token นั้นโดยตั้งใจ)
+        //
+        // **นี่คือคำอธิบายของ "คลาสที่แกว่งเอง" ที่เอกสารหลายใบในโปรเจกต์บันทึกไว้ว่าหาสาเหตุไม่ได้**
+        // — มันไม่ได้แกว่ง มันแดงตรงกับตอนที่มีคนเปิดแอปโหมดเดโม่ค้างไว้ก่อนรันเทส
+        DemoMode.forcedActive = false
         URLProtocol.registerClass(StubURLProtocol.self)
         StubURLProtocol.status = 200
         StubURLProtocol.body = Data()
@@ -78,6 +89,7 @@ final class FeedbackTransportTests: XCTestCase {
     }
 
     override func tearDown() {
+        DemoMode.forcedActive = nil
         URLProtocol.unregisterClass(StubURLProtocol.self)
         UserDefaults.standard.removeObject(forKey: FeedbackOutbox.key(for: Config.backend))
         super.tearDown()

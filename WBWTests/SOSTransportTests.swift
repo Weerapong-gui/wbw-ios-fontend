@@ -9,6 +9,7 @@ import XCTest
 /// เพราะราคาของการทิ้งไม่เท่ากันเลย
 final class SOSTransportTests: XCTestCase {
 
+
     /// ไล่ทุก status code ที่เป็นไปได้ ไม่ใช่แค่ที่นึกออก
     func testNoHTTPStatusIsTerminalForAQueuedCase() {
         let envelope = Data(#"{"error":"อะไรสักอย่าง"}"#.utf8)
@@ -127,8 +128,18 @@ final class SOSTransportTests: XCTestCase {
         override func stopLoading() {}
     }
 
+    /// **ต้องปักว่าไม่ได้อยู่ในโหมดเดโม่** — เทสชุดนี้พิสูจน์เส้นทางเน็ตจริง แต่ `APIClient+SOS`
+    /// มีทางลัดของโหมดเดโม่อยู่ก่อนทุกฟังก์ชัน (ดู `DemoSOS`) ถ้าโหมดเดโม่ติดอยู่ คำขอจะไม่เคย
+    /// ออกไปถึง `URLProtocol` ปลอมเลยสักครั้ง แล้วเทสจะฟ้องเป็นอย่างอื่น (เจอจริง: เคสที่ได้กลับมา
+    /// มี id 9004 ซึ่งเป็นเลขของ `DemoSOS` ไม่ใช่ของ stub)
+    ///
+    /// และมันติดได้จริงโดยไม่มีใครในเทสตั้งเลย — เทสยูนิตรันใน**โปรเซสเดียวกับแอป** จึงอ่าน
+    /// `UserDefaults` ใบเดียวกับที่ `Session.startDemo()` เขียน token เดโม่ทิ้งไว้ตอนรันแอปจริง
+    /// บนซิมเครื่องเดียวกัน · `DemoMode.active` อ่านจาก token นั้นโดยตั้งใจ (ดูคอมเมนต์ที่นั่น)
+    /// ผลคือเทสผ่านหรือไม่ผ่านขึ้นกับว่าใครเปิดแอปโหมดเดโม่ค้างไว้ก่อนหน้า
     override func setUp() {
         super.setUp()
+        DemoMode.forcedActive = false
         URLProtocol.registerClass(SOSStubURLProtocol.self)
         SOSStubURLProtocol.status = 200
         SOSStubURLProtocol.body = Data()
@@ -139,6 +150,7 @@ final class SOSTransportTests: XCTestCase {
 
     override func tearDown() {
         URLProtocol.unregisterClass(SOSStubURLProtocol.self)
+        DemoMode.forcedActive = nil
         super.tearDown()
     }
 
