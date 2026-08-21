@@ -167,7 +167,10 @@ private struct StaffHomeView: View {
     @EnvironmentObject var session: Session
 
     // สองแท็บ: สแกน QR (0) กับเคส SOS ของคนอื่น (1)
-    @State private var staffTab = 0
+    //
+    // เริ่มที่แท็บ SOS ได้ด้วย `-uitestStaffSOSCase` — ไม่มีตัวกดจอบนเครื่องนี้ ถ้าไม่เปิดให้ตรง
+    // ก็ถ่ายจอเคสไม่ได้เลย (แฟลกเดียวกับที่ยัดเคสตัวอย่าง จะได้ไม่ต้องส่งสองตัว)
+    @State private var staffTab = StaffHomeView.initialStaffTab
     // feed เคส SOS "ของคนอื่น" ที่เจ้าหน้าที่ต้องดู/รับ/ปิด — start()/stop() ผูกกับ .task/.onDisappear
     // ของจอนี้ทั้งก้อน (ด้านล่าง) ไม่ใช่ผูกกับว่าแท็บ SOS เปิดอยู่หรือเปล่า — เคสใหม่ต้องทับจอได้แม้
     // เจ้าหน้าที่กำลังก้มสแกน QR อยู่แท็บอื่น ซึ่งเป็นสถานการณ์หลักที่ฟีเจอร์นี้มีไว้รับมือ (ดูคอมเมนต์ยาวที่
@@ -188,6 +191,15 @@ private struct StaffHomeView: View {
     // จอสถานะเต็มจอของ "เคสตัวเจ้าหน้าที่เอง" — Bool ตรงๆ ทรงเดียวกับ MainTabView.showSOSStatus
     // ทุกประการ (ดูคอมเมนต์ที่นั่นว่าทำไมต้องเป็น Bool แยก ไม่ใช่ binding ที่คำนวณจาก status)
     @State private var showStaffSOSStatus = false
+
+    /// แท็บเริ่มต้นของจอเจ้าหน้าที่ — 1 (เคส SOS) เฉพาะตอนถ่ายภาพยืนยันด้วย `-uitestStaffSOSCase`
+    static var initialStaffTab: Int {
+        #if DEBUG
+        let raw = UserDefaults.standard.string(forKey: "uitestStaffSOSCase") ?? ""
+        if !raw.isEmpty && raw != "NO" { return 1 }
+        #endif
+        return 0
+    }
 
     init() {
         // ดูคอมเมนต์ยาวที่ MainTabView.init() ว่าทำไมต้องอ่าน currentUserId จากดิสก์ตรงนี้ตรงๆ

@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 // SOSStaffCase ย้ายไปนิยามใน WBW/APIClient+SOS.swift แล้ว (Task 10) — staffSOSFeed
 // คืนค่าเป็นชนิดนี้ตรงๆ จึงต้องมีอยู่ก่อนไฟล์นั้นจะคอมไพล์ผ่าน ไม่ต้องประกาศซ้ำที่นี่
@@ -98,6 +99,31 @@ final class StaffSOSStore: ObservableObject {
     /// รวมของใหม่เข้ากับของเดิมด้วย id · ใหม่สุดอยู่บน
     /// เคสที่ปิดแล้วยังอยู่ในลิสต์ (เซิร์ฟเวอร์ส่งย้อนหลัง 30 นาที) — หายไปเฉยๆ
     /// แยกไม่ออกจาก "โหลดไม่ขึ้น" ซึ่งเป็นคนละเรื่องกันโดยสิ้นเชิง
+    #if DEBUG
+    /// เคสตัวอย่างจาก launch args — `-uitestStaffSOSCase coarse` ได้พิกัดหยาบ ค่าอื่นได้พิกัดแม่น
+    static func uitestSampleCase() -> SOSStaffCase? {
+        let raw = UserDefaults.standard.string(forKey: "uitestStaffSOSCase") ?? ""
+        guard !raw.isEmpty, raw != "NO" else { return nil }
+        let coarse = raw == "coarse"
+        return SOSStaffCase(
+            id: 4242, forOther: false,
+            lat: 20.04549, lng: 99.90280,
+            accuracyM: coarse ? 450 : 12,
+            locSource: "gps", checkpointId: 5,
+            checkpointName: coarse ? nil : "วิหารพระเจ้าล้านทอง",
+            message: "ข้อเท้าพลิก เดินต่อไม่ไหว",
+            resolved: false, resolveReason: nil,
+            ackedAt: nil, ackedByName: nil,
+            createdAt: "2026-08-21T11:00:00Z",
+            emergencyPhone: Config.emergencyPhoneDefault,
+            updatedAt: "2026-08-21T11:00:00Z",
+            participantId: "demo-1", firstName: "ดินดิน", lastName: "เดินดอย",
+            bib: 1042, groupNumber: 7, contactPhone: "0800000002",
+            emergencyContactName: "ผู้ปกครอง ตัวอย่าง", emergencyContactPhone: "0800000001",
+            bloodType: "O", healthNotes: "แพ้ยาเพนนิซิลลิน")
+    }
+    #endif
+
     func apply(_ incoming: [SOSStaffCase]) {
         // จับไว้ก่อนแก้ hasPolledBefore — apply() ครั้งแรกที่ store เคยถูกเรียกเลยคือ "baseline" ของ
         // เจ้าหน้าที่คนนี้ ไม่ใช่ "เคสเพิ่งเข้ามา" ในสายตาเขา (ดูคอมเมนต์ที่ newCase ว่าทำไมต้องแยกสองเรื่องนี้)
@@ -141,6 +167,18 @@ final class StaffSOSStore: ObservableObject {
     private static let feedFailuresBeforeWarning = 3
 
     func start(token: String) {
+        #if DEBUG
+        // ยัดเคสตัวอย่างไว้ถ่ายภาพยืนยัน — จอนี้อยู่หลังบัญชี staff จริงซึ่งโหมดเดโม่ไม่ครอบ
+        // และ `staffSOSFeed` คืน `[]` ในโหมดเดโม่ ไม่มีทางเห็นแผนที่ในการ์ดเลยถ้าไม่มีแฟลก
+        // (ทรงเดียวกับ `-uitestStaffScreen` / `-uitestCameraDenied` / `-uitestCredits`)
+        //
+        // ต้องมีสองแบบ: พิกัดแม่นกับพิกัดหยาบ — วงความคลาดเคลื่อนโผล่เฉพาะแบบหลัง
+        // (`SOSStaffCase.isCoarse` = แม่นแย่กว่า 200 ม.) ถ่ายแบบเดียวจะไม่เห็นครึ่งหนึ่งของงาน
+        if let sample = Self.uitestSampleCase() {
+            apply([sample])
+            return
+        }
+        #endif
         loop?.cancel()
         loop = Task { [weak self] in
             while !Task.isCancelled {
@@ -234,6 +272,14 @@ struct StaffSOSCard: View {
                     .font(.caption).foregroundStyle(.orange)
             }
 
+            // แผนที่ในการ์ดเลย — เดิมมีแค่ตัวเลขพิกัดกับลิงก์ที่เด้งออกไปนอกแอป คนที่กำลังจะ
+            // วิ่งไปหาผู้บาดเจ็บต้องออกจากแอปก่อนถึงจะรู้ว่าไปทางไหน · ไม่มีพิกัด = ไม่มีแผนที่
+            // ข้อความ "ไม่ทราบตำแหน่ง" จาก positionLabel ด้านบนทำหน้าที่แทนเหมือนเดิม
+            if let lat = c.lat, let lng = c.lng {
+                SOSCaseMapView(lat: lat, lng: lng,
+                               accuracyM: c.accuracyM, showsAccuracy: c.isCoarse)
+            }
+
             if let notes = c.healthNotes, !notes.isEmpty {
                 Text(notes).font(.callout).padding(8)
                     .background(.red.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 8))
@@ -248,7 +294,7 @@ struct StaffSOSCard: View {
                     }
                 }
                 if let lat = c.lat, let lng = c.lng,
-                   let maps = URL(string: "maps://?ll=\(lat),\(lng)&q=จุดขอความช่วยเหลือ") {
+                   let maps = SOSMapLink.appleMaps(lat: lat, lng: lng) {
                     Link(destination: maps) { Label("เปิดแผนที่", systemImage: "map.fill") }
                 }
             }
@@ -262,9 +308,15 @@ struct StaffSOSCard: View {
                 // ไม่ใช่ nil ปุ่มด้านล่างก็หายไปแล้ว ไม่มีทาง POST ack ซ้ำจาก UI นี้ได้อีก
                 Text("\(by) กำลังไป")
             } else {
-                Button(busy ? "กำลังส่ง…" : "กำลังไป") { run { await store.ack(id: c.id, token: token) } }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(busy)
+                // ตัวอักษรต้องสว่างเอง — `.borderedProminent` ย้อมพื้นด้วย tint ของการ์ด
+                // (`wbwForestVoid` เกือบดำ) ส่วน label รับสีจาก `.foregroundStyle` ของการ์ด
+                // ซึ่งเป็นสีเดียวกัน = ดำบนดำ อ่านไม่ออกเลย (ถ่ายเจอจริง 2026-08-21)
+                Button { run { await store.ack(id: c.id, token: token) } } label: {
+                    Text(busy ? "กำลังส่ง…" : "กำลังไป")
+                        .foregroundStyle(Color.wbwOnBackdrop)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(busy)
             }
 
             if !c.resolved {

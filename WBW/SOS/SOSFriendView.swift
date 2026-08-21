@@ -30,7 +30,7 @@ struct SOSFriendView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
 
                     if let lat = c.lat, let lng = c.lng,
-                       let maps = URL(string: "maps://?ll=\(lat),\(lng)&q=จุดขอความช่วยเหลือ") {
+                       let maps = SOSMapLink.appleMaps(lat: lat, lng: lng) {
                         // แอปเราไม่มีแผนที่ออฟไลน์ Apple Maps มี
                         Link(destination: maps) {
                             Label("เปิดในแผนที่", systemImage: "map.fill")
