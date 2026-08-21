@@ -164,6 +164,8 @@ final class SettingsBehaviorTests: XCTestCase {
     func testFixedDesignColoursDoNotFollowTheTheme() {
         for (color, name) in [(Color.wbwForestVoid, "wbwForestVoid"),
                               (Color.wbwMedical, "wbwMedical"),
+                              (Color.wbwSolid, "wbwSolid"),
+                              (Color.wbwOnBackdropDanger, "wbwOnBackdropDanger"),
                               (Color.ticketDeep, "ticketDeep"),
                               (Color.ticketGreen, "ticketGreen"),
                               (Color.ticketCreamPaper, "ticketCreamPaper"),
@@ -203,5 +205,61 @@ final class SettingsBehaviorTests: XCTestCase {
                        "wbwBg โหมดสว่าง = #EDF0E5")
         XCTAssertEqual(resolved(.wbwSurface, .light), UIColor(red: 0xF5 / 255, green: 0xF4 / 255, blue: 0xE9 / 255, alpha: 1),
                        "wbwSurface โหมดสว่าง = #F5F4E9 ไม่ใช่ขาวล้วน")
+    }
+
+    // MARK: - คู่สีของแท็บแชท
+
+    /// ความสว่างเชิงเส้นตามสูตร WCAG — ไม่ใช่ `getWhite` ซึ่งเป็นค่าที่ผ่าน gamma มาแล้ว
+    private func luminance(_ color: Color, _ style: UIUserInterfaceStyle) -> Double {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        resolved(color, style).getRed(&r, green: &g, blue: &b, alpha: &a)
+        func linear(_ c: CGFloat) -> Double {
+            let v = Double(c)
+            return v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+    }
+
+    private func contrast(_ a: Color, _ b: Color, _ style: UIUserInterfaceStyle) -> Double {
+        let (x, y) = (luminance(a, style), luminance(b, style))
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
+    private func assertContrast(_ a: Color, _ aName: String, on b: Color, _ bName: String,
+                                atLeast floor: Double,
+                                file: StaticString = #filePath, line: UInt = #line) {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let ratio = contrast(a, b, style)
+            let mode = style == .light ? "สว่าง" : "มืด"
+            XCTAssertGreaterThan(ratio, floor,
+                                 "โหมด\(mode): \(aName) บน \(bName) ได้ \(String(format: "%.2f", ratio)):1 "
+                                 + "ต่ำกว่าเกณฑ์ \(floor):1",
+                                 file: file, line: line)
+        }
+    }
+
+    /// `wbwOnGreen` ต้องพลิกตามธีม เพราะ `wbwGreen` เองพลิก (เข้มในโหมดสว่าง อ่อนในโหมดมืด)
+    /// ตัวอักษรสีเดียวตายตัวบนมันจะอ่านออกได้แค่ธีมเดียว
+    func testOnGreenFlipsWithTheThemeBecauseGreenDoes() {
+        assertAdapts(.wbwOnGreen, "wbwOnGreen")
+    }
+
+    /// **นี่คือเทสที่จับบั๊กจริงของแท็บแชท** — ฟองข้อความฝั่งเรา ปุ่มส่ง pill "ข้อความใหม่"
+    /// และปุ่มเข้ากลุ่ม ใช้ `wbwGold` (= `wbwAccent` = #E9EEE0 ในโหมดมืด) คู่กับตัวอักษร `.white`
+    /// ตายตัว จากยุคที่ `wbwGold` ยังเป็นสีทองจริง ผลคือ **ขาวบนขาว** ในโหมดมืดซึ่งเป็นค่าปริยาย
+    /// ของแอป · คอมไพเลอร์ไม่เห็น เทสสีเดิมก็ไม่เห็น เพราะทุกตัวตรวจ "โทเคนคืออะไร" ไม่ใช่
+    /// "โทเคนคู่ไหนถูกวางทับกัน"
+    func testChatColourPairsClearTheContrastFloor() {
+        assertContrast(.wbwOnGreen, "wbwOnGreen", on: .wbwGreen, "wbwGreen", atLeast: 4.5)
+        assertContrast(.wbwOnBackdrop, "wbwOnBackdrop", on: .wbwSolid, "wbwSolid", atLeast: 4.5)
+    }
+
+    /// ปุ่มทึบต้องแยกออกจากการ์ดที่มันวางอยู่ — ไม่ใช่เรื่องตัวอักษร แต่เป็นเรื่อง "เห็นว่ามีปุ่มไหม"
+    ///
+    /// โหมดมืดคือฝั่งที่คับ: `wbwSolid` (#2F3B2B) บน `wbwSurface` (#1A2318) ได้ราว 1.3:1
+    /// ตัวปุ่มจึงต้องมีเส้นขอบผมของตัวเองเป็นสิ่งที่กำหนดรูปทรง (ท่าเดียวกับ `GlassSurface`)
+    /// เกณฑ์ 1.2:1 คือ "พื้นต่างกันพอให้เส้นขอบไม่ใช่สิ่งเดียวที่มองเห็น" ไม่ใช่เกณฑ์ตัวอักษร
+    func testSolidButtonSeparatesFromTheCardItSitsOn() {
+        assertContrast(.wbwSolid, "wbwSolid", on: .wbwSurface, "wbwSurface", atLeast: 1.2)
     }
 }

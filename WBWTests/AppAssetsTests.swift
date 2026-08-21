@@ -1,6 +1,8 @@
 import XCTest
+import SwiftUI
 import ImageIO
 import CoreGraphics
+@testable import WBW
 
 /// คุมไฟล์ภาพสองใบที่ "ผิดแล้วไม่มีอะไรฟ้อง" จนกว่าจะสายเกินแก้
 ///
@@ -108,5 +110,31 @@ final class AppAssetsTests: XCTestCase {
         let (width, height) = try size(Self.backdrop)
         XCTAssertEqual(Double(height) / Double(width), 2.0, accuracy: 0.01,
                        "สัดส่วนต้องเป็น 1:2 — ได้ \(width)×\(height)")
+    }
+
+    /// สีเตือนที่วางบน**ภาพ** ไม่ใช่บนการ์ด ต้องรอดจริงบนภาพใบที่ใช้อยู่จริง
+    ///
+    /// `wbwDanger` ปรับตามธีม ขาสว่างของมัน (#C0503A) ได้ราว 2.4:1 บนภาพนี้ — ปุ่ม "ออกจากกลุ่ม"
+    /// กับข้อความ error ใน `GroupHomeView` วางบนภาพตรง ๆ หลังจากแท็บแชทเลิกทาพื้นทึบของตัวเอง
+    /// จึงใช้ตัวนั้นไม่ได้ · เทสนี้วัดกับไฟล์จริง ไม่ใช่กับเลขในคอมเมนต์ เปลี่ยนภาพเมื่อไหร่มันจะดัง
+    func testOnBackdropDangerSurvivesTheRealBackdrop() throws {
+        // ค่าที่ `meanLuminance` คืนคือค่าเทาที่ยังผ่าน gamma อยู่ ต้อง linearise ก่อนเข้าสูตร WCAG
+        // แล้วคูณ scrim ดำ 12% ที่ `AppBackdrop.wash` ทาทับ (สีดำ = คูณ 0.88 ในสเปซเชิงเส้น)
+        let gray = try meanLuminance(Self.backdrop)
+        let linear = gray <= 0.03928 ? gray / 12.92 : pow((gray + 0.055) / 1.055, 2.4)
+        let backdrop = linear * 0.88
+
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(Color.wbwOnBackdropDanger).getRed(&r, green: &g, blue: &b, alpha: &a)
+        func lin(_ c: CGFloat) -> Double {
+            let v = Double(c)
+            return v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+        }
+        let danger = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+        let ratio = (max(danger, backdrop) + 0.05) / (min(danger, backdrop) + 0.05)
+        XCTAssertGreaterThan(ratio, 4.0,
+                             "wbwOnBackdropDanger บนภาพพื้นหลังได้ \(String(format: "%.2f", ratio)):1 "
+                             + "— ปุ่มออกจากกลุ่มกับข้อความ error จะจมหายไปกับภาพ")
     }
 }
