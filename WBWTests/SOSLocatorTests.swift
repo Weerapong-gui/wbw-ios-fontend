@@ -23,6 +23,42 @@ private final class FakeLocationProvider: SOSLocationProviding {
 @MainActor
 final class SOSLocatorTests: XCTestCase {
 
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: Session.tokenKey)
+        super.tearDown()
+    }
+
+    /// โหมดเดโม่ห้ามเด้งกล่องขอสิทธิ์ของจริงใส่ผู้รีวิว
+    ///
+    /// `Session.startDemo()` ตั้งใจไม่เรียก `requestPermission()` ด้วยเหตุผลนี้ตรง ๆ แต่
+    /// `SOSStatusView.onAppear` เรียก `requestPermissionIfNeeded()` เองอีกทาง — ผู้รีวิวที่กด
+    /// ปุ่ม SOS ในโหมดเดโม่จึงยังเจอกล่องขอตำแหน่งอยู่ดี ทั้งที่โหมดนี้ไม่ยิงเน็ตและไม่ใช้พิกัดจริง
+    /// เลยสักครั้ง (`DemoSOS` สร้างเคสในหน่วยความจำล้วน) · Guideline 5.1.1 อ่านเรื่องนี้ตรง ๆ:
+    /// ขอสิทธิ์ที่ไม่มีอะไรในแอปได้ใช้จริง
+    func testDemoModeNeverAsksForLocation() {
+        UserDefaults.standard.set(DemoMode.token, forKey: Session.tokenKey)
+        let p = FakeLocationProvider()
+        p.status = .notDetermined
+        let locator = SOSLocator(provider: p)
+
+        locator.requestPermission()
+        XCTAssertFalse(p.requestedPermission, "โหมดเดโม่เด้งกล่องขอสิทธิ์ตำแหน่งใส่ผู้รีวิว")
+
+        XCTAssertFalse(locator.requestPermissionIfNeeded())
+        XCTAssertFalse(p.requestedPermission)
+    }
+
+    /// อีกด้านของเทสข้างบน — บัญชีจริงต้องยังถูกถามเหมือนเดิม
+    func testRealSessionStillAsksForLocation() {
+        UserDefaults.standard.removeObject(forKey: Session.tokenKey)
+        let p = FakeLocationProvider()
+        p.status = .notDetermined
+        let locator = SOSLocator(provider: p)
+
+        XCTAssertTrue(locator.requestPermissionIfNeeded())
+        XCTAssertTrue(p.requestedPermission)
+    }
+
     func testAFreshCachedFixIsUsedWithoutWaitingForGPS() async {
         let p = FakeLocationProvider()
         p.cached = CLLocation(coordinate: .init(latitude: 20.0439, longitude: 99.899),

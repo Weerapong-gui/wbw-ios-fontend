@@ -57,7 +57,16 @@ final class SOSLocator {
 
     /// ขอสิทธิ์ · เรียกหลังล็อกอินสำเร็จ ไม่ใช่ตอนกด SOS
     /// dialog กลางเหตุฉุกเฉินคือทั้งช้าที่สุดและถูกกด "ไม่อนุญาต" มากที่สุด
-    func requestPermission() { provider.requestWhenInUseAuthorization() }
+    ///
+    /// **โหมดเดโม่ไม่ขอเลยสักทาง** — `Session.startDemo()` ตั้งใจไม่เรียกตัวนี้ด้วยเหตุผลนั้น
+    /// อยู่แล้ว แต่ `SOSStatusView.onAppear` เรียก `requestPermissionIfNeeded()` เองอีกทาง
+    /// ผู้รีวิวที่กดปุ่ม SOS ในโหมดเดโม่จึงยังเจอกล่องขอตำแหน่งอยู่ดี ทั้งที่ทั้งโหมดนี้ไม่แตะ
+    /// พิกัดจริงเลยสักครั้ง (`DemoSOS` สร้างเคสในหน่วยความจำล้วน) · ประตูจึงต้องอยู่ที่นี่
+    /// จุดเดียว ไม่ใช่ไล่ใส่ทีละคนเรียก — ทรงเดียวกับที่ `PushManager` กันเรื่อง Firebase
+    func requestPermission() {
+        guard !DemoMode.active else { return }
+        provider.requestWhenInUseAuthorization()
+    }
 
     /// ยังไม่เคยถูกถามเลย — ไม่ใช่ "ถูกปฏิเสธ" · สองอย่างนี้ต้องแยกกันเพราะทางแก้คนละทาง
     /// (.notDetermined แก้ได้ด้วยกล่องขอสิทธิ์ในแอป · .denied ต้องไปที่ตั้งค่าของเครื่อง)
@@ -73,7 +82,7 @@ final class SOSLocator {
     /// พิกัดติดไปด้วยเลย และไม่มีอะไรบอกว่าเสียอะไรไป
     @discardableResult
     func requestPermissionIfNeeded() -> Bool {
-        guard needsPermission else { return false }
+        guard needsPermission, !DemoMode.active else { return false }
         provider.requestWhenInUseAuthorization()
         return true
     }
