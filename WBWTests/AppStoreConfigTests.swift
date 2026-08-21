@@ -91,6 +91,68 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
+    /// คีย์ทุกตัวที่ต้องแปล — สามใบเป็นกล่องขอสิทธิ์ที่ผู้รีวิวเห็นแน่นอน ส่วน
+    /// `CFBundleDisplayName` คือชื่อใต้ไอคอนบนจอโฮม
+    private static let infoPlistKeysNeedingTranslation = [
+        "CFBundleDisplayName",
+        "NSCameraUsageDescription",
+        "NSLocationWhenInUseUsageDescription",
+        "NSMotionUsageDescription",
+    ]
+
+    /// **แอปประกาศว่ารองรับอังกฤษ แต่กล่องขอสิทธิ์เป็นไทยล้วน**
+    ///
+    /// `CFBundleLocalizations = [th, en]` แต่ค่าของ `NS*UsageDescription` เป็นลิเทอรัลไทย
+    /// ฝังอยู่ใน plist ตรง ๆ และไม่มี `InfoPlist.strings` ที่ไหนเลยใน repo — iOS จึงไม่มีอะไรให้
+    /// เลือกมาแสดง ผู้รีวิว App Store บนเครื่องภาษาอังกฤษเห็นกล่องขอกล้อง/ตำแหน่ง/เซ็นเซอร์
+    /// เป็นภาษาไทยทั้งสามใบ ซึ่ง Guideline 5.1.1 บังคับว่าต้องอธิบายให้ผู้ใช้เข้าใจ
+    ///
+    /// ตรวจว่ามีครบ **ทั้งสองภาษา** และ **ครบทุกคีย์** — ขาดคีย์เดียวคือกล่องนั้นตกกลับไปเป็น
+    /// ค่าใน plist (ไทย) เงียบ ๆ โดยไม่มี error ไม่มี warning ตอน build
+    func testPermissionPromptsAreTranslatedForEveryDeclaredLanguage() throws {
+        let declared = try plist("WBW/Info.plist")["CFBundleLocalizations"] as? [String] ?? []
+        XCTAssertEqual(Set(declared), ["th", "en"], "รายชื่อภาษาเปลี่ยนไป ต้องแก้เทสนี้ด้วย")
+
+        for language in declared {
+            let path = "WBW/\(language).lproj/InfoPlist.strings"
+            let url = Self.repoRoot.appendingPathComponent(path)
+            guard let data = try? Data(contentsOf: url),
+                  let table = try? PropertyListSerialization.propertyList(from: data, format: nil)
+                    as? [String: String]
+            else {
+                XCTFail("""
+                    ไม่มี \(path) หรืออ่านไม่ออก
+                    แอปประกาศว่ารองรับ \(language) แต่กล่องขอสิทธิ์จะขึ้นภาษาที่ฝังใน Info.plist แทน
+                    """)
+                continue
+            }
+            for key in Self.infoPlistKeysNeedingTranslation {
+                let value = table[key] ?? ""
+                XCTAssertFalse(value.isEmpty, "\(path) ขาดคีย์ \(key)")
+            }
+        }
+    }
+
+    /// อีกครึ่งของเทสด้านบน — ไฟล์แปลที่ **อยู่ใน repo แต่ไม่ถูกแพ็กเข้า .app** ก็เท่ากับไม่มี
+    ///
+    /// `project.yml` ระบุ `sources: [WBW]` ทั้งโฟลเดอร์ ไฟล์ใหม่จึงเข้ามาเอง **หลังรัน
+    /// `xcodegen generate` แล้วเท่านั้น** ซึ่งเป็นขั้นที่ลืมได้ง่ายที่สุดใน repo นี้ (กติกาข้อ 1)
+    /// และลืมแล้วไม่มีอะไรฟ้อง — build ผ่านปกติ กล่องขอสิทธิ์แค่ตกกลับไปเป็นไทยเงียบ ๆ
+    ///
+    /// อ่านจาก `Bundle.main` ไม่ใช่ `project.pbxproj` เพราะ `WBW.xcodeproj` ถูก gitignore ไว้
+    /// (เป็นของที่ xcodegen สร้าง) — เทสที่อ่านไฟล์นั้นจะพังทันทีบน clone ใหม่ · เทสรันอยู่ใน
+    /// โปรเซสของแอปเอง `Bundle.main` จึงเป็น .app ตัวจริงที่จะถูกส่งขึ้น store
+    func testInfoPlistStringsAreBundledForEveryLanguage() throws {
+        for language in ["th", "en"] {
+            let path = Bundle.main.path(forResource: "InfoPlist", ofType: "strings",
+                                        inDirectory: nil, forLocalization: language)
+            XCTAssertNotNil(path, """
+                .app ที่ build ออกมาไม่มี \(language).lproj/InfoPlist.strings
+                ถ้าไฟล์อยู่ใน repo แล้วแต่ยังไม่มีตรงนี้ แปลว่ายังไม่ได้รัน `xcodegen generate`
+                """)
+        }
+    }
+
     func testPrivacyManifestDeclaresPreciseLocation() throws {
         let manifest = try plist("WBW/PrivacyInfo.xcprivacy")
         let types = manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? []
