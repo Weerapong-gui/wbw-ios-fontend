@@ -315,3 +315,63 @@
 "feedback_send_failed" = "ส่งไม่สำเร็จ ลองอีกครั้ง";
 "walk_distance_m_short" = "%1$lld ม.";
 "credits_3d_models" = "โมเดล 3 มิติ: ดู WBW/Resources/models/CREDITS.md · CC BY";
+
+/* SOS — จอสถานะของคนกด (ยกออกจากโค้ดที่ฮาร์ดโค้ดไว้ 2026-08-21) */
+"action_cancel" = "ยกเลิก";
+"sos_not_emergency_service" = "ปุ่มนี้แจ้งทีมงานของกิจกรรม ไม่ใช่การเรียกหน่วยกู้ชีพ เหตุร้ายแรงโทร 1669";
+"sos_status_minimize" = "ย่อลง · กลับไปหน้าแอป";
+"sos_status_minimize_hint" = "เคสยังเปิดอยู่ กดปุ่ม SOS เพื่อกลับมาดูสถานะ";
+"sos_status_stopped" = "หยุดเช็คสถานะอัตโนมัติแล้ว สัญญาณอาจหลุดนานเกินไป ที่เห็นอาจไม่ใช่ล่าสุด";
+"sos_status_recheck" = "เช็คสถานะอีกครั้ง";
+"sos_status_cancel" = "กดผิด · ยกเลิก";
+"sos_status_call_center" = "โทรหาทีมกลาง %1$@";
+"sos_status_already_acked" = "เจ้าหน้าที่รับเรื่องแล้ว ยกเลิกไม่ได้ ให้โทรบอกแทน";
+"sos_status_loc_undecided" = "ยังไม่ได้อนุญาตให้แอปใช้ตำแหน่ง เจ้าหน้าที่จะเห็นแค่ฐานล่าสุดที่คุณเช็คอิน";
+"sos_status_loc_allow" = "อนุญาตตำแหน่ง";
+"sos_status_loc_denied" = "ไม่ได้อนุญาตตำแหน่ง เจ้าหน้าที่จะเห็นแค่ฐานล่าสุดที่คุณเช็คอิน";
+"sos_status_open_settings" = "ไปตั้งค่า";
+"sos_status_note_placeholder" = "บอกเจ้าหน้าที่เพิ่มได้ (ไม่บังคับ)";
+"sos_status_note_delivered" = "เจ้าหน้าที่เห็นข้อความนี้แล้ว";
+"sos_status_note_failed" = "ยังส่งไม่ถึง เก็บไว้ในเครื่องแล้ว กดส่งอีกครั้งได้";
+"sos_status_note_send" = "ส่งข้อความ";
+"sos_status_note_sending" = "กำลังส่ง…";
+"sos_status_for_other" = "คนที่เจ็บเป็นคนอื่น ไม่ใช่ฉัน";
+"sos_status_for_other_sending" = "กำลังแจ้ง…";
+"sos_status_for_other_done" = "แจ้งไว้แล้วว่าคนที่เจ็บเป็นคนอื่น";
+"sos_status_for_other_failed" = "ยังแจ้งไม่ถึงเจ้าหน้าที่ กดอีกครั้งได้";
+"sos_status_queued" = "กำลังส่ง… ยังไม่ถึงเจ้าหน้าที่";
+"sos_status_received" = "ส่งถึงเจ้าหน้าที่แล้ว กำลังรอคนรับเรื่อง";
+"sos_status_on_the_way" = "%1$@ กำลังไปหาคุณ";
+"sos_status_staff_fallback" = "เจ้าหน้าที่";
+"sos_status_closed_done" = "เรื่องจบแล้ว";
+"sos_status_close" = "ปิดหน้านี้";
+"sos_case_canceled" = "ยกเลิกแล้ว";
+"sos_case_resolved" = "เจ้าหน้าที่ดูแลเรียบร้อยแล้ว";
+
+/* SOS — จอที่เพื่อนในกลุ่มเห็น */
+"sos_friend_title_other" = "เพื่อนแจ้งว่ามีคนเจ็บ";
+"sos_friend_title_self" = "เพื่อนขอความช่วยเหลือ";
+"sos_friend_near" = "ใกล้%1$@";
+"sos_friend_location_unknown" = "ไม่ทราบตำแหน่ง";
+"sos_accuracy_meters" = "ความแม่น ±%1$lld ม.";
+"sos_friend_advice" = "อย่าเคลื่อนย้ายผู้บาดเจ็บ · ถ้าอยู่ใกล้ให้ไปดู 1-2 คน ที่เหลืออยู่กับที่";
+"sos_friend_open_chat" = "เปิดแชทกลุ่ม";
+"sos_friend_on_the_way" = "%1$@ กำลังไปถึงแล้ว";
+"sos_friend_load_failed" = "โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง";
+
+/* SOS — จอเจ้าหน้าที่ */
+"sos_staff_title" = "เคสฉุกเฉิน";
+"sos_staff_empty" = "ยังไม่มีเคสฉุกเฉิน";
+"sos_staff_for_other" = "คนอื่นเจ็บ · ไม่ทราบประวัติผู้บาดเจ็บ";
+"sos_staff_coarse_location" = "พิกัดหยาบ อย่าเชื่อฐานที่ระบบเดา";
+"sos_staff_blood_type" = "กรุ๊ปเลือด %1$@";
+"sos_staff_call_reporter" = "โทรหาผู้แจ้ง";
+"sos_staff_closed" = "ปิดแล้ว";
+"sos_staff_on_the_way" = "%1$@ กำลังไป";
+"sos_staff_resolve" = "ปิดเคส";
+"sos_staff_resolve_why" = "ปิดเคสเพราะ";
+"sos_staff_resolve_helped" = "ช่วยแล้ว";
+"sos_staff_resolve_false" = "แจ้งเท็จ";
+"sos_staff_resolve_unreachable" = "ติดต่อไม่ได้";
+"sos_staff_new_case" = "มีเหตุฉุกเฉินใหม่";
+"sos_staff_see_all" = "ดูรายการเคสทั้งหมด";

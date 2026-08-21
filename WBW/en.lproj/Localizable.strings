@@ -315,3 +315,63 @@
 "feedback_send_failed" = "Not sent. Try again";
 "walk_distance_m_short" = "%1$lld m";
 "credits_3d_models" = "3D models: see WBW/Resources/models/CREDITS.md · CC BY";
+
+/* SOS — status screen for the person who pressed */
+"action_cancel" = "Cancel";
+"sos_not_emergency_service" = "This alerts the event team, not emergency services. In a real emergency call 1669.";
+"sos_status_minimize" = "Minimize · back to the app";
+"sos_status_minimize_hint" = "Your case stays open. Tap the SOS button to check the status again.";
+"sos_status_stopped" = "Stopped checking automatically. The signal has been gone too long, so this may not be current.";
+"sos_status_recheck" = "Check the status again";
+"sos_status_cancel" = "Pressed by mistake · cancel";
+"sos_status_call_center" = "Call the central team %1$@";
+"sos_status_already_acked" = "Staff already picked this up, so it can't be cancelled. Please call them instead.";
+"sos_status_loc_undecided" = "Location access hasn't been granted, so staff will only see the last base you checked in at";
+"sos_status_loc_allow" = "Allow location";
+"sos_status_loc_denied" = "Location access is off, so staff will only see the last base you checked in at";
+"sos_status_open_settings" = "Open Settings";
+"sos_status_note_placeholder" = "Tell staff more (optional)";
+"sos_status_note_delivered" = "Staff can see this message";
+"sos_status_note_failed" = "Not delivered yet. Saved on your phone, tap send again.";
+"sos_status_note_send" = "Send message";
+"sos_status_note_sending" = "Sending…";
+"sos_status_for_other" = "Someone else is hurt, not me";
+"sos_status_for_other_sending" = "Telling staff…";
+"sos_status_for_other_done" = "Staff know someone else is the one hurt";
+"sos_status_for_other_failed" = "Staff haven't been told yet. Tap again.";
+"sos_status_queued" = "Sending… not with staff yet";
+"sos_status_received" = "Staff have it. Waiting for someone to take the case.";
+"sos_status_on_the_way" = "%1$@ is on the way to you";
+"sos_status_staff_fallback" = "A staff member";
+"sos_status_closed_done" = "This case is finished";
+"sos_status_close" = "Close this screen";
+"sos_case_canceled" = "Cancelled";
+"sos_case_resolved" = "Handled by staff";
+
+/* SOS — what group members see */
+"sos_friend_title_other" = "A friend reported someone is hurt";
+"sos_friend_title_self" = "A friend needs help";
+"sos_friend_near" = "Near %1$@";
+"sos_friend_location_unknown" = "Location unknown";
+"sos_accuracy_meters" = "Accuracy ±%1$lld m";
+"sos_friend_advice" = "Do not move the injured person. If you are close, send 1–2 people; everyone else stays put.";
+"sos_friend_open_chat" = "Open group chat";
+"sos_friend_on_the_way" = "%1$@ is nearly there";
+"sos_friend_load_failed" = "Couldn't load this. Please try again.";
+
+/* SOS — staff screens */
+"sos_staff_title" = "Emergency cases";
+"sos_staff_empty" = "No emergency cases yet";
+"sos_staff_for_other" = "Someone else is hurt · no medical history for them";
+"sos_staff_coarse_location" = "Coarse location. Don't trust the base the system guessed.";
+"sos_staff_blood_type" = "Blood type %1$@";
+"sos_staff_call_reporter" = "Call the reporter";
+"sos_staff_closed" = "Closed";
+"sos_staff_on_the_way" = "%1$@ is on the way";
+"sos_staff_resolve" = "Close case";
+"sos_staff_resolve_why" = "Close this case because";
+"sos_staff_resolve_helped" = "Helped";
+"sos_staff_resolve_false" = "False alarm";
+"sos_staff_resolve_unreachable" = "Couldn't reach them";
+"sos_staff_new_case" = "New emergency";
+"sos_staff_see_all" = "See all cases";

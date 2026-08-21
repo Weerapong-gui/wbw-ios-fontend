@@ -15,14 +15,17 @@ struct SOSFriendView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let c = sosCase {
-                    Text(c.forOther ? "เพื่อนแจ้งว่ามีคนเจ็บ" : "เพื่อนขอความช่วยเหลือ")
+                    Text(c.forOther ? "sos_friend_title_other" : "sos_friend_title_self")
                         .font(.title2.bold())
-                    Text(c.checkpointName.map { "ใกล้\($0)" } ?? "ไม่ทราบตำแหน่ง")
-                    if let a = c.accuracyM { Text("ความแม่น ±\(Int(a)) ม.").font(.caption) }
+                    Text(c.checkpointName.map { Loc.t("sos_friend_near", $0) }
+                         ?? Loc.t("sos_friend_location_unknown"))
+                    if let a = c.accuracyM {
+                        Text(Loc.t("sos_accuracy_meters", Int(a))).font(.caption)
+                    }
 
                     // บรรทัดที่สำคัญที่สุดบนจอ — นี่คือสิ่งที่กันคน 50 คนวิ่งเข้าไปพร้อมกัน
                     // ไม่ใช่การซ่อนพิกัด
-                    Text("อย่าเคลื่อนย้ายผู้บาดเจ็บ · ถ้าอยู่ใกล้ให้ไปดู 1-2 คน ที่เหลืออยู่กับที่")
+                    Text("sos_friend_advice")
                         .font(.headline)
                         .padding()
                         .frame(maxWidth: .infinity)
@@ -33,11 +36,11 @@ struct SOSFriendView: View {
                        let maps = SOSMapLink.appleMaps(lat: lat, lng: lng) {
                         // แอปเราไม่มีแผนที่ออฟไลน์ Apple Maps มี
                         Link(destination: maps) {
-                            Label("เปิดในแผนที่", systemImage: "map.fill")
+                            Label("sos_map_open", systemImage: "map.fill")
                         }
                     }
 
-                    Button("เปิดแชทกลุ่ม") {
+                    Button("sos_friend_open_chat") {
                         // จอนี้เป็น .sheet ที่คลุมทับ ZStack ทั้งก้อนของ MainTabView อยู่ (รวม
                         // GroupChatView overlay ด้วย) โพสต์อย่างเดียวไม่ปิดชีตเอง แชทที่เพิ่งสั่งเปิด
                         // จะขึ้นอยู่ใต้ชีตนี้เงียบๆ ผู้ใช้แตะแล้วไม่เห็นอะไรเกิดขึ้นเลย ต้องปัดชีตทิ้งเอง
@@ -56,11 +59,11 @@ struct SOSFriendView: View {
                     }
 
                     if c.resolved {
-                        Label(c.resolveReason == "canceled_by_user" ? "ยกเลิกแล้ว" : "เจ้าหน้าที่ดูแลเรียบร้อยแล้ว",
+                        Label(c.resolveReason == "canceled_by_user" ? "sos_case_canceled" : "sos_case_resolved",
                               systemImage: "flag.checkered")
                             .foregroundStyle(.secondary)
                     } else if let by = c.ackedByName {
-                        Text("\(by) กำลังไปถึงแล้ว")
+                        Text(Loc.t("sos_friend_on_the_way", by))
                     }
                 } else if let loadError {
                     Text(loadError).foregroundStyle(.secondary)
@@ -72,7 +75,7 @@ struct SOSFriendView: View {
         }
         .task {
             do { sosCase = try await APIClient.shared.sosCase(token: token, id: sosId) }
-            catch { loadError = "โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง" }
+            catch { loadError = Loc.t("sos_friend_load_failed") }
         }
     }
 }

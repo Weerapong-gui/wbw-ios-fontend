@@ -33,4 +33,19 @@ enum Loc {
     static func t(_ key: String) -> String {
         bundle.localizedString(forKey: key, value: nil, table: nil)
     }
+
+    /// เหมือน `t(_:)` แต่เติมค่าลงตัวระบุรูปแบบให้ด้วย
+    ///
+    /// **ต้องใช้ตัวนี้ ไม่ใช่ `String(format: Loc.t(key), ...)` ที่เขียนเอง** — `String(format:)`
+    /// แบบไม่ระบุ locale ใช้ locale ของ *เครื่อง* จัดรูปตัวเลข คนที่เลือกไทยบนเครื่องภาษาอื่น
+    /// จะได้ตัวคั่นหลักพันคนละแบบกับที่เหลือทั้งแอป · ที่นี่ผูก locale ให้ตรงกับ bundle ที่
+    /// `use(_:)` เลือกไว้แล้ว
+    ///
+    /// ตัวระบุรูปแบบต้องเป็นแบบมีลำดับ (`%1$@`, `%1$lld`) เสมอ เพราะภาษาต่างกันสลับลำดับคำได้
+    /// — `scripts/check-localization.sh` ตรวจว่าทั้งสองภาษามีชุดเดียวกัน และคู่ `%@` กับ `Int`
+    /// ที่ไม่ตรงกันเคย **crash** จริงมาแล้วที่บัตรผู้เข้าร่วม
+    static func t(_ key: String, _ arguments: CVarArg...) -> String {
+        let locale = bundle.preferredLocalizations.first.map(Locale.init(identifier:))
+        return String(format: t(key), locale: locale, arguments: arguments)
+    }
 }
