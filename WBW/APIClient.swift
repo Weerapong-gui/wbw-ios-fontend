@@ -8,8 +8,26 @@ extension Notification.Name {
 struct APIClient {
     static let shared = APIClient()
 
+    /// เพดานเวลารอของคำขอที่ไม่ได้ตั้งเอง
+    ///
+    /// ค่าปริยายของ `URLSession` คือ 60 วินาที ซึ่งนานเกินกว่าที่คนจะรอโดยไม่คิดว่าแอปค้าง —
+    /// กด "เข้าสู่ระบบ" ตอนเน็ตหลุดแล้วเห็นตัวหมุนนิ่งหนึ่งนาทีก่อนขึ้น error อ่านเหมือนแอปพัง
+    /// ไม่ใช่เหมือนแอปกำลังรอ · 15 วินาทีพอสำหรับเน็ตมือถือบนดอยที่ช้าแต่ยังเดินอยู่
+    static let defaultTimeout: TimeInterval = 15
+
+    /// เวลารอที่จะใช้จริงกับคำขอนี้
+    ///
+    /// long-poll ของแชทกับ SOS ตั้ง `timeoutInterval` ของตัวเองไว้ยาวกว่านี้โดยตั้งใจ (ต้องมากกว่า
+    /// `wait` ที่ส่งไป ไม่งั้น client ตัดเองก่อนเซิร์ฟเวอร์ตอบ) ค่าพวกนั้นต้องรอด — เพดานกลาง
+    /// ใช้เฉพาะกับคำขอที่ **ไม่ได้เลือกอะไรเลย** ซึ่ง `URLRequest` แทนด้วยค่า 60 พอดี
+    static func timeout(for req: URLRequest) -> TimeInterval {
+        req.timeoutInterval == 60 ? defaultTimeout : req.timeoutInterval
+    }
+
     /// เรียก network + ตรวจ 401 → โพสต์ให้ logout (แทนจอว่างเงียบๆ)
     static func send(_ req: URLRequest) async throws -> (Data, URLResponse) {
+        var req = req
+        req.timeoutInterval = timeout(for: req)
         let (data, resp) = try await URLSession.shared.data(for: req)
         if let http = resp as? HTTPURLResponse, http.statusCode == 401 {
             NotificationCenter.default.post(name: .wbwUnauthorized, object: nil)

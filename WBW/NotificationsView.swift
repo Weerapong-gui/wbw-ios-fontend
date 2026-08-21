@@ -5,6 +5,19 @@ import SwiftUI
 final class NotiStore: ObservableObject {
     @Published var items: [NotificationItem] = []
     @Published var loaded = false
+    /// รอบล่าสุดยิงไม่ถึงเซิร์ฟเวอร์ — คนละเรื่องกับ "ยิงถึงแล้วไม่มีประกาศ"
+    @Published var loadFailed = false
+
+    /// สิ่งที่ควรทับจอตอนไม่มีรายการ
+    enum EmptyState { case loading, empty, failed, none }
+
+    /// แยกเป็น static func ที่รับทุกอย่างเข้ามา เทสจึงเรียกครบทุกสาขาได้โดยไม่ต้องมีเน็ตจริง
+    /// · `nonisolated` เพราะไม่แตะ state ของคลาสเลย เทสจึงไม่ต้องเป็น `@MainActor` ตามไปด้วย
+    nonisolated static func emptyState(loaded: Bool, failed: Bool, isEmpty: Bool) -> EmptyState {
+        guard isEmpty else { return .none }        // มีของเก่าค้างอยู่ = โชว์ของเก่าไป
+        guard loaded else { return .loading }
+        return failed ? .failed : .empty
+    }
 
     var unreadCount: Int { items.filter { $0.isUnread }.count }
 
@@ -16,7 +29,21 @@ final class NotiStore: ObservableObject {
     /// pendingReadCheckpoint ถูกเคลียร์ไปแล้วตั้งแต่เจอแถวครั้งแรก ไม่มีอะไรลองมาร์คซ้ำให้อีก
     func load(token: String) async {
         guard !token.isEmpty else { return }
-        if let list = try? await APIClient.shared.notifications(token: token) {
+        // ต้องแยก "ยิงไม่ถึง" ออกจาก "ไม่มีประกาศ" — `try?` เดิมทำให้สองอย่างนี้หน้าตาเหมือนกัน
+        // บนจอทุกประการ (ดู emptyState ข้างบน)
+        #if DEBUG
+        // ถ่ายจอ "ยิงไม่ถึง" ตรง ๆ — ตัดเน็ตของซิมูเลเตอร์จากข้างนอกทำไม่ได้ และโหมดเดโม่ก็ไม่
+        // ยิงเน็ตเลยอยู่แล้ว จึงไม่มีทางเห็นสาขานี้ด้วยวิธีอื่น (กติกาข้อ 8: จอที่แก้ต้องมีรูป)
+        if UserDefaults.standard.bool(forKey: "uitestNotiLoadFailed") {
+            items = []
+            loadFailed = true
+            loaded = true
+            return
+        }
+        #endif
+        let list = try? await APIClient.shared.notifications(token: token)
+        loadFailed = list == nil
+        if let list {
             let readLocally = items.reduce(into: [String: String]()) { dict, item in
                 if let r = item.readAt { dict[item.id] = r }
             }
@@ -76,9 +103,28 @@ struct NotificationsView: View {
             .scrollContentBackground(.hidden)
             .background(Color.wbwBg)
             .overlay {
-                if store.loaded && store.items.isEmpty {
+                switch NotiStore.emptyState(loaded: store.loaded,
+                                            failed: store.loadFailed,
+                                            isEmpty: store.items.isEmpty) {
+                case .empty:
                     ContentUnavailableView("notifications_empty", systemImage: "bell.slash",
                                            description: Text("notifications_empty_desc"))
+                case .failed:
+                    ContentUnavailableView {
+                        Label("error_load_announcements", systemImage: "wifi.exclamationmark")
+                    } description: {
+                        Text("error_network")
+                    } actions: {
+                        Button("action_retry") {
+                            Task { await store.load(token: token) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        // ไม่ tint แล้วได้ฟ้าของระบบ ซึ่งไม่ใช่สีของแอปนี้เลยสักที่
+                        .tint(Color.wbwGreen)
+                        .foregroundStyle(Color.wbwOnGreen)
+                    }
+                case .loading, .none:
+                    EmptyView()
                 }
             }
             .navigationTitle(Text("notifications_title"))
