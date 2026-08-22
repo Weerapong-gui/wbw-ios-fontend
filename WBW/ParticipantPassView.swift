@@ -96,6 +96,15 @@ struct ParticipantPassView: View {
                 .foregroundStyle(Color.wbwOnBackdropMuted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+            // คำเตือนอยู่**ก่อนกด** ไม่ใช่แค่บนจอสถานะหลังกดไปแล้ว — คนที่กำลังตัดสินใจว่า
+            // จะพึ่งปุ่มนี้แทนโทร 1669 ต้องอ่านตรงนี้ · แอปอยู่หมวด Health & Fitness
+            // ซึ่ง App Review อ่านการอ้างความสามารถทางการแพทย์ละเอียดที่สุด
+            // (`WBWTests/SOSDisclaimerTests.swift` ค้ำไว้ทั้งจอนี้และจอสถานะ)
+            Text("sos_not_emergency_service")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.wbwOnBackdropMuted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, 4)
     }
