@@ -36,10 +36,21 @@ enum LocationPrimer {
     }
 
     /// ตัวที่จอจริงเรียก — อ่านสถานะปัจจุบันของแอปแล้วส่งต่อให้ตัวข้างบน
+    ///
+    /// `NSLog` ครอบ `#if DEBUG` ด้วยเหตุผลเดียวกับ `Map3DLocation`: จอนี้โผล่หรือไม่โผล่ขึ้นกับ
+    /// สามค่าที่มองไม่เห็นจากภายนอกเลย (สถานะสิทธิ์ · โหมดเดโม่ · ธง "กดไว้ทีหลัง") ตอนรันบน
+    /// เครื่องจริงจึงแยกไม่ออกว่า "ไม่โผล่เพราะตอบไปแล้ว" กับ "ไม่โผล่เพราะพัง"
     @MainActor
     static var shouldShowNow: Bool {
-        shouldShow(authorization: SOSLocator.shared.authorization,
-                   isDemo: DemoMode.active,
-                   dismissed: dismissed)
+        let auth = SOSLocator.shared.authorization
+        let demo = DemoMode.active
+        let put = dismissed
+        let show = shouldShow(authorization: auth, isDemo: demo, dismissed: put)
+        #if DEBUG
+        NSLog("[loc] จออธิบาย: %@ · สิทธิ์=%@ เดโม่=%@ กดไว้ทีหลังแล้ว=%@",
+              show ? "โผล่" : "ไม่โผล่",
+              Map3DLocation.describe(auth), demo ? "ใช่" : "ไม่", put ? "ใช่" : "ไม่")
+        #endif
+        return show
     }
 }

@@ -49,6 +49,9 @@ final class DemoPermissionTests: XCTestCase {
                     """)
             }
         }
-        XCTAssertGreaterThan(sites, 2, "ตัวกวาดหาจุดขอสิทธิ์ไม่เจอ — เงื่อนไขเน่าแล้ว")
+        // เหลือสองจุด ทั้งคู่อยู่ใน `SOSLocator` — `Map3DLocation` เลิกขอเองแล้ว (ดู
+        // `PermissionEntryPointTests` ว่าทำไม) และ `SURunTracker` ถูกลบไปพร้อมฟีเจอร์ SU RUN
+        // · ตัวเลขนี้ลดลงได้อีกไม่ได้ ถ้าเหลือศูนย์แปลว่าไม่มีใครขอสิทธิ์เลย = SOS ไม่มีพิกัด
+        XCTAssertGreaterThanOrEqual(sites, 2, "ตัวกวาดหาจุดขอสิทธิ์ไม่เจอ — เงื่อนไขเน่าแล้ว")
     }
 }
