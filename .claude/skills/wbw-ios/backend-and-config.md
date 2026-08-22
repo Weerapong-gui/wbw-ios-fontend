@@ -48,6 +48,18 @@ IP** ใน `apiBase` เท่านั้น ไม่ใช่ตัว case
 เดียวกับกับดัก "สลับ backend แล้วต้องล้างข้อมูลแอป" ด้านบนซ้ำอีกรอบ: ข้อมูลจาก backend หนึ่งปนกับอีก
 backend หนึ่งแบบเงียบ ๆ ไม่มี error ไม่มี log ให้เห็นเลย
 
+**โหมดเดโม่ซ้อน namespace อีกชั้น** — `CacheScope.suffix` (`WBW/BackendCacheKey.swift`) ต่อ `.demo`
+ท้ายคีย์ทุกตัวเมื่ออยู่ในโหมดเดโม่ · cache/persisted key ใหม่ต้องต่อ **ทั้งสอง** อย่าง ไม่ใช่แค่
+`cacheNamespace` — ไม่งั้นข้อมูลจำลองจะค้างข้ามไปให้บัญชีจริงบนเครื่องเดียวกัน อาการเดียวกับกับดัก
+"สลับ backend แล้วไม่ล้าง" เป๊ะ ๆ · `Session.clearDemoCaches()` ล้างด้วย suffix นี้ ตั้งชื่อไม่ตรง
+แล้วจะล้างไม่เจอ
+
+**โหมดเดโม่ไม่แตะ Firebase เลย** — `PushManager.configureFirebaseIfAvailable()` คืนทันทีเมื่อ
+`enteringDemo()` เป็นจริง ไม่ใช่แค่ไม่ลงทะเบียน device token: ตัว Firebase Messaging เองเป็นคนทำให้
+ระบบเด้ง dialog ขอสิทธิ์แจ้งเตือน (พิสูจน์แล้วว่า `requestAuthorization` ของเราไม่เคยถูกเรียก) ·
+`registerCurrent()` จึงเรียก `configureFirebaseIfAvailable()` ให้เองก่อน เผื่อผู้ใช้ออกจากโหมดเดโม่
+แล้วล็อกอินจริงในรอบเดียวกัน ไม่งั้นเครื่องนั้นจะไม่ได้รับ push ทั้งวันโดยไม่มีอะไรฟ้อง
+
 **login ใช้คีย์ `username`** ไม่ใช่ `student_id` — `WBW/APIClient.swift` ส่ง
 `["username": studentId, "password": password]` ต่อให้ค่าที่ผู้ใช้กรอกเป็นรหัสนักศึกษาก็ตาม ชื่อ field
 ในโค้ดคือ `studentId` แต่คีย์ JSON ที่ยิงออกไปคือ `username`
@@ -67,6 +79,6 @@ backend หนึ่งแบบเงียบ ๆ ไม่มี error ไม
 
 ## จะแก้ฝั่ง backend
 
-SUS (Student-Union-Server) อยู่ที่ `/Users/park/Student-Union-Server` — **แก้ได้ ไม่ใช่ของต้องห้าม** เวลา
+SUS (Student-Union-Server) อยู่ที่ `/Users/park/Projects/Student-Union-Server` — **แก้ได้ ไม่ใช่ของต้องห้าม** เวลา
 แอปต้องการพฤติกรรม/endpoint ที่ SUS ยังไม่มี มีสองทางเลือก: แก้ SUS ตรง ๆ หรือเขียนความต้องการลง
 `docs/backend-contract.md` — **ถามก่อนว่าจะเอาทางไหน อย่าเดาเอง**

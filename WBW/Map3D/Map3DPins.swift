@@ -1,37 +1,56 @@
 import Foundation
 
-/// หมุดฐานบนโมเดลแผนที่ — แท่งทรงกระบอกแดง 8 แท่งที่มากับ map.usdz อยู่แล้ว
+/// หมุดฐานบนโมเดลแผนที่ — `marker_1`…`marker_8` ที่มากับ Map2.0
 ///
-/// โมเดลตั้งชื่อ prim ว่า Cylinder, Cylinder_001 … Cylinder_007 ซึ่งไม่ได้บอกว่าแท่งไหนคือฐานไหน
-/// ลำดับในตารางข้างล่างจึงเป็นการจับคู่ที่ **ต้องยืนยันด้วยสกรีนช็อตกับ Park** ไม่ใช่ค่าที่พิสูจน์
-/// จากตัวไฟล์ได้ — จับผิดคู่แปลว่าคนเดินผิดฐานจริง
+/// ต่างจากใบก่อนตรงที่ **โมเดลบอกลำดับฐานเอง**: ชื่อ prim มีเลขอยู่ในตัว และมีเลขปั้นเป็น mesh
+/// (`markerNum_N`) ให้คนเดินเห็นบนแผนที่ตรงกัน · ใบเก่าชื่อ prim เป็น `Cylinder_00N` ที่ไม่ได้
+/// บอกอะไรเลย ต้องเดาคู่แล้วยืนยันด้วยสกรีนช็อต — และตอนเทียบกับใบใหม่พบว่าเดาผิด 6 จาก 8
 enum Map3DPins {
-    /// เรียงตามลำดับฐาน 1-8 · ลำดับนี้คือสิ่งที่ต้องยืนยันด้วยตา
-    static let entityNames = [
-        "Cylinder",
-        "Cylinder_001",
-        "Cylinder_002",
-        "Cylinder_003",
-        "Cylinder_004",
-        "Cylinder_005",
-        "Cylinder_006",
-        "Cylinder_007",
-    ]
+    /// ชื่อ prim ทุกตัวที่ต้องติด collision ให้ — รวมทั้งแท่งและเลขที่ปั้นติดหมุด
+    static var entityNames: [String] { Map3DConfig.current.pins.flatMap(\.entityNames) }
 
-    /// prim นี้เป็นฐานลำดับที่เท่าไร — nil = ไม่ใช่หมุด (อาคาร ถนน ฯลฯ)
+    /// ชื่อแท่งหลักของฐานนั้น (ชื่อแรกในตาราง) — กล้องต้องบินไปจ้องแท่ง ไม่ใช่เลขที่ลอยสูงกว่า
+    /// ไม่งั้นเฟรมสุดท้ายของแอนิเมชันโฟกัสเป็นภาพกลางอากาศเหนือฐาน
+    static func primaryEntityName(for sequence: Int) -> String? {
+        Map3DConfig.current.pins.first { $0.sequence == sequence }?.entityNames.first
+    }
+
+    /// prim นี้เป็นฐานลำดับที่เท่าไร — nil = ไม่ใช่หมุด (อาคาร ถนน ต้นไม้ ฯลฯ)
     static func sequence(forEntityNamed name: String) -> Int? {
-        guard let index = entityNames.firstIndex(of: name) else { return nil }
-        return index + 1
+        Map3DConfig.current.pins.first { $0.entityNames.contains(name) }?.sequence
     }
 
     /// ข้อความบนการ์ดตอนแตะหมุด
     ///
-    /// ชื่อจริงมีให้เฉพาะฐานที่เช็คอินไปแล้ว (GET /wbw/me/progress คืนแค่ checked_in)
-    /// ฐานที่ยังไม่ไปถึงไม่มีทางรู้ชื่อจากฝั่ง participant — คืน "ฐานที่ N" แทน ห้ามเดาชื่อ
-    static func label(sequence: Int, checkedIn: [CheckinProgressItem]) -> String {
+    /// **แหล่งชื่อเปลี่ยนแล้ว (2026-08-21)** เดิมชื่อจริงมีให้เฉพาะฐานที่เช็คอินไปแล้ว เพราะ
+    /// `/me/progress` คืนแค่ `checked_in` — คนที่ยังไม่ได้เดินจึงเห็น "ฐานที่ 1"…"ฐานที่ 8"
+    /// ทั้งแผนที่ และแอดมินแก้ชื่อบนแดชบอร์ดแล้วแอปไม่รู้เรื่องจนกว่าจะมีคนไปเช็คอินฐานนั้น ·
+    /// ตอนนี้อ่านจาก `GET /wbw/checkpoints` ซึ่งคืนทุกฐานพร้อมชื่อสองภาษา
+    ///
+    /// กติกา **"ห้ามเดาชื่อ"** ยังอยู่ครบ — ถอยไป "ฐานที่ N" เมื่อยังไม่เคยดึงสำเร็จและไม่มีแคช
+    /// ซึ่งคือ "ไม่รู้" จริง ๆ ไม่ใช่การเดา · `checkedIn` ไม่ได้ใช้เป็นแหล่งชื่ออีกแล้วแต่ยังรับไว้
+    /// เป็นทางถอยสำหรับเครื่องที่เพิ่งอัปเดตแอปแล้วยังไม่ได้ต่อเน็ตเลยสักครั้ง (แคชเก่ามีแต่ progress)
+    static func label(sequence: Int, checkedIn: [CheckinProgressItem],
+                      checkpoints: [Checkpoint] = []) -> String {
+        if let match = checkpoints.first(where: { $0.sequence == sequence }) {
+            return match.displayName
+        }
         if let match = checkedIn.first(where: { $0.sequence == sequence }) {
             return match.name
         }
-        return "ฐานที่ \(sequence)"
+        return String(format: Loc.t("map_base_number"), sequence)
+    }
+
+    /// ชื่อกิจกรรมของฐานนั้น — nil = ไม่มีข้อมูล (การ์ดซ่อนบรรทัดนั้นไปเลย)
+    ///
+    /// เดิมมีให้เฉพาะฐานที่เช็คอินแล้วด้วยเหตุผลเดียวกับชื่อฐาน
+    static func activity(sequence: Int, checkedIn: [CheckinProgressItem],
+                         checkpoints: [Checkpoint] = []) -> String? {
+        if let match = checkpoints.first(where: { $0.sequence == sequence }) {
+            return match.displayActivity
+        }
+        let visited = checkedIn.first { $0.sequence == sequence }
+        guard let activity = visited?.activityName, !activity.isEmpty else { return nil }
+        return activity
     }
 }

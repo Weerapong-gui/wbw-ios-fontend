@@ -5,6 +5,19 @@ import SwiftUI
 final class NotiStore: ObservableObject {
     @Published var items: [NotificationItem] = []
     @Published var loaded = false
+    /// รอบล่าสุดยิงไม่ถึงเซิร์ฟเวอร์ — คนละเรื่องกับ "ยิงถึงแล้วไม่มีประกาศ"
+    @Published var loadFailed = false
+
+    /// สิ่งที่ควรทับจอตอนไม่มีรายการ
+    enum EmptyState { case loading, empty, failed, none }
+
+    /// แยกเป็น static func ที่รับทุกอย่างเข้ามา เทสจึงเรียกครบทุกสาขาได้โดยไม่ต้องมีเน็ตจริง
+    /// · `nonisolated` เพราะไม่แตะ state ของคลาสเลย เทสจึงไม่ต้องเป็น `@MainActor` ตามไปด้วย
+    nonisolated static func emptyState(loaded: Bool, failed: Bool, isEmpty: Bool) -> EmptyState {
+        guard isEmpty else { return .none }        // มีของเก่าค้างอยู่ = โชว์ของเก่าไป
+        guard loaded else { return .loading }
+        return failed ? .failed : .empty
+    }
 
     var unreadCount: Int { items.filter { $0.isUnread }.count }
 
@@ -16,7 +29,21 @@ final class NotiStore: ObservableObject {
     /// pendingReadCheckpoint ถูกเคลียร์ไปแล้วตั้งแต่เจอแถวครั้งแรก ไม่มีอะไรลองมาร์คซ้ำให้อีก
     func load(token: String) async {
         guard !token.isEmpty else { return }
-        if let list = try? await APIClient.shared.notifications(token: token) {
+        // ต้องแยก "ยิงไม่ถึง" ออกจาก "ไม่มีประกาศ" — `try?` เดิมทำให้สองอย่างนี้หน้าตาเหมือนกัน
+        // บนจอทุกประการ (ดู emptyState ข้างบน)
+        #if DEBUG
+        // ถ่ายจอ "ยิงไม่ถึง" ตรง ๆ — ตัดเน็ตของซิมูเลเตอร์จากข้างนอกทำไม่ได้ และโหมดเดโม่ก็ไม่
+        // ยิงเน็ตเลยอยู่แล้ว จึงไม่มีทางเห็นสาขานี้ด้วยวิธีอื่น (กติกาข้อ 8: จอที่แก้ต้องมีรูป)
+        if UserDefaults.standard.bool(forKey: "uitestNotiLoadFailed") {
+            items = []
+            loadFailed = true
+            loaded = true
+            return
+        }
+        #endif
+        let list = try? await APIClient.shared.notifications(token: token)
+        loadFailed = list == nil
+        if let list {
             let readLocally = items.reduce(into: [String: String]()) { dict, item in
                 if let r = item.readAt { dict[item.id] = r }
             }
@@ -38,72 +65,123 @@ final class NotiStore: ObservableObject {
     }
 }
 
-/// หน้าประกาศ/แจ้งเตือน (แท็บ newspaper) — participant เท่านั้น
+/// หน้าประกาศ/แจ้งเตือน — เปิดเป็นชีตจากกระดิ่งที่ Home (ดู MainTabView) · participant เท่านั้น
+///
+/// **2026-08-20: เขียนใหม่เป็น `List` ของระบบ** เดิมเป็น `LazyVStack` + การ์ดมือทำที่มีแถบสีซ้าย
+/// 5 pt กับกรอบ `stroke(.black.opacity(0.05))` — กรอบนั้นมองไม่เห็นเลยในโหมดมืด (ดำบนดำ) และ
+/// การ์ดขาวเรียงติดกันเต็มจอไม่มีอะไรบอกว่าอันไหนมาวันไหน · ตอนนี้ระดับความสำคัญอยู่ที่สีไอคอน
+/// และวันอยู่ที่หัวกลุ่ม (`NotificationGrouping`)
 struct NotificationsView: View {
     @ObservedObject var store: NotiStore
     let token: String
     /// แตะการ์ดขอความเห็น (checkpoint id ที่มันพูดถึง) — Task 11 ผูกว่าเปิดอะไรต่อ การ์ดประกาศทั่วไป
     /// ไม่เรียกตัวนี้เลย (feedbackCheckpointId เป็น nil)
     let onOpenFeedback: (Int) -> Void
+    /// แตะการ์ด SOS (เลขเคสที่มันพูดถึง) — พาไปจอเพื่อนที่กดขอความช่วยเหลือ
+    /// การ์ดประกาศทั่วไป/การ์ดขอความเห็นไม่เรียกตัวนี้เลย (`sosId` เป็น nil)
+    let onOpenSOS: (Int64) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    /// ตรึง "ตอนนี้" ไว้ตอนเปิดจอ ไม่ใช่เรียก `Date()` ระหว่างสร้าง body — ไม่งั้นแถวที่นั่งอยู่เฉย ๆ
+    /// จะกระโดดจากกลุ่ม "วันนี้" ไป "เมื่อวาน" เองตอนนาฬิกาข้ามเที่ยงคืน ทั้งที่ผู้ใช้ไม่ได้ทำอะไร
+    @State private var openedAt = Date()
+
+    private var sections: [NotificationGrouping.Section] {
+        NotificationGrouping.sections(store.items, now: openedAt)
+    }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.wbwBg.ignoresSafeArea()
-                if store.loaded && store.items.isEmpty {
-                    emptyState
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(store.items) { item in
-                                // เฉพาะการ์ดขอความเห็นกดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
-                                if let checkpointId = item.feedbackCheckpointId {
-                                    Button { onOpenFeedback(checkpointId) } label: { NotiCard(item: item) }
-                                        .buttonStyle(.plain)
-                                } else {
-                                    NotiCard(item: item)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
+            List {
+                ForEach(sections) { section in
+                    Section(section.title) {
+                        ForEach(section.items) { row($0) }
                     }
                 }
             }
-            .navigationTitle("ประกาศ")
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(Color.wbwBg)
+            .overlay {
+                switch NotiStore.emptyState(loaded: store.loaded,
+                                            failed: store.loadFailed,
+                                            isEmpty: store.items.isEmpty) {
+                case .empty:
+                    ContentUnavailableView("notifications_empty", systemImage: "bell.slash",
+                                           description: Text("notifications_empty_desc"))
+                case .failed:
+                    ContentUnavailableView {
+                        Label("error_load_announcements", systemImage: "wifi.exclamationmark")
+                    } description: {
+                        Text("error_network")
+                    } actions: {
+                        Button("action_retry") {
+                            Task { await store.load(token: token) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        // ไม่ tint แล้วได้ฟ้าของระบบ ซึ่งไม่ใช่สีของแอปนี้เลยสักที่
+                        .tint(Color.wbwGreen)
+                        .foregroundStyle(Color.wbwOnGreen)
+                    }
+                case .loading, .none:
+                    EmptyView()
+                }
+            }
+            .navigationTitle(Text("notifications_title"))
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                // จอนี้เปิดเป็น .sheet — เดิมไม่มีปุ่มปิดเลย ปัดลงอย่างเดียว
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("action_done") { dismiss() }
+                }
+            }
+            .refreshable { await store.load(token: token) }
         }
         .task {
             await store.load(token: token)
             await store.markAllRead(token: token)
         }
-        .refreshable { await store.load(token: token) }
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bell.slash")
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(.secondary)
-            Text("ยังไม่มีประกาศ")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+    /// เฉพาะการ์ดขอความเห็นกับการ์ด SOS กดได้ — การ์ดประกาศทั่วไปเรนเดอร์เหมือนเดิมทุกอย่าง
+    @ViewBuilder
+    private func row(_ item: NotificationItem) -> some View {
+        if let checkpointId = item.feedbackCheckpointId {
+            Button { onOpenFeedback(checkpointId) } label: {
+                NotiRow(item: item, now: openedAt, showsChevron: true)
+            }
+            .buttonStyle(.plain)
+        } else if let sosId = item.sosId {
+            Button { onOpenSOS(sosId) } label: {
+                NotiRow(item: item, now: openedAt, showsChevron: true)
+            }
+            .buttonStyle(.plain)
+        } else {
+            NotiRow(item: item, now: openedAt, showsChevron: false)
         }
     }
 }
 
-/// การ์ดประกาศ 1 รายการ — แถบสีซ้ายตามระดับความสำคัญ
-/// การ์ดขอความเห็น (feedbackCheckpointId != nil) มีสี/ไอคอน/เชฟรอนของตัวเอง เช็คก่อน switch ตาม
-/// item.level เดิมเสมอ ไม่งั้นการ์ดประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย — เช็คจาก feedbackCheckpointId
-/// (ไม่ใช่ item.type ตรงๆ) ตัวเดียวกับที่ NotificationsView ใช้ตัดสินใจห่อ Button ด้านบน กันไม่ให้การ์ด
-/// ดูกดได้ (สีเขียว+เชฟรอน) ทั้งที่แตะแล้วไม่มีอะไรเกิดขึ้นจริง
-private struct NotiCard: View {
+/// ประกาศ 1 แถว — ไอคอนในวงกลมสีตามระดับความสำคัญ
+///
+/// การ์ดขอความเห็น (feedbackCheckpointId != nil) กับการ์ด SOS (sosId != nil) มีสี/ไอคอนของตัวเอง
+/// เช็คก่อน switch ตาม item.level เดิมเสมอ ไม่งั้นประกาศทั่วไปจะเปลี่ยนหน้าตาไปด้วย —
+/// เช็คจาก `feedbackCheckpointId`/`sosId` ไม่ใช่ `item.type` ตรง ๆ ตัวเดียวกับที่
+/// `NotificationsView.row` ใช้ตัดสินว่าจะห่อ Button ไหม สองที่จึงไม่มีทางไม่ตรงกัน
+private struct NotiRow: View {
     let item: NotificationItem
+    let now: Date
+    /// เชฟรอนบอกว่ากดได้ — ตัดสินจากฝั่งที่ห่อ Button จริง (ดู NotificationsView.row) ไม่ใช่เดาเอง
+    /// ในนี้ ไม่งั้นแถวที่แตะแล้วไม่มีอะไรเกิดขึ้นจะดูเหมือนกดได้
+    let showsChevron: Bool
 
     private var isFeedback: Bool { item.feedbackCheckpointId != nil }
+    private var isSOS: Bool { item.sosId != nil }
 
     private var accent: Color {
         if isFeedback { return Color.wbwGreen }
+        // เคส SOS แดงเสมอ ไม่ว่า level ที่ backend ใส่มาจะเป็นอะไร
+        if isSOS { return Color(red: 0.84, green: 0.27, blue: 0.27) }
         switch item.level {
         case "emergency": return Color(red: 0.84, green: 0.27, blue: 0.27) // แดง
         case "warning":   return Color.wbwGold
@@ -112,6 +190,7 @@ private struct NotiCard: View {
     }
     private var icon: String {
         if isFeedback { return "checkmark.seal.fill" }
+        if isSOS { return "sos" }   // ไอคอนเดียวกับที่จอเคสของเจ้าหน้าที่ใช้
         switch item.level {
         case "emergency": return "exclamationmark.triangle.fill"
         case "warning":   return "exclamationmark.triangle"
@@ -120,46 +199,43 @@ private struct NotiCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            Rectangle().fill(accent).frame(width: 5)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(accent)
-                    Text(item.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.wbwInk)
-                    Spacer(minLength: 4)
-                    if item.isUnread {
-                        Circle().fill(accent).frame(width: 8, height: 8)
-                    }
-                }
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(accent)
+                .frame(width: 34, height: 34)
+                .background(accent.opacity(0.15), in: Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.headline)
+                    .foregroundStyle(Color.wbwInk)
                 if let b = item.body, !b.isEmpty {
                     Text(b)
-                        .font(.system(size: 14))
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if !item.timeText.isEmpty {
-                    Text(item.timeText)
-                        .font(.system(size: 12))
+                let time = NotificationGrouping.rowTime(item, now: now)
+                if !time.isEmpty {
+                    Text(time)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(14)
+
             Spacer(minLength: 0)
-            // เชฟรอนบอกว่ากดได้ — เฉพาะการ์ดขอความเห็น การ์ดประกาศทั่วไปไม่ได้ห่อ Button ไว้ (ดู
-            // NotificationsView) เชฟรอนเลยต้องไม่โผล่ให้เข้าใจผิดว่ากดได้
-            if isFeedback {
+
+            if item.isUnread {
+                Circle().fill(accent).frame(width: 8, height: 8).padding(.top, 12)
+            }
+            if showsChevron {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
-                    .padding(.trailing, 14)
+                    .padding(.top, 10)
             }
         }
-        .background(Color.wbwSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.05), lineWidth: 1))
+        .padding(.vertical, 4)
     }
 }

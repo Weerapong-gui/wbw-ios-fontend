@@ -7,6 +7,13 @@ struct GroupMembersView: View {
     @EnvironmentObject var groups: GroupStore
     let groupId: Int
     let groupNumber: Int
+    /// ระยะเว้นท้ายลิสต์ให้พ้นแถบแท็บลอย — **จอนี้เข้าได้สองทางที่แถบแท็บไม่เหมือนกัน**
+    ///
+    /// จากหน้าจับกลุ่ม แถบแท็บโชว์อยู่ ต้องเว้น · จากในแชท `GroupChatView` สั่ง
+    /// `.toolbar(.hidden, for: .tabBar)` ไว้ที่รากของสแตก แถบจึงซ่อนทั้งสแตก ไม่ต้องเว้น
+    /// ใส่ค่าคงที่ตายตัวไปเลยจะได้ช่องว่างตายด้าน 89pt ในสาขาแชท ส่วนไม่ใส่เลยจะได้แถวสุดท้าย
+    /// โดนแถบทับในสาขาจับกลุ่ม (กลุ่มจริงมีได้ถึง 50 คน ไม่ใช่ 4 คนแบบข้อมูลเดโม่)
+    var bottomInset: CGFloat = 0
     @State private var members: [GroupMember] = []
     @State private var loading = true
     @State private var selected: GroupMember?
@@ -15,9 +22,11 @@ struct GroupMembersView: View {
         ScrollView {
             LazyVStack(spacing: 10) {
                 if loading {
-                    ProgressView().padding(.top, 40)
+                    // ไม่ระบุ tint แล้วมันตกทอด `.tint(Color.wbwGold)` จาก `MainTabView`
+                    // ซึ่งเป็นสีเข้มในโหมดสว่าง = spinner หายไปกับภาพพื้นหลัง
+                    ProgressView().tint(Color.wbwOnBackdrop).padding(.top, 40)
                 } else if members.isEmpty {
-                    Text("ยังไม่มีสมาชิก").foregroundStyle(.secondary).padding(.top, 40)
+                    Text("group_members_empty").foregroundStyle(Color.wbwOnBackdropMuted).padding(.top, 40)
                 } else {
                     ForEach(members) { m in
                         Button { selected = m } label: { row(m) }.buttonStyle(.plain)
@@ -25,10 +34,21 @@ struct GroupMembersView: View {
                 }
             }
             .padding(16)
+            .padding(.bottom, bottomInset)
         }
-        .background(Color.wbwBg)
-        .navigationTitle("กลุ่ม \(groupNumber)")
+        .clearsHostOpaqueBackground()
         .navigationBarTitleDisplayMode(.inline)
+        // หัวข้อวางบนภาพพื้นหลัง จึงต้องเป็น principal item ที่กำหนดสีเอง ไม่ใช่ `.navigationTitle`
+        // — ตัวนั้นเรนเดอร์ด้วย `UIColor.label` ซึ่งพลิกตามธีม แล้วหัวข้อจะเป็นสีเข้มบนภาพมืด
+        // ในโหมดสว่าง (ถ่ายพิสูจน์แล้ว) · `.toolbarColorScheme(.dark)` ที่ `GroupTabView`
+        // ก็ไม่ช่วย มันคุมพื้นแถบ ไม่ได้คุมสีหัวข้อ · ท่าเดียวกับ `SettingsView`
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(String(format: Loc.t("group_number"), groupNumber))
+                    .font(.headline)
+                    .foregroundStyle(Color.wbwOnBackdrop)
+            }
+        }
         .task {
             members = await groups.members(groupId: groupId, token: session.token ?? "")
             loading = false
@@ -66,7 +86,7 @@ private struct MemberProfileSheet: View {
             ProfileAvatar(name: member.firstName ?? "", photoUrl: member.photoUrl, size: 96).padding(.top, 6)
             Text(member.fullName).font(.system(size: 22, weight: .bold)).foregroundStyle(Color.wbwInk)
             VStack(spacing: 0) {
-                infoRow("สำนักวิชา", member.school)
+                infoRow(Loc.t("profile_row_school"), member.school)
                 Divider().padding(.leading, 16)
                 infoRow("BIB", member.bib.map(String.init))
             }

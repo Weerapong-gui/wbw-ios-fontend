@@ -58,8 +58,16 @@ otherwise the admin's display name.
 | 8 | POST | `/wbw/groups/{id}/messages` | participant | `{client_id, body, device_time}` | `201` with `Message`; idempotent on `client_id` | `groupRoutes.js:96` |
 | 9 | GET | `/wbw/staff/checkpoints` | staff/admin | — | `[{id,name,sequence}]` | `staffRoutes.js:9` |
 | 10 | POST | `/wbw/staff/checkin` | staff/admin | `{checkpoint_id, qr_token?, bib?}` | `{first_name,last_name,bib,has_medical_flag,already_checked_in}`; 4xx `{error}` | `staffRoutes.js:31` |
+| 13 | GET | `/wbw/checkpoints` | participant | — | `[{id,sequence,name,name_en,activity_name,activity_name_en,type,requires_checkin}]` เรียง `sequence` แล้วตามด้วย `id` · จุดบริการมี `sequence: null` · **ไม่มี `lat`/`lng`** | `wbw_checkpoint_handler.go` (SUS) |
+| 14 | GET | `/wbw/me/progress` | participant | — | `{total, checked_in:[{checkpoint_id,name,activity_name,sequence,at,answered,rating,comment}], emergency_phone}` · **ไม่มีฟิลด์ `_en`** | `wbw_progress_handler.go` (SUS) |
+| 15 | POST | `/wbw/me/feedback` | participant | `{client_id, checkpoint_id, rating, comment?, device_time}` | `201` แถวใหม่ · `200` ยิงซ้ำด้วย `client_id` เดิม · `409` แถวเดิมของฐานนี้ · `403 {error}` ยังไม่เช็คอิน · `400 {error}` rating นอกช่วง | `wbw_feedback_handler.go` (SUS) |
 | 11 | POST | `/wbw/devices/register` | participant | `{token, platform}` | `200`/`204` | `deviceRoutes.js:8` |
 | 12 | POST | `/wbw/devices/unregister` | participant | `{token}` | `200`/`204` | `deviceRoutes.js:21` |
+
+> **13–15 เพิ่ม 2026-08-21** — สามตัวนี้อยู่ใน SUS (Go) ไม่ใช่ Node เหมือนแถวอื่นในตาราง ·
+> 14 กับ 15 แอปเรียกมาตั้งแต่รอบ check-in feedback แล้วแต่ไม่เคยถูกจดไว้ที่นี่เลย ทั้งที่เอกสารนี้
+> เป็นที่เดียวที่รวมสัญญาไว้ (ยืนยันด้วย curl ที่ `docs/checkin-feedback-verification.md`) ·
+> 13 เป็นของใหม่: ก่อนมีมัน แอปรู้ชื่อฐานเฉพาะฐานที่เช็คอินไปแล้ว เพราะ 14 คืนแค่ `checked_in`
 
 `Message` shape (endpoints 7 & 8):
 `{id, group_id, sender_id, client_id, body, device_time, created_at, first_name, last_name}`.

@@ -64,8 +64,10 @@ struct TicketView: View {
     private var topBar: some View {
         HStack {
             Button { dismiss() } label: { barIcon("chevron.left") }
+                .accessibilityLabel("action_back")
             Spacer()
             Button { showSettings = true } label: { barIcon("gearshape.fill") }
+                .accessibilityLabel("action_settings")
         }
         .padding(.top, 6)
     }
@@ -191,6 +193,7 @@ struct TicketView: View {
                 Image(uiImage: img)
                     .resizable().interpolation(.none).scaledToFit()
                     .frame(height: 60).frame(maxWidth: .infinity)
+                    .accessibilityLabel("profile_barcode_label")
             } else {
                 Rectangle().fill(Color(white: 0.9)).frame(height: 60)
             }
@@ -228,27 +231,34 @@ struct MedicalIdView: View {
                                 .foregroundStyle(.white)
                                 .frame(width: 40, height: 40)
                                 .background(Color.white.opacity(0.12), in: Circle())
+                                // พื้นที่รับนิ้ว 44 ตาม HIG · วงกลมยังกว้าง 40
+                                .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                                .contentShape(Rectangle())
                         }
+                        .accessibilityLabel("action_close")
                         Spacer()
                     }
-                    Text("Medical ID")
+                    Text("medical_title")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.bottom, 4)
 
                     HStack(alignment: .top) {
-                        field("Name", me?.fullName)
-                        field("Age", me.flatMap { $0.age(asOf: Date()) }.map { "\($0) years old" })
+                        field("medical_name", me?.fullName)
+                        field("medical_age", me.flatMap { $0.age(asOf: Date()) }
+                            .map { Loc.t("medical_age_years", $0) })
                     }
                     HStack(alignment: .top, spacing: 8) {
-                        field("height", me?.heightCm?.display.map { "\($0) cm." })
-                        field("Weight", me?.weightKg?.display.map { "\($0) kg." })
-                        field("Blood Type", me?.bloodType)
+                        field("medical_height", me?.heightCm?.display
+                            .map { Loc.t("medical_height_cm", $0) })
+                        field("medical_weight", me?.weightKg?.display
+                            .map { Loc.t("medical_weight_kg", $0) })
+                        field("medical_blood_type", me?.bloodType)
                     }
-                    field("Emergency contact", emergency)
-                    field("Allergies & Reactions", me?.foodAllergies)
-                    field("Medication", me?.medications)
+                    field("medical_emergency_contact", emergency)
+                    field("medical_allergies", me?.foodAllergies)
+                    field("medical_medication", me?.medications)
                 }
                 .padding(28)
             }
@@ -262,8 +272,12 @@ struct MedicalIdView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 
-    private func field(_ label: String, _ value: String?) -> some View {
-        let v = (value?.trimmingCharacters(in: .whitespaces)).flatMap { $0.isEmpty ? nil : $0 } ?? "Non"
+    /// รับ **คีย์** ไม่ใช่ประโยค — ทั้งใบนี้เคยฮาร์ดโค้ดอังกฤษ ("Blood Type", "Medication")
+    /// ทั้งที่แอปตั้ง development region เป็น th คนไทยจึงเห็นบัตรการแพทย์เป็นอังกฤษล้วน
+    /// ซึ่งเป็นใบที่ต้องอ่านให้เร็วที่สุดตอนมีเหตุ · ค่าปริยายเดิมคือ "Non" ซึ่งสะกดผิดด้วย
+    private func field(_ label: LocalizedStringKey, _ value: String?) -> some View {
+        let v = (value?.trimmingCharacters(in: .whitespaces)).flatMap { $0.isEmpty ? nil : $0 }
+            ?? Loc.t("medical_none")
         return VStack(alignment: .leading, spacing: 4) {
             Text(label).font(.system(size: 12)).foregroundStyle(Color(white: 0.6))
             Text(v).font(.system(size: 20, weight: .bold)).foregroundStyle(.white)

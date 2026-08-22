@@ -1,5 +1,8 @@
 import Foundation
 
+// ประโยคทั้งหมดในไฟล์นี้ผ่านชุดคีย์ `group_quota_*` — มันคือข้อความที่บอกผู้ใช้ว่าการกดครั้งนี้
+// จะทำอะไรกับสิทธิ์ที่เหลือ ซึ่งเป็นข้อมูลที่ผิดภาษาแล้วอ่านไม่ออกเลย ไม่ใช่แค่ดูแปลก
+
 /// ข้อความทั้งหมดที่พูดถึงสิทธิ์ออกจากกลุ่ม — ฟังก์ชันบริสุทธิ์ ไม่มี view/state
 ///
 /// `quota` ของทุกฟังก์ชันคือสิทธิ์ **ก่อน** ทำรายการเสมอ (ค่าที่อ่านได้จากโปรไฟล์ ณ ตอนนั้น)
@@ -9,8 +12,8 @@ enum GroupQuotaText {
 
     static func joinWarning(groupNumber: Int, quota: Int) -> String {
         quota > 0
-            ? "หลังเข้ากลุ่ม \(groupNumber) แล้ว ท่านเหลือสิทธิ์ออกจากกลุ่มอีก \(quota) ครั้ง"
-            : "สิทธิ์ออกจากกลุ่มของท่านหมดแล้ว เข้ากลุ่ม \(groupNumber) แล้วจะเปลี่ยนกลุ่มไม่ได้อีก"
+            ? String(format: Loc.t("group_quota_join_left"), groupNumber, quota)
+            : String(format: Loc.t("group_quota_join_none"), groupNumber)
     }
 
     static func leaveWarning(groupNumber: Int, quota: Int) -> String {
@@ -19,17 +22,19 @@ enum GroupQuotaText {
         // เหลือ 0 เท่ากัน แล้วได้ประโยค "เลือกกลุ่มใหม่ได้อีกครั้งเดียว" เหมือนกันทั้งคู่
         // ซึ่งหลอกคนที่สิทธิ์หมดแล้วว่ายังมีสิทธิ์เหลืออีกหนึ่งครั้ง — คนละความจริงกัน ห้ามใช้ประโยคเดียวกัน
         guard quota > 0 else {
-            return "สิทธิ์ออกจากกลุ่มของท่านหมดแล้ว ไม่สามารถออกจากกลุ่ม \(groupNumber) ได้อีก"
+            return String(format: Loc.t("group_quota_leave_none"), groupNumber)
         }
         let after = quota - 1
         return after == 0
-            ? "ออกจากกลุ่ม \(groupNumber) แล้วสิทธิ์จะหมด เลือกกลุ่มใหม่ได้อีกครั้งเดียว แล้วจะออกไม่ได้อีก"
-            : "หลังออกจากกลุ่ม \(groupNumber) ท่านจะเหลือสิทธิ์ออกจากกลุ่มอีก \(after) ครั้ง"
+            ? String(format: Loc.t("group_quota_leave_last"), groupNumber)
+            : String(format: Loc.t("group_quota_leave_left"), groupNumber, after)
     }
 
     static func remaining(quota: Int) -> String {
         // ใช้คำว่า "สิทธิ์ออกจากกลุ่ม" ให้ตรงกับข้อความอื่นในไฟล์นี้ทุกจุด — เดิมเคสหมดสิทธิ์ใช้คำว่า
         // "เปลี่ยนกลุ่ม" ซึ่งเป็นคนละคำ อ่านแล้วเหมือนพูดถึงสิทธิ์คนละตัวกัน
-        quota > 0 ? "สิทธิ์ออกจากกลุ่มคงเหลือ \(quota) ครั้ง" : "สิทธิ์ออกจากกลุ่มของท่านหมดแล้ว"
+        quota > 0
+            ? String(format: Loc.t("group_quota_remaining"), quota)
+            : Loc.t("group_quota_none")
     }
 }

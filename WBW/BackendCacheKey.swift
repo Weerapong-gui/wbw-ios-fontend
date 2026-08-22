@@ -19,3 +19,17 @@ extension Backend {
         }
     }
 }
+
+/// ขอบเขตของ cache ที่ซ้อนอยู่บน `Backend.cacheNamespace` อีกชั้น
+///
+/// โหมดเดโม่ใช้ข้อมูลจำลองที่ไม่ได้มาจาก backend ตัวไหนเลย ถ้าเขียนทับคีย์เดียวกับของจริง
+/// reviewer ที่กดเข้าโหมดเดโม่แล้วออกมาล็อกอินด้วยบัญชีจริงจะเห็นความคืบหน้ากับความเห็นของ
+/// ข้อมูลจำลองค้างอยู่ — เป็นอาการเดียวกับกับดัก "สลับ backend แล้วไม่ล้างข้อมูล" ที่เคยกินเวลา
+/// มาแล้ว คือได้ 200 พร้อมข้อมูลผิด ไม่มี error ไม่มี log ให้เห็นเลย
+///
+/// **cache/persisted key ใหม่ทุกตัวต้องต่อทั้ง `cacheNamespace` และ `CacheScope.suffix`**
+enum CacheScope {
+    static let demoSuffix = ".demo"
+
+    static var suffix: String { DemoMode.active ? demoSuffix : "" }
+}

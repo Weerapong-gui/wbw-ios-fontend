@@ -1,0 +1,129 @@
+import SwiftUI
+
+/// อีเวนต์บนเส้นทางเดิน — **ยกมาจาก `ui/activities/ActivitiesScreen.kt` ของแอป Android**
+///
+/// เนื้อหาเป็นข้อความตายตัวทั้งสองใบ ไม่มี backend หนุน — ต้นทางก็เป็นแบบเดียวกัน (อยู่ใน
+/// `strings.xml`) · ที่นี่ใช้ชุดคีย์ชื่อเดียวกับต้นทาง (`event_*`) ทั้งไทยและอังกฤษ
+struct ActivitiesView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("activities_title")
+                    .font(.wbwHeadlineSmall)
+                    .foregroundStyle(Color.wbwOnBackdrop)
+                Text("activities_subtitle")
+                    .font(.wbwBodyMedium)
+                    .foregroundStyle(Color.wbwOnBackdropMuted)
+
+                // การ์ด "แข่งนับก้าว" เคยอยู่ตรงนี้ — ถอดออก 2026-08-22 พร้อมฟีเจอร์ SU RUN
+                // ที่ถูกลบทั้งชุด · การ์ดโฆษณาว่า "สะสมก้าวให้ได้มากที่สุด แล้วไต่อันดับกระดาน
+                // ผู้นำ" ซึ่งแอปทำไม่ได้อีกแล้ว — โฆษณาความสามารถที่ไม่มีคือเหตุตีกลับของ Apple
+                // ตรง ๆ ไม่ต่างจากปุ่มที่กดไม่ได้
+                EventCard(title: "event_wbw_title",
+                          date: "event_wbw_date",
+                          description: "event_wbw_desc",
+                          status: "event_status_upcoming",
+                          systemImage: "tree")
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 8)
+            .padding(.bottom, ForestSceneHost.tabBarClearance)
+        }
+        .scrollIndicators(.hidden)
+        // แท็บวาดพื้นทึบของตัวเองใต้ทุกอย่าง — จอที่ไม่เรียก `forestBackground` จะได้พื้นดำสนิท
+        // แทนพื้นภาพ (เจอมาแล้วกับบัตรผู้เข้าร่วม) · ตัวนี้เจาะพื้นทึบนั้นทิ้งแล้ววางฉากคืนให้
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .forestBackground(day: ForestMath.dayStill)
+    }
+}
+
+/// อีเวนต์หนึ่งใบ — พูดภาษาเดียวกับบัตรผู้เข้าร่วม
+///
+/// ลำดับคือลำดับที่การ์ดถูกอ่าน: **ชื่อ** อีเวนต์ → **ชนิด** (ไอคอนกับสถานะ) → **มันคืออะไร**
+/// → **เมื่อไหร่** → **ทำอะไรได้** · ชื่อขึ้นก่อนเพราะบนจอที่มีแต่อีเวนต์ที่ยังไม่เริ่ม ชื่อคือ
+/// สิ่งเดียวที่กำลังถูกเลือกระหว่างกัน — ของเดิมเปิดด้วยไอคอนกับคำว่า "เร็ว ๆ นี้" ซึ่งทุกใบพูด
+/// เหมือนกันหมด แล้วบังคับให้อ่านผ่านไปก่อนถึงจะรู้ว่ากำลังดูอีเวนต์ไหน · วันที่ย้ายไปท้าย
+/// ด้วยเหตุผลเดียวกัน — มันสำคัญตอนตัดสินใจแล้วว่าสนใจ ไม่ใช่ก่อนหน้านั้น
+private struct EventCard: View {
+    let title: LocalizedStringKey
+    let date: LocalizedStringKey
+    let description: LocalizedStringKey
+    let status: LocalizedStringKey
+    let systemImage: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title)
+                    .font(.wbwTitleLarge)
+                    .foregroundStyle(Color.wbwOnBackdrop)
+
+                // ไอคอนกับสถานะอยู่บรรทัดเดียวกันใต้ชื่อ: ทั้งคู่ตอบคำถาม "นี่คือของชนิดไหน"
+                // และไม่มีอันไหนคุ้มค่ากับบรรทัดของตัวเอง
+                Label {
+                    Text(status)
+                        .font(.wbwKicker)
+                        .kerning(1.6)
+                } icon: {
+                    Image(systemName: systemImage).font(.footnote)
+                }
+                .foregroundStyle(Color.wbwOnBackdropMuted)
+                .padding(.top, 9)
+
+                Text(description)
+                    .font(.wbwBodyMedium)
+                    .lineSpacing(5)
+                    .foregroundStyle(Color.wbwOnBackdropMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 13)
+
+                // วันที่มาท้ายสุดและเป็น ink เต็ม — เป็นบรรทัดเดียวในนี้ที่ต่างกันทุกใบ
+                Label {
+                    Text(date)
+                        .font(.wbwLabelSmall)
+                        .kerning(1.2)
+                } icon: {
+                    Image(systemName: "calendar").font(.caption)
+                }
+                .foregroundStyle(Color.wbwOnBackdrop)
+                .padding(.top, 14)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 16)
+
+            // **ตรงนี้เคยมีแถว "ดูรายละเอียด ›" — ถอดออกโดยตั้งใจ ห้ามใส่กลับโดยไม่อ่านก่อน**
+            //
+            // มันเป็น `HStack` ของ `Text` กับ `chevron.right` เต็มความกว้าง สูง 52pt ซึ่งอ่าน
+            // เป็นปุ่มทุกประการ แต่ไม่เคยมี `Button` หรือ `NavigationLink` อยู่เลยสักตัวในไฟล์นี้
+            // กดแล้วไม่มีอะไรเกิดขึ้น
+            //
+            // นี่คือรูปแบบเดียวกับที่ repo นี้โดน Guideline 2.1 ตีกลับมาแล้วที่หน้าล็อกอิน
+            // (`Text("Don't have an account? Sign up")` ที่กดไม่ได้ — ดูคอมเมนต์ที่ `LoginView`)
+            // ผู้ตรวจกดทุกอย่างบนจอ
+            //
+            // ใส่กลับได้เมื่อมีปลายทางจริงแล้วเท่านั้น และต้องทำเป็น `NavigationLink` ไม่ใช่ `Text`
+            //
+            // `WBWTests/FakeAffordanceTests.swift` กันไม่ให้ลูกศรกลับมาโดยไม่มีของกดได้
+        }
+        // ต้นทางใช้ `GlassSheer` (ขาว 12%) เพราะ **Android ไม่มี Liquid Glass จริง** จึงต้อง
+        // ประมาณด้วยพื้นผิวบวกเส้นผม (คอมเมนต์ของต้นทางเขียนไว้ตรง ๆ) — ฝั่ง iOS มีของจริง
+        // จึงใช้ `glassSurface` แทน คือยกเจตนามา ไม่ใช่ยกวิธีแก้ขัดมา
+        .glassSurface(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+/// แท็บกิจกรรม — ห่อ `ActivitiesView` ด้วย `NavigationStack` เผื่อการ์ดมีปลายทางในอนาคต
+///
+/// **ตอนนี้ยังไม่มีการ์ดใบไหนกดเข้าไปต่อได้** เดิมการ์ด "แข่งนับก้าว" ตั้งใจให้พาไปจอจับระยะ
+/// เดิน/นับก้าว แต่จอนั้นถูกถอดออกทั้งฟีเจอร์ 2026-08-22 (งานจะไม่มีกิจกรรมนี้แล้ว) —
+/// แถวลูกศร "ดูรายละเอียด" ที่กดไม่ได้จึงถูกถอดออกไปพร้อมกัน ดูคอมเมนต์ใน `EventCard`
+struct ActivitiesTabView: View {
+    var body: some View {
+        NavigationStack {
+            ActivitiesView()
+                .navigationBarHidden(true)
+        }
+    }
+}

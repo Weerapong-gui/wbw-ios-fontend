@@ -59,19 +59,152 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
-    /// เคยมีคีย์ตำแหน่งค้างอยู่ทั้งที่ไม่มีไฟล์ไหน import CoreLocation — ผู้ใช้เห็นข้อความขอสิทธิ์
-    /// ที่ไม่มีวันถูกใช้ และเป็นเหตุให้ App Review ตีกลับได้ตรงๆ ตั้งแต่ 2026-08-07 แท็บ Map ใช้
-    /// CoreLocation จริงแล้ว (Map3DLocation) เทสนี้จึงกลับด้าน: บังคับให้ **ต้องมี** คีย์
-    /// ส่วนคลังรูปยังต้องห้ามมีเหมือนเดิม (PhotosPicker ไม่ต้องขอสิทธิ์)
-    func testUsageDescriptionsMatchTheFrameworksTheAppActuallyUses() throws {
+    /// เหลือแค่ครึ่งเดียว — ครึ่งตำแหน่งกลับทิศไปแล้วที่
+    /// testLocationPermissionStringExistsInBothPlistsBecauseSOSUsesIt เพราะตอนนี้ SOS
+    /// ใช้ CoreLocation จริง (ดูคอมเมนต์ที่นั่น) ที่ยังอยู่ตรงนี้คือคลังรูป ซึ่งใช้ PhotosPicker
+    /// แล้วไม่ต้องขอสิทธิ์เลย ถ้าเห็นคีย์นี้แปลว่ามีคนใส่เกินมา
+    func testNoUsageDescriptionForFrameworksTheAppDoesNotUse() throws {
         for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
             let dict = try plist(path)
-            let location = dict["NSLocationWhenInUseUsageDescription"] as? String
-            XCTAssertFalse((location ?? "").isEmpty,
-                           "\(path) ขาดคำอธิบายสิทธิ์ตำแหน่ง ทั้งที่ Map3DLocation ใช้ CoreLocation")
             XCTAssertNil(dict["NSPhotoLibraryUsageDescription"],
                          "\(path) ขอสิทธิ์คลังรูปทั้งที่ใช้ PhotosPicker ซึ่งไม่ต้องขอ")
+            // เคยบังคับให้ **ต้องมี** `NSMotionUsageDescription` เพราะแท็บ SU RUN ใช้ CMPedometer
+            // จริง · SU RUN ถูกถอดออกทั้งฟีเจอร์ 2026-08-22 คีย์จึงต้องหายตามไปด้วย —
+            // เงื่อนไขกลับทิศ ไม่ใช่ถูกลบทิ้ง · รายละเอียดกับตัวค้ำอีกด้าน (ห้ามมี CMPedometer
+            // ในโค้ดโดยไม่มีคีย์) อยู่ที่ `SURunRemovalTests`
+            XCTAssertNil(dict["NSMotionUsageDescription"],
+                         "\(path) ยังขอสิทธิ์เซ็นเซอร์ความเคลื่อนไหว ทั้งที่ไม่มีอะไรใช้แล้ว")
         }
+    }
+
+    /// เคยไม่มีคีย์นี้เพราะไม่มีฟีเจอร์ไหนใช้ — ตอนนี้ SOS ใช้จริง คีย์จึงต้องมี **และ**
+    /// ต้องมีโค้ดที่ import CoreLocation จริง · เทสนี้ค้ำทั้งสองทาง: คีย์ที่ไม่มีฟีเจอร์
+    /// รองรับคือเหตุให้ App Review ตีกลับ ส่วนฟีเจอร์ที่ไม่มีคีย์คือ SOS ที่ไม่มีพิกัด
+    /// โดยไม่มี error ให้เห็น
+    func testLocationPermissionStringExistsInBothPlistsBecauseSOSUsesIt() throws {
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let dict = try plist(path)
+            let value = dict["NSLocationWhenInUseUsageDescription"] as? String
+            XCTAssertNotNil(value, "\(path) ขาดข้อความขอสิทธิ์ตำแหน่ง ทั้งที่ SOS ใช้")
+            XCTAssertFalse((value ?? "").isEmpty)
+            XCTAssertTrue((value ?? "").contains("ฉุกเฉิน"),
+                          "ข้อความต้องบอกว่าใช้ทำอะไร ไม่ใช่ข้อความกลางๆ")
+        }
+    }
+
+    /// คีย์ทุกตัวที่ต้องแปล — สามใบเป็นกล่องขอสิทธิ์ที่ผู้รีวิวเห็นแน่นอน ส่วน
+    /// `CFBundleDisplayName` คือชื่อใต้ไอคอนบนจอโฮม
+    private static let infoPlistKeysNeedingTranslation = [
+        "CFBundleDisplayName",
+        "NSCameraUsageDescription",
+        "NSLocationWhenInUseUsageDescription",
+    ]
+
+    /// **แอปประกาศว่ารองรับอังกฤษ แต่กล่องขอสิทธิ์เป็นไทยล้วน**
+    ///
+    /// `CFBundleLocalizations = [th, en]` แต่ค่าของ `NS*UsageDescription` เป็นลิเทอรัลไทย
+    /// ฝังอยู่ใน plist ตรง ๆ และไม่มี `InfoPlist.strings` ที่ไหนเลยใน repo — iOS จึงไม่มีอะไรให้
+    /// เลือกมาแสดง ผู้รีวิว App Store บนเครื่องภาษาอังกฤษเห็นกล่องขอกล้อง/ตำแหน่ง/เซ็นเซอร์
+    /// เป็นภาษาไทยทั้งสามใบ ซึ่ง Guideline 5.1.1 บังคับว่าต้องอธิบายให้ผู้ใช้เข้าใจ
+    ///
+    /// ตรวจว่ามีครบ **ทั้งสองภาษา** และ **ครบทุกคีย์** — ขาดคีย์เดียวคือกล่องนั้นตกกลับไปเป็น
+    /// ค่าใน plist (ไทย) เงียบ ๆ โดยไม่มี error ไม่มี warning ตอน build
+    func testPermissionPromptsAreTranslatedForEveryDeclaredLanguage() throws {
+        let declared = try plist("WBW/Info.plist")["CFBundleLocalizations"] as? [String] ?? []
+        XCTAssertEqual(Set(declared), ["th", "en"], "รายชื่อภาษาเปลี่ยนไป ต้องแก้เทสนี้ด้วย")
+
+        for language in declared {
+            let path = "WBW/\(language).lproj/InfoPlist.strings"
+            let url = Self.repoRoot.appendingPathComponent(path)
+            guard let data = try? Data(contentsOf: url),
+                  let table = try? PropertyListSerialization.propertyList(from: data, format: nil)
+                    as? [String: String]
+            else {
+                XCTFail("""
+                    ไม่มี \(path) หรืออ่านไม่ออก
+                    แอปประกาศว่ารองรับ \(language) แต่กล่องขอสิทธิ์จะขึ้นภาษาที่ฝังใน Info.plist แทน
+                    """)
+                continue
+            }
+            for key in Self.infoPlistKeysNeedingTranslation {
+                let value = table[key] ?? ""
+                XCTAssertFalse(value.isEmpty, "\(path) ขาดคีย์ \(key)")
+            }
+        }
+    }
+
+    /// อีกครึ่งของเทสด้านบน — ไฟล์แปลที่ **อยู่ใน repo แต่ไม่ถูกแพ็กเข้า .app** ก็เท่ากับไม่มี
+    ///
+    /// `project.yml` ระบุ `sources: [WBW]` ทั้งโฟลเดอร์ ไฟล์ใหม่จึงเข้ามาเอง **หลังรัน
+    /// `xcodegen generate` แล้วเท่านั้น** ซึ่งเป็นขั้นที่ลืมได้ง่ายที่สุดใน repo นี้ (กติกาข้อ 1)
+    /// และลืมแล้วไม่มีอะไรฟ้อง — build ผ่านปกติ กล่องขอสิทธิ์แค่ตกกลับไปเป็นไทยเงียบ ๆ
+    ///
+    /// อ่านจาก `Bundle.main` ไม่ใช่ `project.pbxproj` เพราะ `WBW.xcodeproj` ถูก gitignore ไว้
+    /// (เป็นของที่ xcodegen สร้าง) — เทสที่อ่านไฟล์นั้นจะพังทันทีบน clone ใหม่ · เทสรันอยู่ใน
+    /// โปรเซสของแอปเอง `Bundle.main` จึงเป็น .app ตัวจริงที่จะถูกส่งขึ้น store
+    func testInfoPlistStringsAreBundledForEveryLanguage() throws {
+        for language in ["th", "en"] {
+            let path = Bundle.main.path(forResource: "InfoPlist", ofType: "strings",
+                                        inDirectory: nil, forLocalization: language)
+            XCTAssertNotNil(path, """
+                .app ที่ build ออกมาไม่มี \(language).lproj/InfoPlist.strings
+                ถ้าไฟล์อยู่ใน repo แล้วแต่ยังไม่มีตรงนี้ แปลว่ายังไม่ได้รัน `xcodegen generate`
+                """)
+        }
+    }
+
+    /// **ประกาศเกินก็เป็นเหตุให้ถูกตีกลับ ไม่ใช่แค่ประกาศขาด**
+    ///
+    /// manifest เคยประกาศ `PhotosorVideos` โดยคอมเมนต์บอกว่ามาจาก "รูปโปรไฟล์ที่ผู้ใช้เลือกเอง
+    /// ผ่าน PhotosPicker" — แต่ `PhotosUI` / `PhotosPicker` / `PHPicker` ไม่มีอยู่ในโค้ดแอปเลย
+    /// สักบรรทัด รูปโปรไฟล์อ่านจาก URL ของเซิร์ฟเวอร์อย่างเดียว (`ProfileStore.photoUrl`)
+    ///
+    /// Apple เทียบ manifest กับ Privacy Nutrition Label ที่กรอกใน App Store Connect เอง
+    /// สองอันไม่ตรงกันเมื่อไหร่ก็เป็นคำถามกลับมาทันที
+    func testPrivacyManifestDoesNotDeclareDataTheAppNeverCollects() throws {
+        let manifest = try plist("WBW/PrivacyInfo.xcprivacy")
+        let declared = (manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? [])
+            .compactMap { $0["NSPrivacyCollectedDataType"] as? String }
+
+        XCTAssertFalse(declared.contains("NSPrivacyCollectedDataTypePhotosorVideos"), """
+            manifest ประกาศว่าเก็บรูป/วิดีโอ แต่แอปไม่มีตัวเลือกรูปเลยสักตัว
+            """)
+
+        // ค้ำอีกทาง: ถ้ามีคนเพิ่ม PhotosPicker เข้ามาจริงในอนาคต เทสข้างบนต้องถูกแก้พร้อมกัน
+        let sources = try FileManager.default
+            .subpathsOfDirectory(atPath: Self.repoRoot.appendingPathComponent("WBW").path)
+            .filter { $0.hasSuffix(".swift") }
+        let usesPhotos = try sources.contains { path in
+            let text = try String(
+                contentsOf: Self.repoRoot.appendingPathComponent("WBW/\(path)"), encoding: .utf8)
+            return text.contains("import PhotosUI") || text.contains("PhotosPicker")
+        }
+        XCTAssertFalse(usesPhotos, """
+            มีโค้ดเลือกรูปเข้ามาแล้ว — ต้องประกาศ PhotosorVideos กลับเข้า manifest และแก้เทสนี้
+            """)
+    }
+
+    func testPrivacyManifestDeclaresPreciseLocation() throws {
+        let manifest = try plist("WBW/PrivacyInfo.xcprivacy")
+        let types = manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]] ?? []
+        let location = types.first { ($0["NSPrivacyCollectedDataType"] as? String)
+            == "NSPrivacyCollectedDataTypePreciseLocation" }
+        XCTAssertNotNil(location, "เก็บพิกัดแล้วต้องประกาศใน privacy manifest")
+        XCTAssertEqual(location?["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
+        XCTAssertEqual(location?["NSPrivacyCollectedDataTypeLinked"] as? Bool, true)
+    }
+
+    /// คีย์กับการใช้งานจริงต้องมาคู่กันเสมอ — ค้ำอีกทางหนึ่งของเทสด้านบน
+    func testTheProjectActuallyImportsCoreLocation() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+        let sources = FileManager.default.enumerator(at: root.appendingPathComponent("WBW"),
+                                                     includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+        let importsCoreLocation = sources.contains {
+            (try? String(contentsOf: $0, encoding: .utf8))?.contains("import CoreLocation") == true
+        }
+        XCTAssertTrue(importsCoreLocation, "มีคีย์ขอตำแหน่งแต่ไม่มีไฟล์ไหน import CoreLocation")
     }
 
     func testEncryptionDeclarationPresentSoEveryUploadDoesNotAskAgain() throws {

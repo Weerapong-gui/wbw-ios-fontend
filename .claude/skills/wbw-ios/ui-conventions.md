@@ -61,13 +61,10 @@
 วาดทะลุกรอบออกไปได้ `frame` คุมแค่พื้นที่ layout ไม่ได้คลิปการวาด (เคยพลาดมาแล้ว เส้นประพาด
 ออกนอกการ์ดไปจนสุดขอบจอ)
 
-`GlassRing` เป็น `private struct` (`ViewModifier`) อยู่ใน `WBW/HomeView.swift` (บรรทัด 108) — **ไม่ใช่ API
-กลาง** ใช้ได้เฉพาะภายในไฟล์นั้น (เรียกอยู่ 2 จุดในไฟล์เดียวกัน) จะเอาไปใช้ที่จออื่นต้องยกออกมาเป็นไฟล์
-กลางก่อน (ตามแพทเทิร์นเดียวกับที่ `glassSurface` ทำไปแล้ว) อย่าสมมติว่า import แล้วเรียกจากจอไหนก็ได้
-
 ทุกที่ที่แตะกระจกจริงต้อง guard `#available(iOS 26.0, *)` แล้ว fallback เป็น `.ultraThinMaterial` เพราะ
 deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_DEPLOYMENT_TARGET: "18.0"` ใน `project.yml`) — ตอนนี้มี
-3 จุดที่ guard ไว้แบบนี้: `WBW/HomeView.swift:110`, `WBW/GlassSurface.swift:8`, `WBW/WelcomeView.swift:60`
+2 จุดที่ guard ไว้แบบนี้: `WBW/GlassSurface.swift:12`, `WBW/WelcomeView.swift:60`
+(`GlassRing` ที่ `HomeView` ถูกลบไปพร้อม avatar บนหัวจอตอนยกเลย์เอาต์ Home มาจาก Android)
 เพิ่มจุดใหม่ก็ต้อง guard แบบเดียวกันเสมอ
 
 **ห้ามปลอมกระจกด้วย blur เอง** (เช่น `.blur()` + opacity ผสมมือ) — ผลลัพธ์ไม่เนียนเท่า `.glassEffect`
@@ -78,12 +75,17 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
 จอเดี่ยว ๆ วางแบน ๆ ที่ราก `WBW/` (เช่น `WBW/HomeView.swift`, `WBW/WelcomeView.swift`) แตกเป็นโฟลเดอร์
 ย่อยเมื่อฟีเจอร์เกิน ~3 ไฟล์ ของจริงที่มีอยู่ตอนนี้:
 
-- `WBW/Map3D/` — 8 ไฟล์ (`Map3DCamera`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
+- `WBW/Map3D/` — 10 ไฟล์ (`Map3DCamera`, `Map3DConfig`, `Map3DFocus`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
   `Map3DScreen`, `Map3DSky`, `MapModelLoader`)
 - `WBW/Chat/` — 5 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`)
 - `WBW/Feedback/` — 4 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`)
+- `WBW/Conditions/` — 4 ไฟล์ (`ConditionsModels`, `ConditionsStore`, `OpenMeteoClient`,
+  `TrailConditionsRow`)
+- `WBW/Bloom/` — 3 ไฟล์ (`BloomStages`, `BloomGeometry`, `BloomView`)
+- `WBW/Demo/` — 3 ไฟล์ (`DemoMode`, `DemoData`, `DemoSOS`)
 - `WBW/Scene3D/` — 7 ไฟล์ (ฉากป่า — **ปิดอยู่ตอนนี้แต่ไม่ได้ลบ** ดู `Config.forest3D` ใน
   `backend-and-config.md`)
+- `WBW/SOS/` — 11 ไฟล์ (ปุ่มฉุกเฉิน จอสถานะ จอเจ้าหน้าที่ `LocationPrimer`)
 - `WBW/Resources/` — asset สามมิติ (`.usdz`, `.glb` ใต้ `models/`) ไม่ใช่โค้ด Swift
 
 ## ฉาก RealityKit ต้องมีโดมฟ้าเสมอ
@@ -104,18 +106,47 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
   ขอบจะไล่เป็นขั้น เห็นเป็นวงซ้อนหลายชั้น
 - ระนาบแบนที่กล้องอาจมองเฉียง ให้ใส่ `BillboardComponent` ไม่งั้นเห็นขอบสี่เหลี่ยมของแผ่น
 
-## จอที่ยังไม่มีของจริง
+## แผนที่ 3D ปรับผ่าน JSON ไม่ใช่แก้โค้ด
 
-SU RUN (`WBW/SURunView.swift`) เป็น **จอว่างสนิท** มีแต่พื้นหลัง ไม่มีตัวหนังสือสักตัว
+ค่าทุกตัวที่ผูกกับไฟล์ `map.usdz` อยู่ที่ `WBW/Resources/map_config.json` ตัวเดียว (อ่านผ่าน
+`WBW/Map3D/Map3DConfig.swift`) — ชื่อไฟล์โมเดล, ชื่อ prim ของแท่งแดงแต่ละฐาน, กรอบ lat/lng,
+มุมหันพื้นที่งาน, ขอบเขตกล้อง (pitch/distance/ท่าโฟกัส/ความเร็วหมุนวน), รัศมีโดมกับชายพื้น
 
-เดิมเป็นแดชบอร์ดที่ทุกตัวเลขมาจาก `SURunMock` (ก้าว/ระยะทาง/เวลา/แคลอรี/อันดับ) พร้อมบล็อก MAP
-ปลอมกับปุ่ม "Start now!" ที่ไม่ทำอะไร — ล้างออกหมดแล้วเพราะยังไม่มี endpoint รองรับทั้งฝั่ง Go และ
-Node ปล่อยตัวเลขปลอมไว้เสี่ยงให้คนเข้าใจว่าระบบนับก้าวให้จริง (`SURunRankingView.swift` กับ
-`SURunMock.swift` ถูกลบไปแล้ว ดึงคืนจาก git ได้ถ้าจะรื้อฟื้น)
+**เหตุผล:** โมเดลจะถูกเปลี่ยนใบ ก่อนหน้านี้ค่าพวกนี้กระจายอยู่ 4 ไฟล์แล้วลืมที่ใดที่หนึ่งได้ง่ายมาก
+โดยไม่มีอะไรฟ้อง — อาการที่ได้คือหมุดกดไม่ติดหรือจุด GPS ไปโผล่ผิดที่ ซึ่งอ่านเหมือนบั๊กคนละเรื่อง
 
-**ว่างสนิทตรงนี้เป็นข้อยกเว้นที่เจ้าของงานสั่ง ไม่ใช่ค่าปริยาย** — จอที่ปิดฟีเจอร์ชั่วคราวที่เหลือใช้
-แบบของ `WBW/Map3D/Map3DScreen.swift` คือเหลือไอคอน + ข้อความสั้น ๆ ("แผนที่ 3D ปิดชั่วคราว")
-เพื่อไม่ให้ดูเหมือนแอปพัง · จอใหม่ที่ยังไม่เสร็จให้ทำตามแบบหลัง ไม่ใช่แบบ SU RUN
+`Map3DConfig.fallback` คือค่าเดียวกันที่ compile ไว้ ใช้ตอนไฟล์หาย/พัง · `decode` ปฏิเสธ config
+ที่ decode ผ่านแต่ใช้จริงไม่ได้ (หมุดว่าง, กรอบกลับด้าน, โดมเล็กกว่าระยะกล้องสูงสุด) —
+`WBWTests/Map3DConfigFileTests.swift` คุมไว้ว่าไฟล์จริงกับ fallback ต้องตรงกันเป๊ะ
+
+## SU RUN ถูกถอดออกทั้งฟีเจอร์แล้ว (2026-08-22)
+
+ไฟล์จอ `SURunView`, โฟลเดอร์ `SURun/` ทั้งใบ (`SURunMath`, `SURunTracker`, `TrailRoute`),
+ไฟล์เส้นทาง `route_wbw.json` ใต้ `Resources/`, คีย์ `walk_*` 18 ตัว และเทสสามไฟล์
+**ถูกลบออกจากโปรเจกต์แล้ว** (เขียนชื่อไฟล์แบบไม่เต็ม path โดยตั้งใจ — `check-skill-refs.sh`
+ตรวจว่า path ที่ skill อ้างถึงมีอยู่จริง ของที่ลบไปแล้วจึงต้องไม่ถูกเขียนเป็น path)
+เจ้าของงานตัดสินใจว่างานจะไม่มีกิจกรรมนี้
+
+**สิ่งที่ต้องหายตามไปด้วยและหายแล้ว: `NSMotionUsageDescription`** — `CMPedometer` เป็นผู้ใช้
+รายเดียวของสิทธิ์นั้น สิทธิ์ที่ขอไว้โดยไม่มีโค้ดไหนได้ใช้คือเหตุตีกลับตรง ๆ ตาม Guideline 5.1.1
+(รอยเดียวกับที่ถอด `PhotosorVideos` ออกจาก privacy manifest) · `CMMotionManager` ที่
+`Scene3D/GyroParallax.swift` ใช้ **ไม่ต้อง**ขอสิทธิ์นี้ ไจโรกับ device-motion ไม่ใช่ข้อมูลกิจกรรม
+
+`WBWTests/SURunRemovalTests.swift` ค้ำสองทาง: ไฟล์ต้องไม่กลับมา **และ** ถ้ามีใครเอา
+`CMPedometer` กลับเข้ามาต้องเอาคีย์กลับมาด้วย ไม่งั้นแอปแครชทันทีที่เรียก
+
+## แท็บถูกสร้างล่วงหน้าทุกใบ — ของที่ขอสิทธิ์ต้องหน่วงเอง
+
+`TabView` แบบ `Tab(value:)` ของ iOS 18+ **สร้างเนื้อของทุกแท็บตั้งแต่ตอน mount** ไม่ใช่ตอนกดแท็บ
+ยืนยันจากการถ่ายจริง: launch ด้วย `-uitestTab 4` แล้ว dialog ขอสิทธิ์ตำแหน่งยังเด้งทับจอ QR
+เพราะ `MapKit.Map` ของแท็บ SU RUN (ถอดออกแล้ว) ขอสิทธิ์เองทันทีที่ถูกสร้าง (ไม่ใช่โค้ดเราเรียก —
+ใส่ NSLog ที่ทุกจุดที่เรียก `requestWhenInUseAuthorization` แล้ว log ว่างเปล่า แต่ dialog ยังเด้ง)
+· บทเรียนยังใช้ได้กับทุกแท็บที่แตะกล้อง/ตำแหน่ง ไม่ได้ตายไปกับจอนั้น
+
+จอไหนที่แตะกล้อง/ตำแหน่ง/ไมค์ ต้องรับ `isActive` เข้ามาแล้วหน่วงการสร้างของจริงไว้จนกว่าแท็บนั้น
+จะถูกเลือกจริง — ของจริงที่ทำแบบนี้อยู่คือ `Map3DScreen(isActive:)` (ส่งค่ามาจาก
+`WBW/MainTabView.swift`) · อีกด่านหนึ่งคือ `DemoMode.active` ที่ทุกจุดขอสิทธิ์ต้องผ่าน
+(`WBWTests/DemoPermissionTests.swift` กวาดทั้ง repo)
 
 ## คอมเมนต์
 

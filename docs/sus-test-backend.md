@@ -8,8 +8,11 @@ This file records how the setup works and what has to travel with any future cha
 tweak made while testing does not get lost on the way to the real server.
 
 - **Date:** 2026-08-02
-- **App config:** `WBW/Config.swift`, `Config.backend = .susLocal`
-- **SUS repo:** `/Users/park/Student-Union-Server`, branch `feat/wbw-chat`
+- **App config:** `WBW/Config.swift`, `Config.backend = .susLocal` *(ค่าตอนเขียนไฟล์นี้ —
+  **ของจริงตอนนี้คือ `.susProd`** ตั้งแต่ commit `8500875` วันที่ 2026-08-04)*
+- **SUS repo:** `/Users/park/Projects/Student-Union-Server` *(ย้ายมาจาก `/Users/park/`)*, branch
+  `feat/wbw-chat` ตอนเขียน — **ของที่รันบน production คือ `main`** ซึ่งใหม่กว่าและมี route
+  `GET /wbw/capacity` กับ gate ที่นั่งเต็มที่ branch อื่นยังไม่มี
 
 ## The four backends
 
@@ -78,6 +81,24 @@ is deliberately not recorded in this repo (see `docs/forest-3d-off-verification.
 | `6931900002` | *unknown* | pre-existing, in group 1 |
 | `6931900011` | `chatv2test` | created 2026-08-02 for verification, group 2 |
 | `6931900012` | `chatv2test` | created 2026-08-02 for verification, group 2 |
+
+### บัญชีสำหรับ App Review (production)
+
+**2026-08-19:** `6939999999` ที่ส่งให้ Apple ในรอบ 1.0 (7) **ล็อกอินไม่ผ่าน** — ยิงจริงแล้วได้
+401 `{"error":"username หรือ password ไม่ถูกต้อง"}` จาก origin (ไม่ใช่ Cloudflare, ไม่ใช่เน็ต)
+บัญชีนี้ถูกสร้างไว้ 2026-08-04 เป็นแถวทิ้งสำหรับ verification รอบอื่น และ
+`docs/checkin-feedback-verification.md:1028` ก็จดไว้เองว่า "safe to delete once real data exists"
+ส่วนรหัสผ่าน `WbwReview2026!` ไม่เคยถูกบันทึกไว้ที่ไหนใน repo เลย
+
+**สมัครใหม่ทดแทนไม่ได้แล้ว** — `GET /wbw/capacity` ตอบ `taken 2000 / max 2000` และ
+`POST /wbw/auth/register` ตอบ 409 `ที่นั่งเต็มแล้ว — ปิดรับสมัคร` (CHECK constraint
+`taken_within_max` บน `wbw_capacity`, migration `000021`) ทางเดียวคือรีเซ็ตรหัสผ่านของแถวเดิม
+ผ่าน `POST /wbw/admin/participants/{id}/reset-password` ซึ่งต้องมี JWT ของ admin
+
+**ทางสำรองที่ไม่พึ่ง backend เลย:** ปุ่ม "ดูตัวอย่างแอป (Demo)" บนหน้าล็อกอิน (`WBW/Demo/`)
+คอมไพล์ติดใน Release และเดินดูได้ครบทุกจอโดยไม่ยิงเน็ตสักครั้ง
+
+### สมัครบัญชีใหม่ (local เท่านั้น — production ปิดรับแล้ว)
 
 New participants can be registered through the API without touching the database — the student
 id must be 10 digits starting `693`, and the password at least 8 characters:
@@ -161,8 +182,9 @@ repo, not by editing a running container.
 - **Configuration** — `.env` is per-environment and is not committed. A new variable has to be
   added to the deployed environment separately, or the deploy will start and then fail on first
   use. `TUNNEL_TOKEN` is what binds the deployment to `api.studentunion.social`.
-- **`Config.backend` must go back to a shipping value before the app is released.** It is
-  `.susLocal` right now, which points at a machine that will not exist for users.
+- ~~**`Config.backend` must go back to a shipping value before the app is released.**~~
+  **ทำแล้ว** — commit `8500875` (2026-08-04) เปลี่ยนเป็น `.susProd` และไม่มีอะไรแตะบรรทัดนั้นอีกเลย
+  ตั้งแต่นั้น (ตรวจด้วย `git log -p -- WBW/Config.swift`)
 
 Chat v2's own deployment checklist — the long-poll requirements around proxy buffering, file
 descriptors, and Postgres connection limits — lives at `docs/chat-v2-deploy.md` in the SUS
@@ -176,5 +198,8 @@ repo. Read it before deploying, and note the connection-budget finding recorded 
 - **The passwords for `6931900001` / `6931900002` are not recorded here.** Those two accounts
   hold the only realistic chat history (about 40 messages in group 1); the accounts created for
   verification start from empty.
-- **`api.studentunion.social` has not been exercised from the app.** `.susProd` now carries the
-  real host instead of a placeholder, but nothing has pointed at it and confirmed a round trip.
+- ~~**`api.studentunion.social` has not been exercised from the app.**~~ **แก้แล้ว 2026-08-19** —
+  ยิงจริงจากเครื่องนี้แล้ว: `GET /wbw/admin/schools` และ `GET /wbw/notifications/public` ตอบ 200,
+  `GET /wbw/capacity` ตอบ `{"max":2000,"taken":2000,"seats_left":0,"full":true}` และ
+  `POST /wbw/auth/login` ตอบ 401 พร้อมข้อความไทยตามสัญญา · แปลว่า host, TLS, tunnel และ handler
+  ทำงานครบเส้นทาง

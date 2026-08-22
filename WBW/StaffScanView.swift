@@ -1,5 +1,30 @@
 import SwiftUI
 import AVFoundation
+import UIKit
+
+/// สิทธิ์กล้องแปลเป็นสิ่งที่จอต้องทำ
+///
+/// แยกออกมาเป็นฟังก์ชันบริสุทธิ์เพราะ `AVAuthorizationStatus` จริงตั้งค่าในเทสไม่ได้ —
+/// สิ่งที่ต้องพิสูจน์คือ "สถานะไหนแปลว่าอะไร" ไม่ใช่ตัว AVFoundation (ดู `StaffScanPermissionTests`)
+enum CameraPermission: Equatable {
+    /// เปิดกล้องได้เลย
+    case ready
+    /// ยังไม่เคยถาม — ต้องยิงกล่องขอสิทธิ์ของระบบก่อน
+    case ask
+    /// ถูกปฏิเสธ หรือถูกล็อกด้วย MDM/Screen Time — ผู้ใช้เปิดเองในแอปไม่ได้
+    case denied
+
+    /// **สถานะที่ไม่รู้จักต้องตกมาที่ `.denied`** ไม่ใช่ `.ready` — เดาเป็น ready แล้วจะกลับไป
+    /// เป็นจอดำเงียบแบบเดิมที่ไม่มีอะไรบอกผู้ใช้เลย
+    static func from(_ status: AVAuthorizationStatus) -> CameraPermission {
+        switch status {
+        case .authorized:    return .ready
+        case .notDetermined: return .ask
+        case .denied, .restricted: return .denied
+        @unknown default:    return .denied
+        }
+    }
+}
 
 /// หน้าเจ้าหน้าที่ประจำฐาน — เลือกฐาน + สแกน QR / กรอก BIB เพื่อเช็คอินผู้เข้าร่วม
 struct StaffScanView: View {
@@ -11,27 +36,47 @@ struct StaffScanView: View {
     @State private var error: String?
     @State private var busy = false
     @State private var lastScan = ""
+    /// เริ่มที่ `.ask` ไม่ใช่ `.ready` — ยังไม่ได้ถามระบบ จะเปิดกล้องเลยไม่ได้
+    @State private var camera: CameraPermission = .ask
+    /// ซิมูเลเตอร์กับเครื่องที่ไม่มีกล้องจะได้สิทธิ์ผ่าน แต่ `AVCaptureDevice.default` คืน nil
+    /// ต้องมีข้อความบอกเหมือนกัน ไม่งั้นก็ได้จอดำเงียบอยู่ดี
+    @State private var cameraMissing = false
 
     var body: some View {
         ZStack {
-            Color.wbwInk.ignoresSafeArea()
+            // **พื้นตายตัว ไม่ใช่ `wbwInk`** — `wbwInk` พลิกเป็น #E9EEE0 ในโหมดมืด (ค่าปริยาย
+            // ของแอป) ทั้งจอนี้เขียนตัวอักษรเป็น `.white` ตายตัวตั้งแต่ยุคที่ ink ยังมืดเสมอ
+            // ผลคือขาวบนขาวทั้งจอ ใช้งานไม่ได้เลย (ถ่ายเจอจริง 2026-08-21)
+            // จอเจ้าหน้าที่เป็นเครื่องมือกลางแดด กลางคืน — มืดตายตัวคือสิ่งที่ต้องการอยู่แล้ว
+            Color.wbwForestVoid.ignoresSafeArea()
 
             VStack(spacing: 16) {
                 header
                 basePicker
 
-                // กล้องสแกน QR
-                QRScannerView { code in handleScan(code) }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: 22))
-                    .overlay(RoundedRectangle(cornerRadius: 22).stroke(.white.opacity(0.25), lineWidth: 1))
-                    .overlay(alignment: .center) {
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.wbwCream, lineWidth: 3)
-                            .frame(width: 180, height: 180)
+                // กล้องสแกน QR — โผล่เฉพาะตอนได้สิทธิ์จริงและเครื่องมีกล้อง
+                // ไม่งั้นโชว์คำอธิบายแทน (เดิมได้สี่เหลี่ยมดำค้างถาวรโดยไม่มีอะไรบอก)
+                Group {
+                    if camera == .ask && !cameraMissing {
+                        // ระหว่างที่กล่องขอสิทธิ์ของระบบเปิดค้างอยู่ ยังไม่รู้คำตอบ — โชว์พื้นเปล่า
+                        // ไม่ใช่ข้อความ "ไม่ได้รับสิทธิ์" ที่จะโผล่อยู่หลังกล่องแล้วอ่านว่าโดนปฏิเสธไปแล้ว
+                        Color.white.opacity(0.06)
+                    } else if camera == .ready && !cameraMissing {
+                        QRScannerView(onMissingDevice: { cameraMissing = true }) { code in handleScan(code) }
+                            .overlay(alignment: .center) {
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(Color.wbwOnBackdrop, lineWidth: 3)
+                                    .frame(width: 180, height: 180)
+                            }
+                    } else {
+                        cameraBlocked
                     }
-                    .padding(.horizontal, 20)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 300)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(.white.opacity(0.25), lineWidth: 1))
+                .padding(.horizontal, 20)
 
                 // กรอก BIB สำรอง
                 bibEntry
@@ -54,16 +99,19 @@ struct StaffScanView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: result != nil)
-        .task { await load() }
+        .task {
+            await requestCamera()
+            await load()
+        }
     }
 
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("สแกนเช็คอิน")
+                Text("scan_title")
                     .font(.system(size: 22, weight: .heavy))
                     .foregroundStyle(.white)
-                Text(session.user?.username ?? "เจ้าหน้าที่")
+                Text(session.user?.username ?? Loc.t("scan_role_staff"))
                     .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.6))
             }
@@ -72,7 +120,10 @@ struct StaffScanView: View {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
+                    .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("action_logout")
         }
         .padding(.horizontal, 22)
         .padding(.top, 8)
@@ -85,9 +136,12 @@ struct StaffScanView: View {
                     Button { selected = cp.id } label: {
                         Text(cp.name)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(selected == cp.id ? Color.wbwInk : .white)
+                            .foregroundStyle(selected == cp.id ? Color.wbwForestVoid : .white)
                             .padding(.horizontal, 14).padding(.vertical, 8)
-                            .background(selected == cp.id ? Color.wbwCream : Color.white.opacity(0.12), in: Capsule())
+                            .background(selected == cp.id ? Color.wbwOnBackdrop : Color.white.opacity(0.12), in: Capsule())
+                            // ชิปวาดสูง ~32pt ตามดีไซน์ ขยายเฉพาะพื้นที่รับนิ้ว กราฟิกคงเดิม
+                            .frame(minHeight: Config.Tap.minTarget)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -96,9 +150,60 @@ struct StaffScanView: View {
         }
     }
 
+    /// จอแทนกล้องตอนไม่มีสิทธิ์ — ต้องบอกว่าทำไม และพาไปเปิดได้จริง
+    ///
+    /// ช่องกรอก BIB ข้างล่างยังใช้ได้ตามปกติ เจ้าหน้าที่จึงเช็คอินต่อได้แม้กล้องเปิดไม่ได้
+    private var cameraBlocked: some View {
+        VStack(spacing: 14) {
+            Image(systemName: cameraMissing ? "camera.metering.unknown" : "camera.fill")
+                .font(.system(size: 34))
+                .foregroundStyle(.white.opacity(0.55))
+            Text(cameraMissing ? "scan_camera_missing" : "scan_camera_denied")
+                .font(.system(size: 14))
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 28)
+            if !cameraMissing {
+                Button {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                } label: {
+                    Text("scan_open_settings")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.wbwForestVoid)
+                        .frame(minWidth: 160, minHeight: Config.Tap.minTarget)
+                        .background(Color.wbwOnBackdrop, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.white.opacity(0.06))
+    }
+
+    /// ถามระบบครั้งเดียวตอนจอขึ้น · `.notDetermined` เท่านั้นที่ยิงกล่องขอสิทธิ์
+    private func requestCamera() async {
+        #if DEBUG
+        // บังคับสถานะถูกปฏิเสธไว้ถ่ายภาพยืนยัน — ซิมูเลเตอร์ตั้งสถานะนี้จากภายนอกไม่ได้
+        // (`simctl privacy revoke` รีเซ็ตเป็น "ยังไม่เคยถาม" ไม่ใช่ "ปฏิเสธ") และจอนี้อยู่หลัง
+        // บัญชีเจ้าหน้าที่ซึ่งโหมดเดโม่ไม่ครอบ · ทรงเดียวกับ `-uitestCredits` ที่หน้าตั้งค่า
+        if UserDefaults.standard.bool(forKey: "uitestCameraDenied") {
+            camera = .denied
+            return
+        }
+        #endif
+        let current = CameraPermission.from(AVCaptureDevice.authorizationStatus(for: .video))
+        guard current == .ask else {
+            camera = current
+            return
+        }
+        let granted = await AVCaptureDevice.requestAccess(for: .video)
+        camera = granted ? .ready : .denied
+    }
+
     private var bibEntry: some View {
         HStack(spacing: 10) {
-            TextField("", text: $bib, prompt: Text("กรอกหมายเลข BIB").foregroundStyle(.white.opacity(0.5)))
+            TextField("", text: $bib, prompt: Text("scan_bib_placeholder").foregroundStyle(.white.opacity(0.5)))
                 .keyboardType(.numberPad)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16).frame(height: 48)
@@ -106,11 +211,11 @@ struct StaffScanView: View {
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.2), lineWidth: 1))
                 .onChange(of: bib) { _, v in bib = String(v.filter(\.isNumber).prefix(5)) }
             Button { checkin(qr: nil, bib: Int(bib)) } label: {
-                Text("เช็คอิน")
+                Text("scan_action_checkin")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.wbwInk)
+                    .foregroundStyle(Color.wbwForestVoid)
                     .frame(width: 96, height: 48)
-                    .background(Color.wbwCream, in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color.wbwOnBackdrop, in: RoundedRectangle(cornerRadius: 14))
             }
             .disabled(busy || bib.isEmpty || selected == nil)
         }
@@ -152,7 +257,7 @@ struct StaffScanView: View {
                     if result?.bib == r.bib { result = nil }
                 }
             } catch {
-                self.error = (error as? LocalizedError)?.errorDescription ?? "เช็คอินไม่สำเร็จ"
+                self.error = (error as? LocalizedError)?.errorDescription ?? Loc.t("error_checkin_failed")
             }
             busy = false
         }
@@ -170,29 +275,29 @@ private struct ResultCard: View {
             VStack(spacing: 12) {
                 Image(systemName: result.alreadyCheckedIn ? "checkmark.circle" : "checkmark.circle.fill")
                     .font(.system(size: 44))
-                    .foregroundStyle(result.alreadyCheckedIn ? Color.wbwCream : .green)
-                Text(result.fullName.isEmpty ? "ผู้เข้าร่วม" : result.fullName)
+                    .foregroundStyle(result.alreadyCheckedIn ? Color.wbwOnBackdropMuted : .green)
+                Text(result.fullName.isEmpty ? Loc.t("role_participant") : result.fullName)
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(Color.wbwInk)
+                    .foregroundStyle(Color.wbwForestVoid)
                 if let bib = result.bib {
                     Text("BIB #\(bib)").font(.system(size: 15)).foregroundStyle(Color(white: 0.4))
                 }
-                Text(result.alreadyCheckedIn ? "เช็คอินฐานนี้ไปแล้ว" : "เช็คอินสำเร็จ")
+                Text(result.alreadyCheckedIn ? "scan_already_checked_in" : "scan_checked_in")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(result.alreadyCheckedIn ? Color(red: 0.7, green: 0.5, blue: 0.1) : .green)
                 if result.hasMedicalFlag {
-                    Label("มีข้อมูลการแพทย์ โปรดระวัง", systemImage: "cross.case.fill")
+                    Label("scan_medical_warning", systemImage: "cross.case.fill")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.red)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(.red.opacity(0.1), in: Capsule())
                 }
                 Button(action: onClose) {
-                    Text("สแกนคนถัดไป")
+                    Text("scan_next")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity).frame(height: 46)
-                        .background(Color.wbwInk, in: Capsule())
+                        .background(Color.wbwForestVoid, in: Capsule())
                 }
                 .padding(.top, 4)
             }
@@ -207,10 +312,14 @@ private struct ResultCard: View {
 
 /// กล้องสแกน QR (AVFoundation)
 private struct QRScannerView: UIViewControllerRepresentable {
+    /// เครื่องไม่มีกล้อง (ซิมูเลเตอร์) หรือเปิด input ไม่ได้ — ต้องบอกกลับขึ้นไป
+    /// ไม่ใช่ `return` เงียบแล้วปล่อยจอดำไว้เหมือนเดิม
+    let onMissingDevice: () -> Void
     let onScan: (String) -> Void
     func makeUIViewController(context: Context) -> ScannerVC {
         let vc = ScannerVC()
         vc.onScan = onScan
+        vc.onMissingDevice = onMissingDevice
         return vc
     }
     func updateUIViewController(_ vc: ScannerVC, context: Context) {}
@@ -218,6 +327,7 @@ private struct QRScannerView: UIViewControllerRepresentable {
 
 private final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     var onScan: ((String) -> Void)?
+    var onMissingDevice: (() -> Void)?
     private let captureSession = AVCaptureSession()
     private var preview: AVCaptureVideoPreviewLayer?
 
@@ -228,7 +338,10 @@ private final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsD
             let device = AVCaptureDevice.default(for: .video),
             let input = try? AVCaptureDeviceInput(device: device),
             captureSession.canAddInput(input)
-        else { return }
+        else {
+            DispatchQueue.main.async { [weak self] in self?.onMissingDevice?() }
+            return
+        }
         captureSession.addInput(input)
 
         let output = AVCaptureMetadataOutput()

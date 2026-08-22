@@ -238,7 +238,7 @@ extension View {
 /// ไม่ถูกสร้างจริง) ต้องแทรกเป็น sibling view ในต้นไม้ของแต่ละแท็บเอง (ที่นี่คือใน .background ของ
 /// forestBackground) แล้วไต่ view.superview chain ขึ้นไปเคลียร์ backgroundColor เอง — ไม่ผูกกับชื่อ type
 /// ที่เป็น SwiftUI internal (เปลี่ยนได้ทุก OS version) เช็คแค่ "มี backgroundColor ที่ไม่ใช่ nil ไหม" ตรงๆ
-private struct TabRootOpaqueBackgroundRemover: UIViewControllerRepresentable {
+struct TabRootOpaqueBackgroundRemover: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
         let vc = UIViewController()
         vc.view.backgroundColor = .clear
@@ -256,4 +256,21 @@ private struct TabRootOpaqueBackgroundRemover: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+}
+
+extension View {
+    /// เคลียร์พื้นทึบของ container ที่ห่อจอนี้อยู่ **โดยไม่วาดพื้นหลังของตัวเอง**
+    ///
+    /// ใช้คู่กับ `forestBackground` ที่แขวนอยู่ชั้นนอก (เช่นที่ `NavigationStack` ของแท็บแชท):
+    /// ชั้นนอกเป็นคนวาดภาพและภาพนั้นนิ่ง ส่วนจอแต่ละใบในสแตกมีหน้าที่แค่เปิดทางให้ภาพทะลุขึ้นมา
+    ///
+    /// **ทำไมชั้นนอกเคลียร์แทนไม่ได้** `TabRootOpaqueBackgroundRemover` ไต่ `superview` ขึ้นไป
+    /// เท่านั้น พอแขวนไว้ใน `.background` ของ `NavigationStack` ตัวมันเป็น *พี่น้อง* ของ
+    /// `UINavigationController.view` ไม่ใช่ลูก — พื้นทึบของ nav controller จึงรอด แล้วทั้งสแตกออกมาดำ
+    /// (เห็นจริงบนซิม 2026-08-21) · ต้องแทรกจาก*ในจอ* ถึงจะอยู่ในสายลูกหลานของมัน
+    func clearsHostOpaqueBackground() -> some View {
+        background {
+            TabRootOpaqueBackgroundRemover().frame(width: 1, height: 1).allowsHitTesting(false)
+        }
+    }
 }

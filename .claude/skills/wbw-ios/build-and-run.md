@@ -39,7 +39,7 @@ xcodebuild -scheme WBW -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
-รัน `WBWTests` ทั้งชุด (165 เทสตอนที่เขียนไฟล์นี้) ก่อน push/PR — รอบแรกที่รันเพื่อยืนยันไฟล์นี้เจอเทสตัว
+รัน `WBWTests` ทั้งชุด (260 เทสตอนที่เขียนไฟล์นี้) ก่อน push/PR — รอบแรกที่รันเพื่อยืนยันไฟล์นี้เจอเทสตัว
 หนึ่ง (`CheckinProgressStoreTests.testClearResetsPendingDiffState`) ที่ทำให้โฮสต์เทสแครช/timeout จน
 xcodebuild ต้อง restart runner กลางคัน (ปรากฏเป็น `** TEST FAILED **`) — รันซ้ำอีกรอบผ่านสะอาด
 (`** TEST SUCCEEDED **`, 165/165) ไม่มี error/log อื่นระหว่างนั้น สรุปว่าเป็นอาการแครชของตัว test host
@@ -70,6 +70,8 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 
 | คีย์ | ค่า | ผล | ต้องมาคู่กับ |
 |---|---|---|---|
+| `-uitestDemo` | flag | เข้าโหมดเดโม่ตอน launch (ข้อมูลจำลองครบทุกจอ ไม่ยิงเน็ตเลย ไม่ตั้งค่า Firebase) — ใช้ถ่ายสกรีนช็อต App Store | — |
+| `-uitestDemoNoGroup` | flag | โปรไฟล์เดโม่แบบยังไม่มีกลุ่ม → แท็บ 3 เป็นจอ "เข้ากลุ่ม" แทนแชท | `-uitestDemo` |
 | `-uitestToken <jwt>` | JWT string | ล็อกอินทันทีด้วย token นี้ (`Session.swift`) — ข้าม splash ด้วย | — |
 | `-uitestUser <username>` | string, default `tester` | คู่กับ `-uitestToken` เป็นชื่อผู้ใช้ | — |
 | `-uitestRole participant` | string, default `participant` | คู่กับ `-uitestToken` เป็น role | — |
@@ -77,6 +79,9 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestTab 0-4` | int | แท็บเริ่มต้นตอน launch เท่านั้น (ดูตาราง index ด้านล่าง) | — |
 | `-uitestTabSequence "<วิ>:<แท็บ>,..."` | string | สลับแท็บสดระหว่างแอปรันอยู่ เช่น `"6:4,12:0"` | — |
 | `-uitestChat` | flag | เปิดหน้าแชทกลุ่มตรงๆ | — |
+| `-uitestGroupHome` | flag | เปิดหน้า "กลุ่มของฉัน" ตรงๆ (ปกติอยู่หลังการกดหัวจอแชท) | `-uitestTab 2` + ต้องมีกลุ่มอยู่แล้ว |
+| `-uitestGroupMembers` | flag | เปิดหน้ารายชื่อสมาชิกตรงๆ **ผ่านสาขาแชท** (แถบแท็บซ่อน) — ชนะ `-uitestGroupHome` ถ้าส่งมาทั้งคู่ · อีกทางเข้าหนึ่ง (จากหน้าจับกลุ่ม แถบแท็บโชว์) ต้องกดมือ | `-uitestTab 2` + ต้องมีกลุ่มอยู่แล้ว |
+| `-uitestLeaveConfirm` | flag | เปิดกล่องยืนยันออกจากกลุ่มค้างไว้ให้ถ่ายรูป | `-uitestGroupHome` |
 | `-uitestChatCloseAfter <วินาที>` | double | ปิดแชทเองหลัง N วิ (แอปยัง foreground) | — |
 | `-uitestNotifications` | flag | เปิดหน้าแจ้งเตือนตรงๆ | — |
 | `-uitestFeedback <checkpointId>` | int > 0 | เปิดฟอร์มให้ความเห็นของฐานนั้นตรงๆ (id จริงเริ่มที่ 1) | — |
@@ -84,18 +89,28 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestProfile` | flag | เปิดหน้าโปรไฟล์ตรงๆ (จาก Home) | แท็บ Home ต้องขึ้นก่อน (index 0 — ค่าเริ่มต้นของ `-uitestTab` อยู่แล้วถ้าไม่ส่งอย่างอื่นมาทับ) |
 | `-uitestMedical` | flag | เปิดหน้าข้อมูลการแพทย์ตรงๆ (จาก Ticket) | `-uitestProfile` |
 | `-uitestSettings` | flag | เปิดหน้าตั้งค่าตรงๆ (จาก Ticket) | `-uitestProfile` |
+| `-uitestStaffScreen` | flag | บังคับ `RootView` ให้แสดงจอเจ้าหน้าที่ (สแกน QR) โดยไม่ต้องมีบัญชี staff จริง — `-uitestToken` ปลอมไปไม่ถึงเพราะ backend ตอบ 401 แล้วเด้งกลับหน้าล็อกอิน | `-uitestDemo` (ให้มี session) |
+| `-uitestPassBottom` | flag | เปิดหน้าบัตรโดยเลื่อนลงสุด — ปุ่ม SOS อยู่ใต้การ์ดซึ่งสูงกว่าจอ ไม่มีแฟลกนี้ก็ถ่ายไม่เห็น | `-uitestTab 4` |
+| `-uitestStaffSOSCase <แบบ>` | `fine` / `coarse` | ยัดเคส SOS ตัวอย่างหนึ่งใบเข้าแท็บ SOS ของเจ้าหน้าที่ (ปิด long-poll ไปด้วย) — `coarse` ให้พิกัด ±450 ม. ซึ่งเป็นแบบเดียวที่วาดวงความคลาดเคลื่อน | `-uitestStaffScreen` |
+| `-uitestCameraDenied` | flag | บังคับจอเจ้าหน้าที่ให้แสดงสถานะ "ไม่ได้รับสิทธิ์กล้อง" — `simctl privacy revoke` รีเซ็ตเป็น "ยังไม่เคยถาม" ไม่ใช่ "ปฏิเสธ" จึงตั้งจากภายนอกไม่ได้ | `-uitestToken <jwt>` + `-uitestRole staff` |
+| `-uitestSOSStatus` | flag | เปิดจอสถานะ SOS ตรง ๆ พร้อมเคสจำลองที่สถานะ `.received` — ทางเข้าจริงคือกดปุ่มค้าง 3 วินาที ซึ่งถ่ายรูปไม่ได้ที่นี่ | `-uitestTab 4` |
+| `-uitestLocationPrimer` | flag | เปิดจออธิบายก่อนกล่องขอสิทธิ์ตำแหน่ง (`LocationPrimerSheet`) — ทางเข้าจริงต้องล็อกอินบัญชีจริงบนเครื่องที่ยังไม่เคยตอบกล่องขอสิทธิ์ | `-uitestDemo` |
+| `-uitestNotiLoadFailed` | flag | บังคับหน้าประกาศให้แสดงสาขา "ยิงไม่ถึงเซิร์ฟเวอร์" (มีปุ่มลองใหม่) — ตัดเน็ตของซิมจากข้างนอกทำไม่ได้ | `-uitestNotifications` |
+| `-uitestCredits` | flag | เปิดหน้าเครดิต/สัญญาอนุญาตตรงๆ (จากหน้าตั้งค่า) — หน้านี้เป็นเงื่อนไขสัญญาอนุญาต ต้องถ่ายให้เห็นจริงได้ | `-uitestProfile` + `-uitestSettings` |
 | `-uitestMapHeading <องศา>` | int | ทับมุมกล้อง yaw ของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
 | `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว (ปิด intro ไปด้วย) | `-uitestTab 1` |
 | `-uitestMapDistance <ร้อยเท่า>` | int | ทับระยะกล้อง — `80` = 0.8 (ซูมเข้าสุด), `400` = 4.0 (ออกสุด) | `-uitestTab 1` |
 | `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ | `-uitestTab 1` |
+| `-uitestMapYaw <องศา>` | 0-359 | มุมกวาดรอบตัว ใช้ถ่ายเทียบว่าไม่มีทิศไหนเห็นขอบโมเดล | `-uitestTab 1` |
+| `-uitestChatDraft <ข้อความ>` | string | เติมข้อความในช่องพิมพ์ของจอแชท ใช้ถ่ายทรงช่องตอนหลายบรรทัด | `-uitestChat YES` |
 
 **ทำไมบางคีย์ต้องมาคู่กัน:** `-uitestMedical`/`-uitestSettings` ถูกอ่านใน `.task` ของ `TicketView`
-(`WBW/TicketView.swift:38-41`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน
-`.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:101-103`) ซึ่งเปิดจาก
-`-uitestProfile` เท่านั้น (`WBW/HomeView.swift:98`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
-เลย ส่วน `-uitestMapPin`/`-uitestMapHeading`/`-uitestMapPitch`/`-uitestMapDistance` ถูกอ่านใน
-`.onAppear` ของ `Map3DScreen` (`WBW/Map3D/Map3DScreen.swift:422-452`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen() }` ที่
-`WBW/MainTabView.swift:49`) — `TabView` โหลดเนื้อในแท็บแบบ lazy แท็บที่ยังไม่เคยถูกเลือกจะไม่ mount View
+(`WBW/TicketView.swift:48-49`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน
+`.fullScreenCover(isPresented: $showProfile)` ของ `HomeView` (`WBW/HomeView.swift:133-135`) ซึ่งเปิดจาก
+`-uitestProfile` เท่านั้น (`WBW/HomeView.swift:130`) — ไม่ส่ง `-uitestProfile` มาด้วย สองคีย์นี้จะไม่ถูกอ่าน
+เลย ส่วน `-uitestMapPin`/`-uitestMapHeading`/`-uitestMapPitch`/`-uitestMapDistance`/`-uitestMapYaw` ถูกอ่านใน
+`.onAppear` ของ `Map3DScreen` (`WBW/Map3D/Map3DScreen.swift:622-671`) ซึ่งเป็นเนื้อของแท็บ Map (`Tab(value: 1) { Map3DScreen(isActive: tab == 1) }` ที่
+`WBW/MainTabView.swift:51`) — `TabView` โหลดเนื้อในแท็บแบบ lazy แท็บที่ยังไม่เคยถูกเลือกจะไม่ mount View
 เลยสักครั้ง แท็บเริ่มต้นคือ Home (index 0) เสมอถ้าไม่ส่ง `-uitestTab` มา จึงต้องสั่ง `-uitestTab 1` กำกับไป
 ด้วยทุกครั้ง
 
@@ -105,9 +120,12 @@ index แท็บ (สำหรับ `-uitestTab`/`-uitestTabSequence`):
 |---|---|
 | 0 | Home |
 | 1 | Map |
-| 2 | SU RUN |
-| 3 | Group |
+| 2 | Group |
+| 3 | กิจกรรม |
 | 4 | QR |
+
+ตารางนี้เคยสลับ 2 กับ 3 ไว้ผิด — ค่าจริงอ่านได้จาก `Tab(value:)` ใน `WBW/MainTabView.swift:57-78`
+แก้แล้ว 2026-08-21 หลังส่ง `-uitestTab 3` แล้วได้แท็บกิจกรรมแทนแท็บกลุ่ม
 
 ## รันบนเครื่องจริง (รันจริงล่าสุด 2026-08-03 — iPhone 13 ต่อ SUS local)
 
@@ -135,3 +153,21 @@ Release ไม่มี) commit `8dfa5d4` เคยลืมเติม `NSLoca
 กลับ" มาแล้ว จึงแยกเป็นคนละไฟล์ถาวรแทน (ดูคอมเมนต์หัวไฟล์ `WBW/Info-Debug.plist` และ `configs:` ใน
 `project.yml`) — เพิ่มคีย์อะไรต้องเพิ่มทั้งสองไฟล์ ไม่งั้น `AppStoreConfigTests` fail (โดยเฉพาะ
 `testDebugPlistDiffersFromReleaseOnlyByTheAllowedKeys` และ `testApsEnvironmentMatchesItsConfiguration`)
+
+## เก็บสกรีนช็อตชุด App Store
+
+`docs/appstore/screenshots/{6.5,6.9}/` มี 9 ใบต่อขนาด ถ่ายจาก **โหมดเดโม่** ทั้งหมด (ไม่มี splash
+ไม่มีหน้าล็อกอิน — Apple บอกตรง ๆ ในใบตีกลับ 2.3.3 ว่าสองอย่างนั้นไม่นับว่า "app in use")
+
+simulator ที่ต้องมี — สร้างเองถ้ายังไม่มี:
+
+```bash
+xcrun simctl create "iPhone 11 Pro Max" com.apple.CoreSimulator.SimDeviceType.iPhone-11-Pro-Max com.apple.CoreSimulator.SimRuntime.iOS-26-5   # 6.5" = 1242x2688
+xcrun simctl create "iPhone 17 Pro Max" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max com.apple.CoreSimulator.SimRuntime.iOS-26-5   # 6.9" = 1320x2868
+```
+
+**`xcrun simctl erase` ก่อนถ่ายทุกครั้ง** — dialog ขอสิทธิ์ที่ไม่มีใครกดตอบจะค้างอยู่ใน SpringBoard
+ข้ามการ uninstall/install ของแอปไปเรื่อย ๆ แล้วบังทุกใบที่ถ่ายหลังจากนั้น กว่าจะรู้คือไล่หา
+สาเหตุในโค้ดอยู่หลายรอบทั้งที่โค้ดไม่ได้ผิด
+
+ขั้นตอนเต็มอยู่ที่ `docs/appstore/README.md`

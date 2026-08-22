@@ -64,7 +64,7 @@ final class CheckinProgressStore: ObservableObject {
     // nonisolated: เป็น pure function ล้วนๆ ไม่แตะ state ของ actor เลย ทำให้เรียกจาก
     // context ที่ไม่ใช่ MainActor ได้ตรงๆ (เช่น XCTest ที่ไม่ได้ mark @MainActor)
     nonisolated static func cacheKey(for backend: Backend) -> String {
-        "wbw.progress.\(backend.cacheNamespace)"
+        "wbw.progress.\(backend.cacheNamespace)\(CacheScope.suffix)"
     }
 
     /// โหลดจาก cache ก่อน (ทันที) แล้วค่อยยิงเน็ตทับ

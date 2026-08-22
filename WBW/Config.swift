@@ -47,10 +47,25 @@ enum Config {
 
     /// ฉากป่า 3D — ปิดชั่วคราว (เครื่องทำงานหนัก) เปิดกลับได้ที่ค่านี้ค่าเดียว
     ///
-    /// ปิด = ทุกจอที่เรียก .forestBackground() ได้พื้นทึบ Color.wbwForestVoid แทน และ
+    /// ปิด = ทุกจอที่เรียก .forestBackground() ได้ภาพ `AppBackdrop` แทน และ
     /// ForestSceneView/ForestOverlay ไม่ถูก mount เลยสักครั้ง (ดู ForestSceneHost.shouldClaim)
     /// โค้ดและ asset ของฉากยังอยู่ครบ ไม่ได้ถูกลบ
+    ///
+    /// **จะเปิดกลับต้องแก้ `MainTabView.updateSceneGate()` ก่อน** ตอนนี้มันกดฉากไว้ทุกแท็บยกเว้น
+    /// 0 กับ 4 · แท็บ 2 (กลุ่ม/แชท) และแท็บ 3 (กิจกรรม/SU RUN) เรียก `forestBackground` แต่โดนกด
+    /// พอเปิดฉาก จอพวกนั้นจะได้ `Color.clear` จาก ForestBackground ขณะที่ RootView ก็ข้าม
+    /// AppBackdrop ไปแล้วเพราะ forest3D เปิด = **จอดำสนิททั้งใบ** ต้องเติมสองแท็บนี้เข้า
+    /// allow-list ของ `updateSceneGate()` หรือหาทางให้มันวาดภาพแทนตอนถูกกด
     static let forest3D = false
+
+    /// พื้นที่กดขั้นต่ำตาม Human Interface Guidelines — **44×44 pt ไม่ใช่ขนาดที่ตาเห็น**
+    ///
+    /// ปุ่มวาดเล็กกว่านี้ได้ (ปุ่มกลม 40pt ในดีไซน์ยังเป็น 40pt) แต่พื้นที่รับนิ้วต้องไม่ต่ำกว่า 44
+    /// — ขยายด้วย `.frame(minWidth:minHeight:)` ชั้นนอก หรือ `.contentShape` ไม่ใช่ด้วยการ
+    /// ทำให้กราฟิกใหญ่ขึ้น · App Review ยกข้อนี้ประกอบ Guideline 4.0 ได้
+    enum Tap {
+        static let minTarget: CGFloat = 44
+    }
 
     /// โมเดลแผนที่ 3D ที่แท็บ Map — ปิดได้ด้วยค่าเดียวนี้ถ้าเครื่องรับไม่ไหว
     ///
@@ -58,61 +73,223 @@ enum Config {
     /// ตั้ง true ไว้ต่างจาก forest3D โดยตั้งใจ — ฉากป่าถูกปิดเพราะอาการที่ยังไม่พิสูจน์
     /// (docs/forest-3d-off-verification.md §7) แผนที่ยังไม่ถูกวัด จึงเปิดไว้ก่อนแล้ววัด (Task 5)
     static let map3D = true
+
+    /// ต้นฉบับของสามตัวนี้คือ Task 13 (ดู task-13-brief.md ขั้นที่ 5: plist สิทธิ์ตำแหน่ง +
+    /// เบอร์กลางงาน) แต่ต้องยกมานิยามที่นี่ก่อน เพราะ SOSStore.send (Task 12) เรียก
+    /// cacheEmergencyPhone(_:) ทันทีที่ยิงสำเร็จครั้งแรก — ไฟล์ SOSStore.swift จึงคอมไพล์ไม่ผ่าน
+    /// ถ้าไม่มีฟังก์ชันนี้อยู่ก่อน (พบตอนทำ Task 12 — เหมือนกับ SOSStaffCase ที่ Task 10 เจอกับ
+    /// Task 15 มาก่อนแล้ว) เมื่อทำ Task 13 ควรเช็คว่าสามตัวนี้ตรงกับที่ตัวเองจะเพิ่มอยู่แล้วก่อนเพิ่มซ้ำ
+    ///
+    /// เบอร์กลางงาน — ค่าเริ่มต้นที่ฝังมากับแอป เผื่อยังไม่เคยคุยกับเซิร์ฟเวอร์สำเร็จเลย
+    /// ค่าจริงมาจาก emergency_phone ใน /me/progress และคำตอบของ /me/sos แล้ว cache ทับ
+    static let emergencyPhoneDefault = "053-916-000"
+
+    static var emergencyPhone: String {
+        UserDefaults.standard.string(forKey: "wbw.emergencyPhone.\(backend.cacheNamespace)")
+            ?? emergencyPhoneDefault
+    }
+
+    /// `tel://` ของเบอร์ปัจจุบัน — **nil ได้** และคนเรียกต้องซ่อนปุ่มโทรเมื่อเป็น nil
+    ///
+    /// มีเพราะจอสถานะเคยต่อ `URL(string: "tel://\(Config.emergencyPhone)")!` ตรง ๆ ทั้งที่ค่านี้
+    /// มาจากเซิร์ฟเวอร์ ไม่ใช่ลิเทอรัลในโค้ด — เบอร์ที่มีช่องว่างหรือมีตัวอักษรพ่วงทำให้
+    /// `URL(string:)` คืน nil แล้ว `!` ก็ crash **บนจอฉุกเฉิน** ซึ่งเป็นจอที่ห้ามพังที่สุดในแอป
+    static var emergencyPhoneURL: URL? {
+        URL(string: "tel://\(emergencyPhone)")
+    }
+
+    /// เก็บเฉพาะอักขระที่ `tel://` รับได้จริง — ที่เหลือทิ้ง
+    ///
+    /// sanitize ที่ **ขาเข้า** ไม่ใช่ตอนอ่าน เพราะค่าที่เก็บไว้ยังถูกเอาไปโชว์เป็นข้อความบนปุ่มด้วย
+    /// ("โทรหาทีมกลาง …") ถ้าเก็บดิบแล้วค่อยกรองตอนต่อ URL ปุ่มจะโชว์เบอร์คนละตัวกับที่โทรออกจริง
+    /// · ค่าที่กรองแล้วไม่เหลือตัวเลขเลยถือว่าใช้ไม่ได้ ไม่เขียนทับของเดิม — ไม่งั้นค่า default
+    /// ที่ใช้งานได้จะถูกกลบด้วยขยะจากเซิร์ฟเวอร์แล้วไม่มีเบอร์ให้โทรทั้งงาน
+    static func cacheEmergencyPhone(_ phone: String) {
+        let cleaned = phone.filter { $0.isNumber || $0 == "+" || $0 == "-" || $0 == "#" || $0 == "*" }
+        guard cleaned.contains(where: \.isNumber) else { return }
+        UserDefaults.standard.set(cleaned, forKey: "wbw.emergencyPhone.\(backend.cacheNamespace)")
+    }
 }
 
-/// สีธีม (DOI-APP)
+/// สีธีม — **ยกมาจาก `ui/theme/Color.kt` ของแอป Android ทั้งชุด (2026-08-20)**
+///
+/// Android เขียนไว้ตรง ๆ ว่าชุดนี้มาแทนของ iOS: *"the iOS palette assumed a bright cream
+/// photograph (`wbwBg` #FAF7F0)… their mustard gold went muddy"* — พื้นของแอปเป็นภาพป่าเขียวเข้ม
+/// สีครีม/ทองที่เคยออกแบบไว้กับพื้นสว่างจึงกลายเป็นเทากับโคลนบนพื้นนี้
+///
+/// **ไม่มีสีเน้นแล้ว** (`"There is no accent hue."`) ทองแล้วเขียวใบไม้ถูกลองทั้งคู่และแพ้ด้วย
+/// เหตุผลเดียวกัน — จอมีภาพถ่ายกับกระจกทำงานอยู่แล้ว สีเน้นบนนั้นคือของชิ้นที่สี่ที่แย่งความสนใจ
+/// ลำดับชั้นจึงมาจาก **น้ำหนัก ขนาด และ letterspacing บน ink สีเดียว** แบบเดียวกับบัตรผู้เข้าร่วม
+///
+/// กฎสองข้อที่ยึดชุดนี้ไว้ (ยกมาจากคอมเมนต์ต้นทาง):
+/// 1. **พื้นเดียวทั้งสองธีม** — ภาพพื้นหลังไม่ถูกย้อมใหม่ตามธีม ของที่เปลี่ยนคือสิ่งที่วาง *บน* พื้น
+///    ตัวอักษรที่วางลงบนภาพตรง ๆ จึงต้องใช้ `wbwOnBackdrop` ไม่ใช่ `wbwInk`
+/// 2. **accent ปรับแสง ไม่พลิกสี** — คงเฉดเดิมทั้งสองธีม เปลี่ยนแค่ความสว่าง
 import SwiftUI
 import UIKit   // UIColor(dynamicProvider:) — SwiftUI ไม่ได้ re-export UIKit ให้
 extension Color {
-    // ===== สีแบรนด์ — คงที่ทั้งสองธีม =====
-    //
-    // ทองกับเขียวเป็นเอกลักษณ์ของงาน ไม่ใช่สีพื้นผิว พลิกตามธีมเมื่อไหร่แอปจะดูเป็นคนละงาน
-    static let wbwCream = Color(red: 222 / 255, green: 198 / 255, blue: 132 / 255) // #DEC684
-    static let wbwGold = Color(red: 201 / 255, green: 154 / 255, blue: 31 / 255) // #C99A1F ทอง
-    static let wbwGreen = Color(red: 64 / 255, green: 145 / 255, blue: 108 / 255) // #40916C เขียวป่า (toggle on)
 
-    /// พื้นหลังทึบแทนฉากป่าตอน Config.forest3D ปิด — สีเดียวกับ scrim เดิมของ ForestOverlay
-    /// มืดโดยตั้งใจทั้งสองธีม เป็นพื้นฉาก ไม่ใช่พื้นจอ
-    static let wbwForestVoid = Color(red: 10 / 255, green: 22 / 255, blue: 16 / 255) // #0A1610
-
-    /// พื้นจอตั๋วประจำตัว — ที่พักไว้ก่อน ของจริงจะเป็นรูปภาพ (ดู TicketView.background)
-    /// คงที่ทั้งสองธีม จอนี้เป็นดีไซน์ตายตัว ไม่ใช่พื้นผิวที่ปรับตามโหมด
-    static let wbwTicketBG = Color(red: 26 / 255, green: 26 / 255, blue: 26 / 255) // #1A1A1A
-    /// แดงเลือดหมูของปุ่ม Medical ID — ใช้เป็น tint ของกระจก
-    static let wbwMedical = Color(red: 66 / 255, green: 23 / 255, blue: 23 / 255) // #421717
-
-    // ===== สีพื้นผิว — ปรับตามโหมดมืด =====
-    //
-    // ใช้ UIColor(dynamicProvider:) ไม่ใช่ .colorset ใน Assets เพราะโปรเจกต์สร้างจาก XcodeGen
-    // การเพิ่ม colorset ต้องแตะหลายไฟล์ใน Assets.xcassets แล้ว `xcodegen generate` ทุกครั้ง
-    // ส่วนแบบนี้อยู่ไฟล์เดียว รีวิวจบในที่เดียว · ตัวขับคือ .preferredColorScheme ที่ WBWApp
-    // ตั้งไว้จาก AppSettings.isDark ซึ่ง resolve ให้ถูกต้องอยู่แล้ว
-    //
-    // ค่าโหมดสว่างต้องเท่าของเดิมเป๊ะ — งานนี้เพิ่มโหมดมืด ไม่ได้เปลี่ยนหน้าตาโหมดสว่าง
     private static func adaptive(light: UIColor, dark: UIColor) -> Color {
         Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? dark : light })
     }
 
-    /// พื้นหลังจอ — เดิมแต่ละจอประกาศ `private let bg = Color(red: 250/255, ...)` ของตัวเอง 6 ที่
-    static let wbwBg = adaptive(
-        light: UIColor(red: 250 / 255, green: 247 / 255, blue: 240 / 255, alpha: 1), // #FAF7F0 ครีมอ่อน
-        dark: UIColor(red: 20 / 255, green: 18 / 255, blue: 15 / 255, alpha: 1))     // #14120F
-    /// การ์ด/ฟองแชท/ช่องพิมพ์ — เดิมเป็น Color.white ตรง ๆ
-    static let wbwSurface = adaptive(
-        light: .white,
-        dark: UIColor(red: 33 / 255, green: 31 / 255, blue: 27 / 255, alpha: 1))     // #211F1B
-    /// ตัวอักษร/เส้นเข้ม — ตัวที่ได้ผลกว้างสุด ถูกใช้อยู่ 41 จุดใน 16 ไฟล์
-    static let wbwInk = adaptive(
-        light: UIColor(red: 43 / 255, green: 43 / 255, blue: 43 / 255, alpha: 1),    // #2B2B2B
-        dark: UIColor(red: 239 / 255, green: 235 / 255, blue: 227 / 255, alpha: 1))  // #EFEBE3
-    /// ข้อความรอง — เดิมหว่าน Color(0xFF8F8A80)/.secondary ปนกัน
-    static let wbwMuted = adaptive(
-        light: UIColor(red: 143 / 255, green: 138 / 255, blue: 128 / 255, alpha: 1), // #8F8A80
-        dark: UIColor(red: 168 / 255, green: 161 / 255, blue: 150 / 255, alpha: 1))  // #A8A196
-    /// เส้นคั่น
-    static let wbwLine = adaptive(
-        light: UIColor(red: 236 / 255, green: 230 / 255, blue: 218 / 255, alpha: 1), // #ECE6DA
-        dark: UIColor(red: 51 / 255, green: 47 / 255, blue: 41 / 255, alpha: 1))     // #332F29
+    private static func hex(_ value: UInt32, alpha: Double = 1) -> Color {
+        Color(red: Double((value >> 16) & 0xFF) / 255,
+              green: Double((value >> 8) & 0xFF) / 255,
+              blue: Double(value & 0xFF) / 255,
+              opacity: alpha)
+    }
+
+    private static func ui(_ value: UInt32) -> UIColor {
+        UIColor(red: CGFloat((value >> 16) & 0xFF) / 255,
+                green: CGFloat((value >> 8) & 0xFF) / 255,
+                blue: CGFloat(value & 0xFF) / 255, alpha: 1)
+    }
+
+    // ===== ตัวอักษรบนพื้นภาพ — สว่างทั้งสองธีม =====
+    //
+    // พื้นหลังเป็นภาพเดียวและมืดเสมอไม่ว่าผู้ใช้เลือกธีมไหน ตัวอักษรที่วางลงบนภาพจึงตามธีมไม่ได้
+    // ใช้ `wbwInk` ตรงนี้เมื่อไหร่ หัวข้อจะหายไปในโหมดสว่าง
+    static let wbwOnBackdrop = hex(0xE9EEE0)
+    static let wbwOnBackdropMuted = hex(0xA2AF98)
+
+    // ===== accent — คือ ink ไม่ใช่สีอื่น =====
+    //
+    // โทเคนยังอยู่เพื่อให้จุดเรียกคงความหมาย ("ตรงนี้คือส่วนที่เน้น") และเผื่อวันหลังอยากเอาเฉดสี
+    // กลับมาจะได้แก้ที่เดียว
+    static let wbwAccent = adaptive(light: ui(0x1B2A1B), dark: ui(0xE9EEE0))
+    /// เวอร์ชันลดน้ำหนัก สำหรับ eyebrow กับเครื่องหมายรอง
+    static let wbwAccentSoft = adaptive(light: ui(0x58684F), dark: ui(0xA2AF98))
+
+    /// เขียวสถานะ — "เปิด", เช็คอินแล้ว, ความคืบหน้า
+    ///
+    /// ตั้งใจให้ลึกกว่า accent หนึ่งขั้นแทนที่จะเป็นคนละเฉด: อยู่ตระกูลเดียวกัน ตัวควบคุมที่ถูกเลือก
+    /// กับของที่ทำเสร็จแล้วจึงอ่านว่าเกี่ยวข้องกัน และ accent ยังลอยอยู่ข้างบนเพราะสว่างกว่า
+    static let wbwGreen = adaptive(light: ui(0x35784F), dark: ui(0x63B283))
+
+    /// พื้นฉากตายตัวสำหรับของที่ต้องอยู่หลังตัวภาพเอง
+    static let wbwForestVoid = hex(0x0B140E)
+
+    /// แดงเลือดหมูของปุ่ม Medical ID — ใช้เป็น tint ของกระจก
+    static let wbwMedical = hex(0x421717)
+
+    static let wbwDanger = adaptive(light: ui(0xC0503A), dark: ui(0xE88B7A))
+
+    // ===== พื้นผิว — ปรับตามโหมดมืด =====
+    //
+    // โหมดสว่างเป็นออฟไวท์อุ่นที่ยังมีเขียวปนอยู่ ไม่ใช่ขาวล้วน — ขาวล้วนบนพื้นป่าอ่านเป็น
+    // "รูที่เจาะทะลุหน้ากระดาษ"
+    static let wbwBg = adaptive(light: ui(0xEDF0E5), dark: ui(0x0F1610))
+    static let wbwSurface = adaptive(light: ui(0xF5F4E9), dark: ui(0x1A2318))
+    static let wbwInk = adaptive(light: ui(0x1B2A1B), dark: ui(0xE9EEE0))
+    static let wbwMuted = adaptive(light: ui(0x58684F), dark: ui(0xA2AF98))
+    static let wbwLine = adaptive(light: ui(0xDBDFCB), dark: ui(0x2F3B2B))
+
+    /// ปุ่มทึบบนการ์ด — **คงที่ทั้งสองธีม** ต่างจากพื้นผิวอื่นในหมวดนี้โดยตั้งใจ
+    ///
+    /// ปุ่ม "เข้ากลุ่ม" เคยใช้ `wbwGold` (= `wbwAccent`) คู่กับตัวอักษร `.white` ตายตัว จากยุคที่
+    /// โทเคนนั้นยังเป็นสีทองจริง พอ accent กลายเป็น #E9EEE0 ในโหมดมืด ปุ่มเลยเป็นขาวบนขาว
+    /// ปุ่มต้องอ่านออกเหมือนกันทั้งสองธีม จึงตรึงค่าไว้แทนที่จะปรับตาม
+    ///
+    /// ค่าตรงกับขาของ `wbwLine` ฝั่งมืด (#2F3B2B) พอดี — **คนละโทเคนโดยตั้งใจ** ตัวนั้นปรับตามธีม
+    /// (เป็นเส้นคั่นบนการ์ด) ตัวนี้ไม่ปรับ (เป็นปุ่ม) รวมเป็นตัวเดียวเมื่อไหร่จะได้ปุ่มสว่างในโหมดสว่าง
+    ///
+    /// ในโหมดมืดมันต่างจาก `wbwSurface` แค่ราว 1.3:1 ตัวปุ่มจึงต้องมีเส้นขอบ `glassSheerBorder`
+    /// ของตัวเองเป็นสิ่งที่กำหนดรูปทรง (ท่าเดียวกับทุกแผ่นใน `GlassSurface.swift`)
+    static let wbwSolid = hex(0x2F3B2B)
+
+    /// ตัวอักษรบน `wbwGreen` — **กลับด้านตามธีม เพราะ `wbwGreen` เองกลับด้าน**
+    ///
+    /// `wbwGreen` เข้มในโหมดสว่าง (#35784F) และอ่อนในโหมดมืด (#63B283) ตัวอักษรขาวตายตัว
+    /// จึงอ่านออกเฉพาะฝั่งสว่าง ฝั่งมืดได้ราว 2.2:1 · คู่นี้ให้ 5.4:1 กับ 8.9:1
+    /// ใช้ที่ฟองข้อความฝั่งเรา ปุ่มส่ง และ pill "ข้อความใหม่"
+    static let wbwOnGreen = adaptive(light: ui(0xFFFFFF), dark: ui(0x0F1610))
+
+    /// สีเตือนที่วางบน**พื้นภาพ** ไม่ใช่บนการ์ด — คงที่ด้วยเหตุผลเดียวกับ `wbwOnBackdrop`
+    ///
+    /// `wbwDanger` ปรับตามธีม ขาสว่างของมัน (#C0503A) ได้ราว 2.4:1 บนภาพพื้นหลัง
+    /// ปุ่ม "ออกจากกลุ่ม" กับข้อความ error ใน `GroupHomeView` วางบนภาพตรง ๆ จึงใช้ตัวนั้นไม่ได้
+    /// ค่าเท่ากับขาของ `wbwDanger` ฝั่งมืด ซึ่งเป็นขาที่ออกแบบมาให้อ่านออกบนพื้นมืดอยู่แล้ว
+    static let wbwOnBackdropDanger = hex(0xE88B7A)
+
+    // ===== กระจก =====
+    //
+    // แผ่นบางที่สุดเท่าที่ยังปิดรูปทรงได้ · **เหมือนกันทั้งสองธีมโดยตั้งใจ** — การ์ดสีอ่อนในโหมดสว่าง
+    // แปลว่าทึบเกือบเต็มบนพื้นที่มีแต่ภาพมืด ที่ไหนที่ตัวกระจกคือประเด็น การแลกแบบนั้นผิดทาง
+    //
+    // เคยลองแผ่นย้อมเขียว (TicketGreen 30% แล้ว DeepForest) ผิดทั้งคู่ด้วยเหตุผลเดียวกัน:
+    // **พื้นเขียวอยู่แล้ว** ย้อมแผ่นเป็นเขียวบนพื้นเขียวได้แค่สว่างขึ้น (มรกต ดังที่สุดบนจอ)
+    // หรือมืดลง (กลายเป็นรู) ซึ่งไม่ใช่สิ่งที่กระจกทำ — กระจกรับสีจากสิ่งที่อยู่ข้างหลังมัน
+    // ขาว 12% บนอาร์ตใบนี้ออกมาเป็นเขียวเอง นั่นคือกลของแถบแท็บมาตลอด
+    // เขียนเป็นเศษส่วนของ 255 ไม่ใช่ 0.12/0.13 — ต้นทางเขียน alpha เป็นเลขฐานสิบหก
+    // (`0x1FFFFFFF` / `0x21FFFFFF`) การปัดเป็นทศนิยมสองตำแหน่งเลื่อนค่าไปพอที่จะเห็นได้
+    // ตอนวางสองแอปเทียบกัน และไม่มีอะไรจับได้นอกจากตาคน
+    static let glassSheer = Color.white.opacity(31.0 / 255)        // GlassSheer / PassSurface
+    static let glassSheerBorder = Color.white.opacity(33.0 / 255)  // GlassSheerBorder
+
+    /// แผ่นสำหรับของที่แบก **ย่อหน้า** — เข้ม ตรงข้ามกับ `glassSheer` ที่เป็นแค่ฝ้าจาง
+    ///
+    /// มีเพราะบั๊กที่เลือกสีตัวอักษรยังไงก็แก้ไม่ได้ และตัวเลขที่วัดได้คุ้มที่จะเก็บไว้: บนจอประกาศ
+    /// ของ Android พื้น *ข้างใน* การ์ด `GlassSheer` มีความสว่างไล่ตั้งแต่ 0.06 ถึง **0.36**
+    /// เพราะแผ่นเป็นขาว 12% ทับภาพถ่ายที่มีช่วงสว่างอยู่ในนั้น · ตัวอักษรสีอ่อนต้องการความสว่าง
+    /// ราว 1.8 จึงจะผ่าน WCAG AA บนพื้น 0.36 — และขาวคือ 1.0 ไม่มีหมึกสีไหนผ่านได้เลย
+    ///
+    /// ฝ้าจาง ๆ แก้ไม่ได้เพราะปัญหาคือ **ความแปรปรวน** ไม่ใช่ระดับ · แผ่นต้องกลบอาร์ตทิ้ง
+    /// ไม่ใช่ย้อมมัน ตัวอักษรบรรทัดเดียวกันถึงจะเจอโทนเท่ากันทั้งสองปลาย · นั่นคือสิ่งที่แลก —
+    /// การ์ดที่มีย่อหน้ายอมไม่โชว์ป่าผ่านตัวเอง เพื่อให้ได้พื้นที่ตัวอักษรนั่งได้จริง
+    /// ส่วนของประดับจอ (ชิป HUD แถบแท็บ) เก็บ `glassSheer` ไว้ เพราะสองสามคำที่ขนาดและน้ำหนัก
+    /// ระดับนั้นรอดได้ไม่ว่าข้างหลังจะเป็นอะไร
+    ///
+    /// เข้มแบบ "เกือบดำของพื้นภาพ" ไม่ใช่ดำสนิท มันจะได้ยังอ่านเป็นวัสดุเดียวกัน
+    /// ที่ alpha ต่ำพอให้การหักเหยังบิดแสงตรงขอบได้อยู่ (`GlassPanel = 0xD10D170F`)
+    static let glassPanel = hex(0x0D170F).opacity(209.0 / 255)
+
+    // ===== บัตรผู้เข้าร่วม =====
+    //
+    // ชุดของบัตรเอง: ขาวสี่ระดับ เส้นผม และแผ่นหนึ่งใบ · ตายตัวทั้งสองธีมเพราะบัตรคือของที่ยกให้
+    // เจ้าหน้าที่ดู ไม่ใช่พื้นผิวที่เดินตามการตั้งค่ารูปลักษณ์
+    static let passInk = Color.white
+    static let passMuted = Color.white.opacity(0.80)
+    static let passFaint = Color.white.opacity(0.54)
+    static let passHairline = Color.white.opacity(0.10)
+    static let passWell = Color.white.opacity(0.06)
+    static let passSurface = Color.white.opacity(0.12)
+    /// ink ของของทึบชิ้นเดียวบนบัตร: บล็อก QR, ปุ่มหลัก
+    static let passDeepInk = hex(0x16241A)
+
+    static let ticketDeep = hex(0x14301F)
+    static let ticketGreen = hex(0x2D6A4F)
+    static let ticketCreamPaper = hex(0xFBF8EF)
+
+    // ===== สภาพอากาศ =====
+    //
+    // ที่เดียวในแอปที่ใช้เฉดสีเพื่อ "บอกความหมาย" และข้อยกเว้นนี้แคบโดยตั้งใจ: ย้อมแค่ไอคอนสองตัว
+    // บนแถวสภาพเส้นทางของ Home เท่านั้น — พระอาทิตย์ที่เทาเท่าเมฆฝนคือพระอาทิตย์ที่ไม่ได้ทำงาน
+    //
+    // ทุกตัวลดความอิ่มสีลงหนักจนอยู่ราวระดับเดียวกับตัวภาพพื้นหลังเอง (15–25%) เหลืองจัดหรือฟ้าจัด
+    // คือหน้าตา "วิดเจ็ตอากาศขององค์กร" ที่ทั้ง palette นี้ตั้งใจหลบ และจะเอาพิกเซลสว่างที่สุดบนจอ
+    // ไปวางข้างประโยคที่สำคัญน้อยที่สุด · **ตายตัวทั้งสองธีม** เพราะนั่งอยู่บนภาพพื้นหลังโดยตรง
+    static let skySunTint = hex(0xDEC183)
+    static let skyCloudTint = hex(0xAEB8AC)
+    static let skyFogTint = hex(0xB4BEBD)
+    static let skyRainTint = hex(0x93B2C2)
+    static let skySnowTint = hex(0xC4D5DA)
+    static let skyStormTint = hex(0xD2A264)
+
+    /// คุณภาพอากาศ — ไล่ เขียว-เหลือง-แดง ตามที่คนคุ้นอยู่แล้ว แต่หรี่ความอิ่มสีลงมาเท่าไฟล์นี้
+    static let airGoodTint = hex(0x8CC29B)
+    static let airModerateTint = skySunTint
+    static let airSensitiveTint = hex(0xDFA671)
+    static let airUnhealthyTint = hex(0xE88B7A)
+
+    // ===== ชื่อเดิม =====
+    //
+    // จอนอกไฟล์นี้ยังอ้างชื่อพวกนี้อยู่ เก็บไว้เป็น alias ชี้ไปชุดใหม่เพื่อให้การเปลี่ยนสีแพร่ไปทั้งแอป
+    // โดยไม่ต้องแตะจุดเรียกพร้อมกันทีเดียว — **โค้ดใหม่ห้ามใช้** ให้ใช้ `wbwAccent`/`wbwOnBackdrop`
+    // (ทำแบบเดียวกับ `// ===== Legacy names =====` ใน Color.kt ของ Android)
+    static let wbwGold = wbwAccent
+    static let wbwCream = wbwBg
+    static let wbwTicketBG = ticketDeep
 }
 
 /// ข้อเท็จจริงของงาน — ไม่มีมาจาก backend เลย ฝังมากับแอป

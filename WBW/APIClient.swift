@@ -8,8 +8,26 @@ extension Notification.Name {
 struct APIClient {
     static let shared = APIClient()
 
+    /// เพดานเวลารอของคำขอที่ไม่ได้ตั้งเอง
+    ///
+    /// ค่าปริยายของ `URLSession` คือ 60 วินาที ซึ่งนานเกินกว่าที่คนจะรอโดยไม่คิดว่าแอปค้าง —
+    /// กด "เข้าสู่ระบบ" ตอนเน็ตหลุดแล้วเห็นตัวหมุนนิ่งหนึ่งนาทีก่อนขึ้น error อ่านเหมือนแอปพัง
+    /// ไม่ใช่เหมือนแอปกำลังรอ · 15 วินาทีพอสำหรับเน็ตมือถือบนดอยที่ช้าแต่ยังเดินอยู่
+    static let defaultTimeout: TimeInterval = 15
+
+    /// เวลารอที่จะใช้จริงกับคำขอนี้
+    ///
+    /// long-poll ของแชทกับ SOS ตั้ง `timeoutInterval` ของตัวเองไว้ยาวกว่านี้โดยตั้งใจ (ต้องมากกว่า
+    /// `wait` ที่ส่งไป ไม่งั้น client ตัดเองก่อนเซิร์ฟเวอร์ตอบ) ค่าพวกนั้นต้องรอด — เพดานกลาง
+    /// ใช้เฉพาะกับคำขอที่ **ไม่ได้เลือกอะไรเลย** ซึ่ง `URLRequest` แทนด้วยค่า 60 พอดี
+    static func timeout(for req: URLRequest) -> TimeInterval {
+        req.timeoutInterval == 60 ? defaultTimeout : req.timeoutInterval
+    }
+
     /// เรียก network + ตรวจ 401 → โพสต์ให้ logout (แทนจอว่างเงียบๆ)
     static func send(_ req: URLRequest) async throws -> (Data, URLResponse) {
+        var req = req
+        req.timeoutInterval = timeout(for: req)
         let (data, resp) = try await URLSession.shared.data(for: req)
         if let http = resp as? HTTPURLResponse, http.statusCode == 401 {
             NotificationCenter.default.post(name: .wbwUnauthorized, object: nil)
@@ -18,8 +36,10 @@ struct APIClient {
     }
 
     func login(studentId: String, password: String) async throws -> LoginResponse {
+        // โหมดเดโม่เข้าทาง Session.startDemo() ไม่ได้ผ่านฟอร์มนี้ — กันไว้เผื่อมีใครเรียกซ้ำ
+        if DemoMode.active { return LoginResponse(user: DemoMode.user, token: DemoMode.token) }
         guard let url = URL(string: "\(Config.apiBase)/auth/login") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            throw AppError.message(Loc.t("error_bad_url"))
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -32,23 +52,24 @@ struct APIClient {
         do {
             (data, resp) = try await Self.send(req)
         } catch {
-            throw AppError.message("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจสัญญาณอินเทอร์เน็ต")
+            throw AppError.message(Loc.t("error_network"))
         }
 
         guard let http = resp as? HTTPURLResponse else {
-            throw AppError.message("การตอบกลับผิดพลาด")
+            throw AppError.message(Loc.t("error_bad_response"))
         }
         if http.statusCode != 200 {
             let body = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-            throw AppError.message(body?.error ?? "เข้าสู่ระบบไม่สำเร็จ")
+            throw AppError.message(body?.error ?? Loc.t("error_login_failed"))
         }
         return try JSONDecoder().decode(LoginResponse.self, from: data)
     }
 
     /// โปรไฟล์ผู้ใช้ปัจจุบัน (ต้องมี token)
     func me(token: String) async throws -> Me {
+        if DemoMode.active { return DemoData.me }
         guard let url = URL(string: "\(Config.apiBase)\(Config.mePath)") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            throw AppError.message(Loc.t("error_bad_url"))
         }
         var req = URLRequest(url: url)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -57,28 +78,41 @@ struct APIClient {
         do {
             (data, resp) = try await Self.send(req)
         } catch {
-            throw AppError.message("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้")
+            throw AppError.message(Loc.t("error_network_short"))
         }
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            throw AppError.message("โหลดโปรไฟล์ไม่สำเร็จ")
+            throw AppError.message(Loc.t("error_load_profile"))
         }
         let dec = JSONDecoder()
         dec.keyDecodingStrategy = .convertFromSnakeCase
         return try dec.decode(Me.self, from: data)
     }
 
+    /// ฐานทั้งงาน — ชื่อ/ชื่อกิจกรรมสองภาษา ทั้งฐานที่เช็คอินแล้วและยังไม่ได้ไป
+    ///
+    /// **ห้ามเลียนแบบ `staffCheckpoints` ข้างล่าง** ตัวนั้นเขียน URLSession เองและ**ไม่ได้ตั้ง
+    /// `convertFromSnakeCase`** รอดมาได้เพราะคีย์เป็นคำเดียวหมด (`id`/`name`/`sequence`)
+    /// ตัวนี้มี `activity_name_en` จึงต้องผ่าน `getDecoded` ที่ตั้งให้แล้ว
+    func checkpoints(token: String) async throws -> [Checkpoint] {
+        if DemoMode.active { return DemoData.checkpoints }
+        return try await getDecoded("/checkpoints", token: token, [Checkpoint].self,
+                                    error: Loc.t("error_load_checkpoints"))
+    }
+
     /// ความคืบหน้าเช็คอินของตัวเอง — คุมขั้นต้นไม้กับเวลาของวันที่หน้า Home
     func progress(token: String) async throws -> CheckinProgress {
-        try await getDecoded("/me/progress", token: token, CheckinProgress.self,
-                             error: "โหลดความคืบหน้าไม่สำเร็จ")
+        if DemoMode.active { return DemoData.progress }
+        return try await getDecoded("/me/progress", token: token, CheckinProgress.self,
+                                    error: Loc.t("error_load_progress"))
     }
 
     // ===== staff =====
 
     /// ฐานที่เจ้าหน้าที่คนนี้ประจำ
     func staffCheckpoints(token: String) async throws -> [StaffCheckpoint] {
+        if DemoMode.active { return DemoData.staffCheckpoints }
         guard let url = URL(string: "\(Config.apiBase)/staff/checkpoints") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            throw AppError.message(Loc.t("error_bad_url"))
         }
         var req = URLRequest(url: url)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -86,18 +120,21 @@ struct APIClient {
         do {
             (data, resp) = try await Self.send(req)
         } catch {
-            throw AppError.message("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้")
+            throw AppError.message(Loc.t("error_network_short"))
         }
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            throw AppError.message("โหลดฐานไม่สำเร็จ")
+            throw AppError.message(Loc.t("error_load_bases"))
         }
         return try JSONDecoder().decode([StaffCheckpoint].self, from: data)
     }
 
     /// เช็คอินผู้เข้าร่วมที่ฐาน (จาก qr หรือ bib)
     func staffCheckin(token: String, checkpointId: Int, qrToken: String?, bib: Int?) async throws -> CheckinResult {
+        // จอเจ้าหน้าที่ไปไม่ถึงในโหมดเดโม่ (role เป็น participant) — ถ้าถึงแปลว่ามีอะไรผิด
+        // ต้องไม่ปล่อยให้ยิงเช็คอินจริงด้วย token ปลอม
+        if DemoMode.active { throw AppError.message(Loc.t("error_demo_no_checkin")) }
         guard let url = URL(string: "\(Config.apiBase)/staff/checkin") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            throw AppError.message(Loc.t("error_bad_url"))
         }
         var body: [String: Any] = ["checkpoint_id": checkpointId]
         if let qrToken { body["qr_token"] = qrToken }
@@ -113,12 +150,12 @@ struct APIClient {
         do {
             (data, resp) = try await Self.send(req)
         } catch {
-            throw AppError.message("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้")
+            throw AppError.message(Loc.t("error_network_short"))
         }
-        guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message(Loc.t("error_unknown")) }
         if http.statusCode != 200 {
             let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-            throw AppError.message(b?.error ?? "เช็คอินไม่สำเร็จ")
+            throw AppError.message(b?.error ?? Loc.t("error_checkin_failed"))
         }
         let dec = JSONDecoder()
         dec.keyDecodingStrategy = .convertFromSnakeCase
@@ -127,7 +164,8 @@ struct APIClient {
 
     /// อัปเดตรูปโปรไฟล์ตัวเอง (base64 data URL)
     func updatePhoto(token: String, photoUrl: String) async throws {
-        guard let url = URL(string: "\(Config.apiBase)\(Config.mePath)") else { throw AppError.message("URL ไม่ถูกต้อง") }
+        if DemoMode.active { return }
+        guard let url = URL(string: "\(Config.apiBase)\(Config.mePath)") else { throw AppError.message(Loc.t("error_bad_url")) }
         var req = URLRequest(url: url)
         req.httpMethod = "PATCH"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -135,10 +173,10 @@ struct APIClient {
         req.httpBody = try JSONSerialization.data(withJSONObject: ["photo_url": photoUrl])
         let (data, resp): (Data, URLResponse)
         do { (data, resp) = try await Self.send(req) }
-        catch { throw AppError.message("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้") }
+        catch { throw AppError.message(Loc.t("error_network_short")) }
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-            throw AppError.message(b?.error ?? "อัปเดตรูปไม่สำเร็จ")
+            throw AppError.message(b?.error ?? Loc.t("error_photo_failed"))
         }
     }
 
@@ -146,8 +184,9 @@ struct APIClient {
 
     /// รายการประกาศของฉัน (ตาม audience) + สถานะอ่าน
     func notifications(token: String) async throws -> [NotificationItem] {
+        if DemoMode.active { return DemoData.notifications }
         guard let url = URL(string: "\(Config.apiBase)/notifications") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            throw AppError.message(Loc.t("error_bad_url"))
         }
         var req = URLRequest(url: url)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -155,10 +194,10 @@ struct APIClient {
         do {
             (data, resp) = try await Self.send(req)
         } catch {
-            throw AppError.message("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้")
+            throw AppError.message(Loc.t("error_network_short"))
         }
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            throw AppError.message("โหลดประกาศไม่สำเร็จ")
+            throw AppError.message(Loc.t("error_load_announcements"))
         }
         let dec = JSONDecoder()
         dec.keyDecodingStrategy = .convertFromSnakeCase
@@ -167,8 +206,9 @@ struct APIClient {
 
     /// ทำเครื่องหมายว่าอ่านแล้ว
     func markRead(token: String, id: String) async throws {
+        if DemoMode.active { return }
         guard let url = URL(string: "\(Config.apiBase)/notifications/\(id)/read") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            throw AppError.message(Loc.t("error_bad_url"))
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -180,16 +220,18 @@ struct APIClient {
 
     /// ลงทะเบียน FCM token กับ backend
     func registerDevice(token: String, fcmToken: String, platform: String) async throws {
+        if DemoMode.active { return }
         try await deviceCall(path: "/devices/register", token: token, body: ["token": fcmToken, "platform": platform])
     }
 
     /// ถอน FCM token (ตอน logout)
     func unregisterDevice(token: String, fcmToken: String) async throws {
+        if DemoMode.active { return }
         try await deviceCall(path: "/devices/unregister", token: token, body: ["token": fcmToken])
     }
 
     private func deviceCall(path: String, token: String, body: [String: Any]) async throws {
-        guard let url = URL(string: "\(Config.apiBase)\(path)") else { throw AppError.message("URL ไม่ถูกต้อง") }
+        guard let url = URL(string: "\(Config.apiBase)\(path)") else { throw AppError.message(Loc.t("error_bad_url")) }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -201,30 +243,34 @@ struct APIClient {
     // ===== กลุ่ม + แชท =====
 
     func groups(token: String) async throws -> [GroupSummary] {
-        try await getDecoded("/groups", token: token, [GroupSummary].self, error: "โหลดกลุ่มไม่สำเร็จ")
+        if DemoMode.active { return DemoData.groups }
+        return try await getDecoded("/groups", token: token, [GroupSummary].self, error: Loc.t("error_load_groups"))
     }
 
     func membersIndex(token: String) async throws -> [GroupMemberIndex] {
-        try await getDecoded("/groups/members/index", token: token, [GroupMemberIndex].self, error: "โหลดสมาชิกไม่สำเร็จ")
+        if DemoMode.active { return DemoData.membersIndex }
+        return try await getDecoded("/groups/members/index", token: token, [GroupMemberIndex].self, error: Loc.t("error_load_members"))
     }
 
     func groupMembers(token: String, groupId: Int) async throws -> GroupMembersResponse {
-        try await getDecoded("/groups/\(groupId)/members", token: token, GroupMembersResponse.self, error: "โหลดสมาชิกไม่สำเร็จ")
+        if DemoMode.active { return DemoData.groupMembers }
+        return try await getDecoded("/groups/\(groupId)/members", token: token, GroupMembersResponse.self, error: Loc.t("error_load_members"))
     }
 
     /// เข้ากลุ่ม — 409 = เต็ม → โยน AppError.groupFull
     func joinGroup(token: String, groupId: Int) async throws {
-        guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/join") else { throw AppError.message("URL ไม่ถูกต้อง") }
+        if DemoMode.active { return }
+        guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/join") else { throw AppError.message(Loc.t("error_bad_url")) }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let (data, resp): (Data, URLResponse)
         do { (data, resp) = try await Self.send(req) }
-        catch { throw AppError.message("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้") }
-        guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        catch { throw AppError.message(Loc.t("error_network_short")) }
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message(Loc.t("error_unknown")) }
         if http.statusCode == 200 { return }
         let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-        let msg = b?.error ?? "เข้ากลุ่มไม่สำเร็จ"
+        let msg = b?.error ?? Loc.t("error_join_failed")
         throw http.statusCode == 409 ? AppError.groupFull(msg) : AppError.message(msg)
     }
 
@@ -232,8 +278,9 @@ struct APIClient {
     /// ที่ล้มเหลวแล้วไม่มีอะไรให้ผู้ใช้ทำ) · ที่นี่ 409 "สิทธิ์ออกจากกลุ่มหมดแล้ว" คือคำตอบที่ผู้ใช้
     /// ต้องเห็น ไม่ใช่ความเงียบ
     func leaveGroup(token: String) async throws {
+        if DemoMode.active { return }
         guard let url = URL(string: "\(Config.apiBase)/groups/leave") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            throw AppError.message(Loc.t("error_bad_url"))
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -243,15 +290,18 @@ struct APIClient {
         let (data, resp): (Data, URLResponse)
         do { (data, resp) = try await Self.send(req) }
         catch { throw AppError.offline }
-        guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message(Loc.t("error_unknown")) }
         if http.statusCode == 200 { return }
         let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-        throw AppError.message(b?.error ?? "ออกจากกลุ่มไม่สำเร็จ")
+        throw AppError.message(b?.error ?? Loc.t("error_leave_failed"))
     }
 
     /// ส่งข้อความ — idempotent ด้วย clientId
     func sendMessage(token: String, groupId: Int, clientId: String, body: String, deviceTime: String) async throws -> MessageDTO {
-        guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/messages") else { throw AppError.message("URL ไม่ถูกต้อง") }
+        if DemoMode.active {
+            return DemoData.echo(clientId: clientId, body: body, deviceTime: deviceTime, groupId: groupId)
+        }
+        guard let url = URL(string: "\(Config.apiBase)/groups/\(groupId)/messages") else { throw AppError.message(Loc.t("error_bad_url")) }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -262,7 +312,7 @@ struct APIClient {
         catch { throw AppError.offline }   // เน็ตล่ม → offline (flush จะหยุด retry รอบหน้า)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 201 || http.statusCode == 200 else {
             let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-            throw AppError.message(b?.error ?? "ส่งข้อความไม่สำเร็จ")  // 4xx = mark failed
+            throw AppError.message(b?.error ?? Loc.t("error_send_failed"))  // 4xx = mark failed
         }
         let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
         return try dec.decode(MessageDTO.self, from: data)
@@ -336,8 +386,9 @@ struct APIClient {
     /// WriteJSON เป็นแถวความเห็นเดิม (ตรึงไว้ด้วยเทสฝั่ง Go — TestSubmitFeedbackForbiddenBodyIsErrorEnvelope
     /// และ TestSubmitFeedbackConflictBodyIsFeedbackRow)
     func submitFeedback(token: String, draft: FeedbackDraft) async throws -> FeedbackSubmitOutcome {
+        if DemoMode.active { return .saved }
         guard let url = URL(string: "\(Config.apiBase)/me/feedback") else {
-            throw AppError.message("URL ไม่ถูกต้อง")
+            throw AppError.message(Loc.t("error_bad_url"))
         }
         var body: [String: Any] = [
             "client_id": draft.clientId,
@@ -357,7 +408,7 @@ struct APIClient {
         do { (data, resp) = try await Self.send(req) }
         catch { throw AppError.offline }   // เน็ตล่ม → เก็บเข้า outbox รอรอบหน้า
 
-        guard let http = resp as? HTTPURLResponse else { throw AppError.message("ผิดพลาด") }
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message(Loc.t("error_unknown")) }
         let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
         switch http.statusCode {
         case 200, 201:
@@ -376,25 +427,25 @@ struct APIClient {
         // 401 อยู่ตรงนี้แต่แทบไม่มีผลจริง: Self.send โพสต์ .wbwUnauthorized ทุกครั้งที่เจอ 401
         // ซึ่งพา Session.logout() ที่เรียก FeedbackOutbox.clear() อยู่แล้ว
         case 400, 401, 405, 410, 413, 414, 415, 422:
-            throw AppError.message(b?.error ?? "ส่งความเห็นไม่สำเร็จ")
+            throw AppError.message(b?.error ?? Loc.t("error_feedback_failed"))
 
         // **ที่เหลือทั้งหมด retry ได้** — 429/5xx (origin ล้นตอนคนเข้าฐานพร้อมกัน, Cloudflare ตอบ
         // 502/503/524 แทน origin), 408/425 (ยิงไม่จบ/early data ของ Cloudflare), 404/407 (เส้นทาง
         // หรือ proxy ระหว่างทางเพี้ยนชั่วคราว), 403/409 ที่ไม่ได้ออกจาก origin (WAF block page)
         // และ status อะไรก็ตามที่ยังไม่มีใครนึกถึง — ค่าเริ่มต้นต้องคือ "เก็บคำตอบของผู้ใช้ไว้ก่อน"
         default:
-            throw AppError.retryable(b?.error ?? "เซิร์ฟเวอร์ไม่พร้อมชั่วคราว")
+            throw AppError.retryable(b?.error ?? Loc.t("error_server_busy"))
         }
     }
 
     // helper: GET + decode (snake_case)
     private func getDecoded<T: Decodable>(_ path: String, token: String, _ type: T.Type, error: String) async throws -> T {
-        guard let url = URL(string: "\(Config.apiBase)\(path)") else { throw AppError.message("URL ไม่ถูกต้อง") }
+        guard let url = URL(string: "\(Config.apiBase)\(path)") else { throw AppError.message(Loc.t("error_bad_url")) }
         var req = URLRequest(url: url)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let (data, resp): (Data, URLResponse)
         do { (data, resp) = try await Self.send(req) }
-        catch { throw AppError.message("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้") }
+        catch { throw AppError.message(Loc.t("error_network_short")) }
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { throw AppError.message(error) }
         let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
         return try dec.decode(T.self, from: data)

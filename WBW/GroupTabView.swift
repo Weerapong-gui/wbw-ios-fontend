@@ -22,7 +22,7 @@ struct GroupTabView: View {
                 if profile.me?.groupId == nil {
                     GroupJoinView(onBack: onBack)
                 } else {
-                    GroupChatView(store: chat)
+                    GroupChatView(store: chat, onBack: onBack)
                 }
             }
             .navigationDestination(for: GroupRoute.self) { route in
@@ -35,6 +35,19 @@ struct GroupTabView: View {
                 }
             }
         }
+        // พื้นหลังของทั้งแท็บอยู่ที่นี่ **จุดเดียว** ไม่ใช่จอละอัน
+        //
+        // `ForestBackground` วาด `AppBackdrop()` ใน `.background{}` ของ view ที่เรียกมัน ใส่ทีละจอ
+        // แล้วภาพจะเลื่อนไปกับเฟรมของจอลูกตอน push/pop ขณะที่ `RootView` วาดสำเนาที่นิ่งอยู่ข้างล่าง
+        // = ภาพไถลข้ามจอทุกครั้งที่เดินเข้าออก (มองไม่เห็นตอนพื้นเป็นสีเรียบ เห็นชัดตอนเป็นภาพ)
+        // แขวนไว้ที่ stack เฟรมไม่ขยับ ภาพจึงนิ่ง · แถมได้ `TabRootOpaqueBackgroundRemover`
+        // ตัวเดียวแทนที่จะเป็นสี่ และ `host.day/plantStep` ถูกเขียนครั้งเดียวต่อการเข้าแท็บ
+        // แทนที่จะเขียนทุก push (ทุกครั้งที่เขียน `MainTabView.body` ทั้งก้อนถูก invalidate)
+        .forestBackground(day: ForestMath.dayStill)
+        // แถบหัวจอเป็นพื้นผิวของระบบ ไม่ได้อยู่ใต้กติกา `wbwOnBackdrop` ของเรา — บังคับให้มัน
+        // คิดว่าตัวเองอยู่บนพื้นมืดเสมอ ไม่งั้นหัวข้อกับปุ่มกลับที่ระบบสร้างเองจะเป็นสีเข้ม
+        // บนภาพมืดในโหมดสว่าง (อาการเดียวกับที่ `Config.swift` เตือนไว้เรื่อง `wbwInk` บนภาพ)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 }
 
@@ -54,12 +67,13 @@ struct GroupHomeView: View {
 
     var body: some View {
         ZStack {
-            Color.wbwBg.ignoresSafeArea()
             VStack(spacing: 20) {
                 VStack(spacing: 6) {
-                    Text("กลุ่มของฉัน").font(.system(size: 14)).foregroundStyle(.secondary)
-                    Text("กลุ่ม \(groupNo)")
+                    Text("group_my_group").font(.system(size: 14)).foregroundStyle(.secondary)
+                    Text(String(format: Loc.t("group_number"), groupNo))
                         .font(.system(size: 34, weight: .heavy)).foregroundStyle(Color.wbwInk)
+                    QuotaHeartsRow(quota: quota, size: 22)
+                        .padding(.top, 2)
                     Text(GroupQuotaText.remaining(quota: quota))
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
@@ -67,7 +81,7 @@ struct GroupHomeView: View {
                 .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 20))
 
                 Button { path.append(.members) } label: {
-                    Label("สมาชิกในกลุ่ม", systemImage: "person.2.fill")
+                    Label("group_members_link", systemImage: "person.2.fill")
                         .font(.system(size: 16)).foregroundStyle(Color.wbwInk)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(16)
                         .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 16))
@@ -79,25 +93,53 @@ struct GroupHomeView: View {
                 // ปุ่มจาง ๆ ที่กดไม่ได้ชวนให้กดซ้ำแล้วสงสัยว่าแอปค้าง
                 if quota > 0 {
                     Button(role: .destructive) { confirmLeave = true } label: {
-                        Text(leaving ? "กำลังออก" : "ออกจากกลุ่ม")
-                            .font(.system(size: 15)).foregroundStyle(.red)
+                        // แดงของระบบบนภาพพื้นหลังได้ 3.1:1 · `wbwDanger` ยิ่งแย่กว่าในโหมดสว่าง
+                        // (ขาสว่างของมันคือ #C0503A = 2.4:1) ปุ่มนี้ไม่มีพื้นของตัวเอง
+                        Text(leaving ? "group_leaving" : "group_leave")
+                            .font(.system(size: 15)).foregroundStyle(Color.wbwOnBackdropDanger)
+                            // `Text` เปล่าไม่มี padding ของตัวเอง พื้นที่รับนิ้วจึงสูงเท่าบรรทัด
+                            // ตัวอักษร (~20pt) — ขยายชั้นนอก ไม่ใช่ทำตัวอักษรให้ใหญ่ขึ้น
+                            .frame(minHeight: Config.Tap.minTarget)
+                            .contentShape(Rectangle())
                     }
                     .disabled(leaving)
                 }
 
                 if let error {
-                    Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
+                    Text(error).font(.footnote).foregroundStyle(Color.wbwOnBackdropDanger)
+                        .multilineTextAlignment(.center)
                 }
             }
             .padding(20).padding(.top, 8)
         }
-        .navigationTitle("กลุ่ม \(groupNo)")
+        .clearsHostOpaqueBackground()
         .navigationBarTitleDisplayMode(.inline)
-        .alert("ออกจากกลุ่ม \(groupNo)?", isPresented: $confirmLeave) {
-            Button("ยกเลิก", role: .cancel) {}
-            Button("ออกจากกลุ่ม", role: .destructive) { Task { await leave() } }
-        } message: {
-            Text(GroupQuotaText.leaveWarning(groupNumber: groupNo, quota: quota))
+        // หัวข้อวางบนภาพพื้นหลัง จึงต้องเป็น principal item ที่กำหนดสีเอง ไม่ใช่ `.navigationTitle`
+        // — ตัวนั้นเรนเดอร์ด้วย `UIColor.label` ซึ่งพลิกตามธีม แล้วหัวข้อจะเป็นสีเข้มบนภาพมืด
+        // ในโหมดสว่าง (ถ่ายพิสูจน์แล้ว) · `.toolbarColorScheme(.dark)` ที่ `GroupTabView`
+        // ก็ไม่ช่วย มันคุมพื้นแถบ ไม่ได้คุมสีหัวข้อ · ท่าเดียวกับ `SettingsView`
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(String(format: Loc.t("group_number"), groupNo))
+                    .font(.headline)
+                    .foregroundStyle(Color.wbwOnBackdrop)
+            }
+        }
+        // วาดกล่องเอง ไม่ใช่ .alert — alert ของ SwiftUI ใส่ Image ไม่ได้ และจอนี้ต้องโชว์หัวใจ
+        // บอกสิทธิ์คงเหลือ (ดูคอมเมนต์หัว LeaveGroupDialog)
+        .overlay {
+            if confirmLeave {
+                LeaveGroupDialog(
+                    groupNumber: groupNo, quota: quota, busy: leaving,
+                    onCancel: { confirmLeave = false },
+                    onConfirm: { Task { await leave() } })
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: confirmLeave)
+        .task {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "uitestLeaveConfirm") { confirmLeave = true }
+            #endif
         }
     }
 
@@ -105,7 +147,9 @@ struct GroupHomeView: View {
         guard let t = session.token else { return }
         error = nil
         leaving = true
-        defer { leaving = false }
+        // ต้องปิดกล่องเองทุกทางออก — `.alert` เดิมปิดตัวเองตอนกดปุ่ม แต่ overlay ที่วาดเอง
+        // ผูกอยู่กับ confirmLeave ล้วน ๆ ลืมปิดแล้วกล่องจะค้างทับข้อความ error ที่อยู่ข้างหลัง
+        defer { leaving = false; confirmLeave = false }
         do {
             try await APIClient.shared.leaveGroup(token: t)
             await profile.load(token: t)   // group_id = nil → GroupTabView สลับไปหน้าจับกลุ่มเอง
@@ -113,7 +157,7 @@ struct GroupHomeView: View {
         } catch {
             // 409 = admin ตัดสิทธิ์ระหว่างที่จอนี้เปิดค้าง หรือออกไปแล้วจากอีกเครื่อง
             // โหลดโปรไฟล์ใหม่ให้จอตรงกับความจริงทันที ไม่ใช่แค่โชว์ข้อความแล้วปล่อยค้าง
-            self.error = (error as? LocalizedError)?.errorDescription ?? "ออกจากกลุ่มไม่สำเร็จ"
+            self.error = (error as? LocalizedError)?.errorDescription ?? Loc.t("error_leave_failed")
             await profile.load(token: t)
         }
     }

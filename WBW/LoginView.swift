@@ -13,7 +13,9 @@ struct LoginView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer()
 
-                Text("Hey,\nWelcome back")
+                // คีย์นี้มีครบสองภาษามาตลอด แค่ไม่เคยถูกเรียก — แอปตั้ง development region
+                // เป็น th คนไทยจึงเคยเห็นจอแรกเป็นอังกฤษ (ดู `HardcodedCopyTests`)
+                Text("login_greeting")
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.35), radius: 8, y: 2)
@@ -52,7 +54,7 @@ struct LoginView: View {
                         if busy {
                             ProgressView().tint(.wbwInk)
                         } else {
-                            Text("Sign In")
+                            Text("login_action_submit")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.23, green: 0.17, blue: 0.07))
                         }
@@ -62,6 +64,34 @@ struct LoginView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .disabled(busy)
+
+                // ปุ่มโหมดตัวอย่าง — **ห้ามย้ายเข้า `#if DEBUG` และห้ามถอดออก**
+                //
+                // build 1.0 (7) โดน App Review ตีกลับด้วย Guideline 2.1 เพราะบัญชีเดโม่ที่ส่งให้
+                // ล็อกอินไม่ผ่าน (prod ตอบ 401 ยืนยันด้วยการยิงจริงแล้ว) และงานปิดรับสมัครไปแล้วที่
+                // 2000/2000 ที่นั่ง — สมัครบัญชีใหม่ไม่ได้อีก · ใบตีกลับของ Apple เขียนเองว่ารับ
+                // "a demonstration mode that shows all of the features and functionality" แทนได้
+                //
+                // ต่างจาก `-uitest*` ทั้ง 14 ตัวตรงที่ปุ่มนี้ต้องกดได้จริงบน build ที่ส่งขึ้น store
+                Button {
+                    session.startDemo()
+                } label: {
+                    Text("login_demo_title")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 200, height: Config.Tap.minTarget)
+                        .glassSurface(Capsule(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 12)
+                .disabled(busy)
+
+                Text("login_demo_desc")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 6)
 
                 // ตรงนี้เคยมี "Don't have an account? Sign up" — ถอดออกโดยตั้งใจ ห้ามใส่กลับ
                 // โดยไม่อ่านเหตุผลก่อน
@@ -93,7 +123,7 @@ struct LoginView: View {
                 .foregroundStyle(.white.opacity(0.8))
                 .font(.system(size: 16))
             TextField("", text: $studentId, prompt:
-                Text("รหัสนักศึกษา หรือ ชื่อผู้ใช้").foregroundStyle(.white.opacity(0.55)))
+                Text("login_field_username").foregroundStyle(.white.opacity(0.55)))
                 .foregroundStyle(.white)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -113,20 +143,25 @@ struct LoginView: View {
             Group {
                 if obscure {
                     SecureField("", text: $password, prompt:
-                        Text("Password").foregroundStyle(.white.opacity(0.55)))
+                        Text("login_field_password").foregroundStyle(.white.opacity(0.55)))
                 } else {
                     TextField("", text: $password, prompt:
-                        Text("Password").foregroundStyle(.white.opacity(0.55)))
+                        Text("login_field_password").foregroundStyle(.white.opacity(0.55)))
                 }
             }
             .foregroundStyle(.white)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)
+            // ไอคอนวาด 15pt ได้ แต่พื้นที่รับนิ้วต้องไม่ต่ำกว่า 44 (Config.Tap.minTarget) —
+            // ปุ่มนี้อยู่บนจอแรกที่ผู้รีวิว App Store เห็น และเป็นปุ่มเล็กที่สุดในแอปทั้งตัว
             Button { obscure.toggle() } label: {
                 Image(systemName: obscure ? "eye.slash" : "eye")
                     .foregroundStyle(.white.opacity(0.7))
                     .font(.system(size: 15))
+                    .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel(obscure ? "login_show_password" : "login_hide_password")
         }
         .glassCapsule()
     }
@@ -135,7 +170,7 @@ struct LoginView: View {
         error = nil
         let sid = studentId.trimmingCharacters(in: .whitespaces)
         guard !sid.isEmpty, !password.isEmpty else {
-            error = "กรุณากรอกรหัสนักศึกษาและรหัสผ่าน"
+            error = Loc.t("login_missing_fields")
             return
         }
         busy = true
@@ -144,7 +179,7 @@ struct LoginView: View {
                 let res = try await APIClient.shared.login(studentId: sid, password: password)
                 session.save(res)
             } catch {
-                self.error = (error as? LocalizedError)?.errorDescription ?? "เข้าสู่ระบบไม่สำเร็จ"
+                self.error = (error as? LocalizedError)?.errorDescription ?? Loc.t("error_login_failed")
             }
             busy = false
         }

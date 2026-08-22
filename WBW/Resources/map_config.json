@@ -1,0 +1,37 @@
+{
+  "modelName": "map",
+  "framingYawDegrees": 90,
+  "anchor": {
+    "originLatitude": 20.04549,
+    "originLongitude": 99.90280,
+    "unitsPerDegreeLatitude": 118498.01,
+    "unitsPerDegreeLongitude": 111319.49,
+    "halfSpanUnitsEastWest": 2230.0,
+    "halfSpanUnitsNorthSouth": 2230.0,
+    "userDotHeightUnits": 320.0
+  },
+  "camera": {
+    "defaultPitchDegrees": 68,
+    "minPitchDegrees": 34,
+    "maxPitchDegrees": 75,
+    "minDistance": 0.8,
+    "maxDistance": 4.0,
+    "defaultDistance": 1.15,
+    "focusPitchDegrees": 34,
+    "focusDistance": 0.55,
+    "orbitDegreesPerSecond": 8
+  },
+  "sky": {
+    "domeRadius": 9.0
+  },
+  "pins": [
+    { "sequence": 1, "entityNames": ["marker_1", "markerNum_1"] },
+    { "sequence": 2, "entityNames": ["marker_2", "markerNum_2"] },
+    { "sequence": 3, "entityNames": ["marker_3", "markerNum_3"] },
+    { "sequence": 4, "entityNames": ["marker_4", "markerNum_4"] },
+    { "sequence": 5, "entityNames": ["marker_5", "markerNum_5"] },
+    { "sequence": 6, "entityNames": ["marker_6", "markerNum_6"] },
+    { "sequence": 7, "entityNames": ["marker_7", "markerNum_7"] },
+    { "sequence": 8, "entityNames": ["marker_8", "markerNum_8"] }
+  ]
+}

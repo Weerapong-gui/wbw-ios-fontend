@@ -18,6 +18,20 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>th</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Sarabun-Regular.ttf</string>
+		<string>Sarabun-SemiBold.ttf</string>
+		<string>Sarabun-Bold.ttf</string>
+		<string>Kanit-Medium.ttf</string>
+		<string>Kanit-SemiBold.ttf</string>
+		<string>Kanit-Bold.ttf</string>
+	</array>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>th</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,7 +45,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>10</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -52,7 +66,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน ระหว่างเปิดแอปเท่านั้น</string>
+	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน จับระยะทางตอนกดเริ่มเดิน และส่งพิกัดให้เจ้าหน้าที่ตอนคุณกดขอความช่วยเหลือฉุกเฉิน ระหว่างเปิดแอปเท่านั้น</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppTransportSecurity</key>

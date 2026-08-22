@@ -9,6 +9,8 @@ struct WBWApp: App {
     @StateObject private var profile = ProfileStore()
     @StateObject private var groups = GroupStore()
     @StateObject private var progress = CheckinProgressStore()
+    /// ชื่อฐานทั้งงาน — แยกจาก progress เพราะเป็นข้อมูลของงานที่เหมือนกันทุกคน ไม่ใช่ของผู้ใช้คนนี้
+    @StateObject private var checkpoints = CheckpointStore()
     @StateObject private var forestHost = ForestSceneHost()
 
     init() {
@@ -24,8 +26,15 @@ struct WBWApp: App {
                 .environmentObject(profile)
                 .environmentObject(groups)
                 .environmentObject(progress)
+                .environmentObject(checkpoints)
                 .environmentObject(forestHost)
-                .preferredColorScheme(settings.isDark ? .dark : .light)
+                // `auto` = ส่ง nil ปล่อยให้เดินตามระบบ (ThemeMode ของ Android)
+                .preferredColorScheme(settings.themeMode == .auto
+                                      ? nil
+                                      : (settings.themeMode == .dark ? .dark : .light))
+                // ตัวขับของ i18n ทั้งแอป — `Text("key")` ใน SwiftUI resolve ผ่าน locale ตัวนี้
+                // เปลี่ยนค่าแล้วทุกจอ re-render เป็นภาษาใหม่ทันที ไม่ต้องรีสตาร์ทแอป
+                .environment(\.locale, settings.language.locale ?? Locale.autoupdatingCurrent)
                 .modelContainer(for: ChatMessage.self)
         }
     }
