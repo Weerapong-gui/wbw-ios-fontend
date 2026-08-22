@@ -17,15 +17,18 @@ enum Map3DIntro {
     /// ใช้ maxDistance ตรง ๆ เพื่อไม่ให้เกินช่วงที่กล้องยอมรับ (เทสคุมข้อนี้ไว้)
     static let startDistance = Map3DCamera.maxDistance
 
-    /// ค่ากล้องที่ progress 0…1 · นอกช่วงถูกบีบเข้าขอบ (SwiftUI ส่งค่าเลยขอบมาได้บางเส้นโค้ง)
+    /// ท่ากล้องตอนเริ่ม — เหนือเมฆ ไกลสุด จ้องกลางแผนที่
     ///
-    /// ease-out กำลังสาม: เร็วตอนต้นแล้วค่อย ๆ นิ่งเข้าที่ ให้ความรู้สึก "ร่อนลงจอด" ไม่ใช่ "ตกกระแทก"
-    static func frame(at progress: Float) -> (pitch: Float, distance: Float) {
-        let t = min(max(progress, 0), 1)
-        let eased = 1 - pow(1 - t, 3)
-        return (
-            pitch: startPitch + (Map3DCamera.defaultPitch - startPitch) * eased,
-            distance: startDistance + (Map3DCamera.defaultDistance - startDistance) * eased
-        )
+    /// **เส้นโค้งไม่ได้อยู่ที่นี่แล้ว** ของเดิมเป็น `frame(at:)` ที่คำนวณได้แค่ `pitch` กับ
+    /// `distance` ซึ่งพากล้องไปหาหมุดไม่ได้ (ต้องขยับ `target` กับ `yaw` ด้วย) ·
+    /// ตั้งแต่ 2026-08-21 ปลายทางของ intro คือ **ฐานที่ 1** ตัว interpolate จึงใช้
+    /// `Map3DFocus.frame(at:from:to:)` ที่ขยับครบสี่แกนด้วย ease-out กำลังสามเส้นเดียวกัน
+    /// และถูกเทสไว้แล้วใน `Map3DFocusTests` — เขียนเส้นโค้งที่สองที่ทำงานเหมือนกันคือการมี
+    /// สองที่ให้แก้เวลาเส้นโค้งเปลี่ยน
+    static var startPose: Map3DPose {
+        Map3DPose(yaw: Map3DCamera.defaultYaw,
+                  pitch: startPitch,
+                  distance: startDistance,
+                  target: .zero)
     }
 }

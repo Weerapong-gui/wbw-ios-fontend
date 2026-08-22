@@ -27,6 +27,14 @@ struct Map3DScreen: View {
     @EnvironmentObject private var checkpoints: CheckpointStore
     /// ฐานที่แตะค้างไว้อยู่ — nil = ไม่มีการ์ด
     @State private var tappedSequence: Int?
+    /// หมุดที่มี **วงแสง** อยู่ตอนนี้ — แยกจาก `tappedSequence` ซึ่งแปลว่า "หมุดที่การ์ดเปิดอยู่"
+    ///
+    /// เดิมตัวเดียวคุมสามอย่าง (วงแสง การ์ด พื้นระยะใกล้สุด) พอ intro ต้องพากล้องไปจอดที่ฐาน 1
+    /// **พร้อมวงแสงแต่ไม่เปิดการ์ด** (คำขอของ Park 2026-08-21) สามอย่างนั้นจึงแยกออกจากกัน
+    ///
+    /// **ค่าคงที่:** `tappedSequence != nil` ⟹ `spotlightSequence == tappedSequence` —
+    /// การ์ดเปิดโดยไม่มีวงแสงไม่มีทางเกิดขึ้นได้ ทุกจุดที่ตั้ง/ล้าง `tappedSequence` ต้องแตะตัวนี้ด้วย
+    @State private var spotlightSequence: Int?
 
     /// ตำแหน่งผู้ใช้จริงจาก CoreLocation — nil = ไม่ให้สิทธิ์/ยังไม่รู้ตำแหน่ง (ไม่วาดจุด)
     @StateObject private var location = Map3DLocation()
@@ -318,7 +326,10 @@ struct Map3DScreen: View {
 
     /// ระยะใกล้สุดที่ยอมให้ตอนนี้ — ตอนจ้องหมุดเข้าใกล้ได้กว่าปกติ (ดู Map3DCamera.clampDistance)
     private var distanceFloor: Float {
-        tappedSequence == nil ? Map3DCamera.minDistance : Map3DCamera.focusDistance
+        // ผูกกับ **วงแสง** ไม่ใช่การ์ด — `focusDistance` (0.55) ต่ำกว่า `minDistance` (0.8)
+        // ตอน intro พาไปจอดที่ฐาน 1 โดยไม่เปิดการ์ด ถ้าพื้นยังผูกกับ `tappedSequence`
+        // กล้องจะถูกดีดจาก 0.55 ขึ้น 0.8 ทันทีที่ผู้ใช้แตะจอครั้งแรก
+        spotlightSequence == nil ? Map3DCamera.minDistance : Map3DCamera.focusDistance
     }
 
     /// กล้องอยู่ท่าอื่นที่ไม่ใช่ท่าเริ่มต้นหรือเปล่า — เกณฑ์หยาบ ๆ พอให้เข็มทิศโผล่ตอนที่ควรโผล่
@@ -332,6 +343,7 @@ struct Map3DScreen: View {
         focusTask?.cancel()
         focusTask = nil
         tappedSequence = nil
+        spotlightSequence = nil
         poseBeforeFocus = nil
         animate(to: Map3DPose(yaw: Map3DCamera.defaultYaw, pitch: Map3DCamera.defaultPitch,
                               distance: Map3DCamera.defaultDistance, target: .zero),
@@ -348,17 +360,26 @@ struct Map3DScreen: View {
             poseBeforeFocus = Map3DPose(yaw: yaw, pitch: pitch, distance: distance, target: target)
         }
         tappedSequence = sequence
+        spotlightSequence = sequence
         let destination = Map3DFocus.pose(forPinAt: position, currentYaw: yaw)
         focusTask = Task { @MainActor in
             await run(to: destination, over: Map3DFocus.flyDuration, dimTo: 1)
-            guard !Task.isCancelled, !reduceMotion else { return }
-            // หมุนวนต่อไปเรื่อย ๆ · base คือมุมตอนบินถึง ไม่ใช่ 0 ไม่งั้นภาพกระโดดตอนเริ่มหมุน
-            let base = yaw
-            let started = CFAbsoluteTimeGetCurrent()
-            while !Task.isCancelled {
-                yaw = Map3DFocus.orbitYaw(base: base, elapsed: CFAbsoluteTimeGetCurrent() - started)
-                try? await Task.sleep(nanoseconds: 16_000_000)
-            }
+            await orbitForever()
+        }
+    }
+
+    /// หมุนวนรอบสิ่งที่กล้องจ้องอยู่จนกว่าจะถูกยกเลิก
+    ///
+    /// อยู่ที่เดียวเพราะมีสองคนเรียก — ตอนแตะหมุด กับตอน intro พาไปจอดที่ฐาน 1
+    /// · `base` คือมุมตอนบินถึง ไม่ใช่ 0 ไม่งั้นภาพกระโดดตอนเริ่มหมุน
+    @MainActor
+    private func orbitForever() async {
+        guard !Task.isCancelled, !reduceMotion else { return }
+        let base = yaw
+        let started = CFAbsoluteTimeGetCurrent()
+        while !Task.isCancelled {
+            yaw = Map3DFocus.orbitYaw(base: base, elapsed: CFAbsoluteTimeGetCurrent() - started)
+            try? await Task.sleep(nanoseconds: 16_000_000)
         }
     }
 
@@ -367,6 +388,7 @@ struct Map3DScreen: View {
         focusTask?.cancel()
         focusTask = nil
         tappedSequence = nil
+        spotlightSequence = nil
         // ม่านต้องหายแม้ไม่มีท่าเดิมให้บินกลับ — ไม่งั้นกดปิดการ์ดแล้วจอยังมืดค้างอยู่
         guard let previous = poseBeforeFocus else { focusProgress = 0; return }
         poseBeforeFocus = nil
@@ -380,6 +402,10 @@ struct Map3DScreen: View {
         focusTask = nil
         // ม่านต้องกระโดดไปเข้มเต็มทันที — ลากจอกลางทางบินแล้วปล่อยม่านค้างครึ่งทางทั้งที่การ์ด
         // ยังเปิดอยู่ อ่านเป็นจอค้าง ไม่ใช่โฟกัส (ลูปที่กำลังไล่ค่าให้เพิ่งถูก cancel ไปเมื่อกี้)
+        //
+        // **เฉพาะตอนมีการ์ดเปิดอยู่** — ตอน intro พาไปจอดที่ฐาน 1 ไม่มีการ์ดและไม่มีม่าน
+        // ลากจอตอนนั้นแล้วสั่งม่านเต็มจะได้จอมืดสนิทโดยไม่มีอะไรอธิบายว่าทำไม
+        guard tappedSequence != nil else { return }
         focusProgress = 1
     }
 
@@ -416,34 +442,47 @@ struct Map3DScreen: View {
         target = pose.target
     }
 
-    /// บินทะลุเมฆลงมา — ครั้งแรกต่อการเปิดแอปเท่านั้น
+    /// บินทะลุเมฆลงมาจอดที่ฐาน 1 แล้ววนรอบ — ครั้งแรกต่อการเปิดแอปเท่านั้น
+    ///
+    /// **ปลายทางเปลี่ยนจากกลางแผนที่เป็นฐานที่ 1 เมื่อ 2026-08-21** ตามคำขอของ Park ·
+    /// ของเดิมร่อนลงมาแล้วนิ่งอยู่กลางแผนที่เฉย ๆ ไม่มีการวนรอบเลย (การวนรอบมีที่เดียวคือ
+    /// ตอนแตะหมุด) · ตอนนี้ใช้ท่าปลายทางตัวเดียวกับตอนแตะหมุด (`Map3DFocus.pose`) แล้วต่อด้วย
+    /// ลูปวนรอบตัวเดียวกัน — เปิดแอปมาจึงได้ภาพเดียวกับที่ผู้ใช้จะได้ถ้าแตะหมุดฐาน 1 เอง
+    ///
+    /// **ไม่มีม่านมืดและไม่เปิดการ์ด** (`dimTo: 0`, ไม่แตะ `tappedSequence`) — Park ขอให้เห็น
+    /// แผนที่เต็มตา มีแค่วงแสงบอกว่ากำลังดูฐานไหน ส่วนการ์ดเปิดต่อเมื่อผู้ใช้แตะหมุดเอง
+    ///
+    /// `destination` เป็น nil เมื่อหาหมุดฐาน 1 ในโมเดลไม่เจอ (โมเดลถูกเปลี่ยนใบ หรือ
+    /// `map_config.json` เพี้ยน) → ถอยไปร่อนลงจบกลางแผนที่แบบเดิม ไม่ใช่ค้างเหนือเมฆ
     ///
     /// เดินค่าเองทีละเฟรมแทน withAnimation เพราะกล้องถูกอ่านใน update closure ของ RealityView
     /// การพึ่งว่า SwiftUI จะ re-run closure นั้นตามค่า animated ให้ครบทุกเฟรมเป็นข้อสมมติที่
-    /// พิสูจน์ไม่ได้จากโค้ด · ตั้งค่าเองทีละครั้งคือ state เปลี่ยนจริงทุกครั้ง update ถูกเรียกแน่นอน
+    /// พิสูจน์ไม่ได้จากโค้ด — `run(to:over:dimTo:)` ทำแบบนั้นอยู่แล้ว จึงยืมมาทั้งดุ้น
     @MainActor
-    private func playIntroIfNeeded() {
+    private func playIntroIfNeeded(to destination: Map3DPose?) {
         guard !MapModelLoader.shared.hasPlayedIntro else { return }
         MapModelLoader.shared.hasPlayedIntro = true
-        // เปิด Reduce Motion ไว้ = ข้ามการบินทะลุเมฆ ไปอยู่ท่าปลายทางเลย
+
+        let target = destination ?? Map3DPose(yaw: Map3DCamera.defaultYaw,
+                                              pitch: Map3DCamera.defaultPitch,
+                                              distance: Map3DCamera.defaultDistance,
+                                              target: .zero)
+        if destination != nil { spotlightSequence = 1 }
+
+        // เปิด Reduce Motion ไว้ = ข้ามการบิน ไปอยู่ท่าปลายทางเลย และไม่วนรอบ
+        // (ตรงกับที่ `focus(on:at:)` ทำอยู่)
         guard !reduceMotion else {
-            let end = Map3DIntro.frame(at: 1)
-            pitch = end.pitch
-            distance = end.distance
+            apply(target)
             introFinished = true
             return
         }
-        Task {
-            let started = CFAbsoluteTimeGetCurrent()
-            while true {
-                let progress = Float(min((CFAbsoluteTimeGetCurrent() - started) / Map3DIntro.duration, 1))
-                let frame = Map3DIntro.frame(at: progress)
-                pitch = frame.pitch
-                distance = frame.distance
-                if progress >= 1 { break }
-                try? await Task.sleep(nanoseconds: 16_000_000)   // ~60 เฟรมต่อวินาที
-            }
+        // **ต้องเป็น `focusTask` ตัวเดิม** — `focus()`, `endFocus()`, `resetAngle()` และ
+        // `stopOrbit()` ทั้งสี่ยกเลิกงานผ่านตัวนี้ · มีตัวที่สองเมื่อไหร่ ลากจอตอน intro
+        // ยังบินอยู่จะได้กล้องสองแรงแย่งกันทุกเฟรม
+        focusTask = Task { @MainActor in
+            await run(to: target, over: Map3DIntro.duration, dimTo: 0)
             introFinished = true
+            await orbitForever()
         }
     }
 
@@ -669,12 +708,16 @@ struct Map3DScreen: View {
                 // ตั้งกล้องไว้ที่จุดเริ่มของ intro "ก่อน" ปิดจอโหลด ไม่งั้นจะเห็นภาพมุมปกติแวบนึง
                 // แล้วค่อยกระโดดขึ้นไปเหนือเมฆ
                 if !MapModelLoader.shared.hasPlayedIntro {
-                    let start = Map3DIntro.frame(at: 0)
-                    pitch = start.pitch
-                    distance = start.distance
+                    apply(Map3DIntro.startPose)
                 }
                 isLoading = false
-                playIntroIfNeeded()
+                // ปลายทางของ intro = หมุดฐาน 1 · อ่านตำแหน่งที่นี่เพราะเป็นจุดแรกที่ทั้งโมเดลพร้อม
+                // และยังอยู่บน main actor (ที่เดียวกับที่ `-uitestMapPin` ใช้อยู่แล้วข้างล่าง)
+                let firstBase = Map3DPins.primaryEntityName(for: 1)
+                    .flatMap { map.findEntity(named: $0) }
+                    .map { Map3DFocus.pose(forPinAt: $0.position(relativeTo: nil),
+                                           currentYaw: Map3DCamera.defaultYaw) }
+                playIntroIfNeeded(to: firstBase)
 
                 #if DEBUG
                 // บินไปหาหมุดที่ -uitestMapPin สั่งไว้ ทำที่นี่เพราะเป็นจุดแรกที่ทั้งโมเดลพร้อมและ
@@ -703,10 +746,10 @@ struct Map3DScreen: View {
             //
             // ธงใน MapModelLoader กันไม่ให้ไล่ `findEntity(named:)` บนต้นไม้ 2,201 ก้อนทุกเฟรม —
             // เข้าเฉพาะเฟรมที่ฐานที่เลือกเปลี่ยนจริง
-            if MapModelLoader.shared.highlightedSequence != tappedSequence {
-                MapModelLoader.shared.highlightedSequence = tappedSequence
+            if MapModelLoader.shared.highlightedSequence != spotlightSequence {
+                MapModelLoader.shared.highlightedSequence = spotlightSequence
                 if let highlight = map.findEntity(named: Self.pinHighlightName) {
-                    if let sequence = tappedSequence,
+                    if let sequence = spotlightSequence,
                        let markerName = Map3DPins.primaryEntityName(for: sequence),
                        let marker = map.findEntity(named: markerName) {
                         // ย้ายพ่อ (idempotent — RealityKit ถอดออกจากพ่อเดิมให้เอง) เพื่อรับตำแหน่ง
