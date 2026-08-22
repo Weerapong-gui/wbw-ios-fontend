@@ -5,9 +5,9 @@
 
 > **ก่อนส่ง — สองอย่างที่ต้องเสร็จก่อน ไม่ใช่งานโค้ด**
 >
-> 1. **Privacy Policy URL ต้องเปิดได้จริง** — `docs/privacy-policy-draft.md` ยังมีเครื่องหมาย
->    `⟨ตัดสิน⟩` ค้างอยู่ 4 จุด (ผู้ควบคุมข้อมูล · ระยะเวลาเก็บ · การจัดการผู้เยาว์ · วันที่เผยแพร่)
->    แอปนี้เก็บ**ข้อมูลสุขภาพ** ซึ่งผู้ตรวจจะเปิดนโยบายอ่านจริง
+> 1. **Privacy Policy URL / Support URL ขึ้นเว็บแล้ว 2026-08-22/23** —
+>    https://walkbeyondthewild.studentunion.social/privacy กับ /support
+>    เหลือแค่กรอกลง ASC · แอปนี้เก็บ**ข้อมูลสุขภาพ** ซึ่งผู้ตรวจจะเปิดนโยบายอ่านจริง
 > 2. **Privacy Nutrition Label ใน ASC ต้องตรงกับ `WBW/PrivacyInfo.xcprivacy`** — ตอนนี้ manifest
 >    ประกาศ 5 ประเภท: UserID · Name · OtherUserContent · DeviceID · PreciseLocation
 >    (`PhotosorVideos` ถูกถอดออกแล้วเพราะแอปไม่มีตัวเลือกรูปเลย) · **ข้อมูลสุขภาพแอปแค่แสดง
@@ -39,7 +39,7 @@ it. Demonstration mode is populated and shows those screens in full.
 **New in this build: an emergency help (SOS) button**
 
 This app is the participant companion for a one-day university hiking event on a mountain trail.
-Participants walk 8.36 km through twelve staffed checkpoints, and the organisers asked for a way
+Participants walk 6 km through twelve staffed checkpoints, and the organisers asked for a way
 for a walker who is hurt to alert the event's own staff.
 
 Please note explicitly: **this button alerts the event's staff team. It is not a call to
@@ -60,10 +60,11 @@ How it behaves for a reviewer:
 **Location**
 
 The app requests location only as "While Using the App" and never in the background. Before the
-system prompt appears, the app shows its own screen explaining the three things location is used
-for: placing you on the event map, measuring distance while walking, and sending your position to
-staff when you press the emergency button. You can decline and still use every feature, including
-SOS — staff then see only the last checkpoint you checked in at.
+system prompt appears, the app shows its own screen explaining the two things location is used
+for: placing you on the event map, and sending your position to staff when you press the emergency
+button. You can decline and still use every feature, including SOS — staff then see only the last
+checkpoint you checked in at. The purpose string, that explanation screen, and our published
+privacy policy all describe the same two uses.
 
 **Account creation and deletion (Guideline 5.1.1(v))**
 
@@ -71,6 +72,24 @@ The app does not offer account creation. Registration for this event is closed a
 capacity and happens on the organiser's website, not in the app; there is no sign-up link, no
 sign-up screen, and no registration endpoint reachable from the app. Account deletion is handled
 through the contact channel published in our privacy policy.
+
+**Group chat and user-generated content (Guideline 1.2)**
+
+The app has a group chat, limited to the members of a walking group. Every participant is a
+registered student of the university whose identity was verified at registration; there is no
+anonymous or public posting, no images, and no discovery of strangers.
+
+Moderation controls a reviewer can try in demonstration mode:
+
+- **Block** — open the group chat, tap the group name at the top, tap any member, then
+  "Block this person". The same action is on a long press of any message bubble. Blocked people's
+  messages are hidden immediately.
+- **Unblock** — Settings → "Blocked people", which lists everyone you blocked with an Unblock
+  button.
+- **Report** — long press a message and choose "Report this message". It opens a pre-filled email
+  to the organisers (student-union@lamduan.mfu.ac.th, the address published in our privacy policy
+  and on our support page) containing the message id, sender, and timestamp so the team can find
+  and remove it.
 
 **No purchases**
 
