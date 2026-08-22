@@ -87,6 +87,22 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
                         divider
+                        // สองแถวนี้ออกเว็บ ไม่ใช่ DocView ที่ฝังข้อความ — ฝังแล้วแก้นโยบายทีไร
+                        // ต้องส่งแอปเวอร์ชันใหม่ให้ Apple ตรวจทุกครั้ง (ดู SettingsWebLink)
+                        Link(destination: SettingsWebLink.privacy) {
+                            navRow(LocalizedStringKey(SettingsWebLink.privacyTitleKey),
+                                   systemImage: "hand.raised",
+                                   trailingSystemImage: "arrow.up.right")
+                        }
+                        .buttonStyle(.plain)
+                        divider
+                        Link(destination: SettingsWebLink.support) {
+                            navRow(LocalizedStringKey(SettingsWebLink.supportTitleKey),
+                                   systemImage: "lifepreserver",
+                                   trailingSystemImage: "arrow.up.right")
+                        }
+                        .buttonStyle(.plain)
+                        divider
                         Button { showLogoutConfirm = true } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -253,12 +269,16 @@ struct SettingsView: View {
         .padding(.vertical, 13)
     }
 
-    private func navRow(_ titleKey: LocalizedStringKey, systemImage: String) -> some View {
+    /// `trailingSystemImage` ต่างกันตามปลายทาง: `chevron.right` = ไปจอถัดไปในแอป ·
+    /// `arrow.up.right` = ออกไปเว็บ ผู้ใช้จะได้รู้ก่อนกดว่าแอปกำลังจะสลับไป Safari
+    private func navRow(_ titleKey: LocalizedStringKey,
+                        systemImage: String,
+                        trailingSystemImage: String = "chevron.right") -> some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage).font(.body)
             Text(titleKey).font(.wbwBodyLarge)
             Spacer()
-            Image(systemName: "chevron.right")
+            Image(systemName: trailingSystemImage)
                 .font(.footnote)
                 .foregroundStyle(Color.wbwOnBackdropMuted)
         }
@@ -294,8 +314,34 @@ private struct DocView: View {
     }
 }
 
+/// ลิงก์ออกเว็บสองอันในหมวด "ทั่วไป" — **ค่าเดียวกับที่กรอกใน App Store Connect**
+/// ช่อง Privacy Policy URL กับ Support URL
+///
+/// อยู่ในค่าคงที่ไม่ใช่ลิเทอรัลกลางบรรทัด `Link(...)` เพราะพิมพ์ URL ผิดแล้วไม่มีอะไรฟ้อง:
+/// แอปคอมไพล์ผ่าน ปุ่มกดได้ Safari เปิดขึ้นมาแล้วเจอ 404 — `WBWTests/SettingsLinksTests.swift`
+/// อ่านค่าตัวเดียวกับที่จอใช้จริง พิมพ์ผิดที่นี่จึงเป็นเทสแดง ไม่ใช่ผู้ตรวจของ Apple เป็นคนเจอ
+///
+/// เนื้อหาของสองหน้านี้อยู่ที่ repo `su-wbw-website` (`app/privacy/`, `app/support/`)
+/// จงใจไม่ฝังไว้ในแอป — ฝังแล้วแก้นโยบายทีไรต้องส่งแอปเวอร์ชันใหม่ให้ตรวจทุกครั้ง
+enum SettingsWebLink {
+    static let privacy = URL(string: "https://walkbeyondthewild.studentunion.social/privacy")!
+    static let support = URL(string: "https://walkbeyondthewild.studentunion.social/support")!
+
+    static let privacyTitleKey = "settings_privacy"
+    static let supportTitleKey = "settings_support_web"
+}
+
 struct AboutEventView: View {
-    var body: some View { DocView(titleKey: "settings_about", bodyKey: "about_event_body") }
+    /// คีย์เป็นค่าคงที่ด้วยเหตุผลเดียวกับ `CreditsView` — `DocView` รับ `LocalizedStringKey`
+    /// ซึ่งพิมพ์ผิดแล้วเรนเดอร์ชื่อคีย์ออกมาเฉย ๆ · `WBWTests/EventFactsTests.swift` อ่านคีย์นี้
+    /// เพื่อกันไม่ให้ระยะทางกลับไปขัดกับเว็บอีก
+    static let titleKey = "settings_about"
+    static let bodyKey = "about_event_body"
+
+    var body: some View {
+        DocView(titleKey: LocalizedStringKey(Self.titleKey),
+                bodyKey: LocalizedStringKey(Self.bodyKey))
+    }
 }
 
 struct HelpContactView: View {
