@@ -1,4 +1,4 @@
-# ข้อความตอบ App Review — 1.0 (10)
+# ข้อความตอบ App Review — 1.0 (11)
 
 ต่อจาก `review-reply-1.0-8.md` · รอบนี้ต่างจากรอบนั้นตรงที่ **ฟีเจอร์ SOS เข้ามาด้วย**
 ซึ่งจดหมายฉบับก่อนไม่ได้พูดถึงเลย (ตอนนั้นวางแผนกันไว้เป็น 1.1)
@@ -17,7 +17,7 @@
 
 Hello,
 
-Thank you for the previous review. This build (1.0 (10)) carries the fixes from the last round
+Thank you for the previous review. This build (1.0 (11)) carries the fixes from the last round
 plus one new feature, described below.
 
 **Demonstration mode — unchanged and still the fastest way to review the app**
