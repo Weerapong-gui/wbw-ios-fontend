@@ -77,6 +77,36 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
+    /// background mode ต้องมีคู่กับโค้ดที่รับมันจริง — Guideline 2.5.4
+    ///
+    /// `remote-notification` มีความหมายเดียวคือ "แอปตื่นขึ้นมาทำงานตอนได้ push แบบเงียบ"
+    /// ซึ่งต้องมี `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` รับ ·
+    /// push ที่ผู้ใช้เห็น (alert) ส่งถึงเครื่องได้โดยไม่ต้องประกาศ mode นี้เลย — เส้นทางนั้น
+    /// อยู่ที่ `UNUserNotificationCenterDelegate` (`willPresent` / `didReceive`) ·
+    /// ประกาศ mode ที่ไม่มีใครรับคือของที่ผู้ตรวจถามกลับได้ตรง ๆ
+    ///
+    /// ค้ำสองทาง: วันไหนมีคนเพิ่ม handler เข้ามาจริง ต้องเอา mode กลับเข้า plist ด้วย
+    /// ไม่งั้น push เงียบจะไม่ปลุกแอปเลยโดยไม่มี error ให้เห็น
+    func testBackgroundModesMatchWhatTheAppActuallyHandles() throws {
+        let appDelegate = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("WBW/AppDelegate.swift"),
+            encoding: .utf8)
+        let handlesSilentPush = appDelegate.contains("didReceiveRemoteNotification")
+
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let modes = try plist(path)["UIBackgroundModes"] as? [String] ?? []
+            XCTAssertEqual(modes.contains("remote-notification"), handlesSilentPush, """
+                \(path): background mode `remote-notification` กับ handler ใน AppDelegate
+                ต้องมีหรือไม่มีพร้อมกัน · ตอนนี้ plist \(modes.contains("remote-notification") ? "ประกาศไว้" : "ไม่ประกาศ")
+                แต่โค้ด \(handlesSilentPush ? "มี handler" : "ไม่มี handler")
+                """)
+            XCTAssertTrue(modes.allSatisfy { $0 == "remote-notification" }, """
+                \(path) ประกาศ background mode อื่นเพิ่ม (\(modes)) — ทุกตัวต้องมีโค้ดที่ใช้จริง
+                ไม่งั้นเป็นเหตุตีกลับตาม Guideline 2.5.4
+                """)
+        }
+    }
+
     /// เคยไม่มีคีย์นี้เพราะไม่มีฟีเจอร์ไหนใช้ — ตอนนี้ SOS ใช้จริง คีย์จึงต้องมี **และ**
     /// ต้องมีโค้ดที่ import CoreLocation จริง · เทสนี้ค้ำทั้งสองทาง: คีย์ที่ไม่มีฟีเจอร์
     /// รองรับคือเหตุให้ App Review ตีกลับ ส่วนฟีเจอร์ที่ไม่มีคีย์คือ SOS ที่ไม่มีพิกัด

@@ -104,4 +104,71 @@ final class SURunRemovalTests: XCTestCase {
                            "WBW/\(file) ยังอ้างถึง SU RUN ที่ถอดออกไปแล้ว")
         }
     }
+
+    // MARK: - ข้อความที่ผู้ใช้กับผู้ตรวจอ่าน
+
+    /// ค่าของคีย์หนึ่งในไฟล์ `.strings` — เทียบเฉพาะบรรทัดนั้น ไม่ใช่ทั้งไฟล์
+    /// (ไฟล์ `Localizable.strings` มีคำว่า distance อยู่ในคีย์อื่นด้วยได้)
+    private func value(of key: String, inStringsFile path: String) throws -> String {
+        let text = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent(path), encoding: .utf8)
+        let line = text.components(separatedBy: .newlines)
+            .first { $0.hasPrefix("\"\(key)\"") }
+        return try XCTUnwrap(line, "ไม่มีคีย์ \(key) ใน \(path)")
+    }
+
+    /// ข้อความขอสิทธิ์ตำแหน่งต้องเล่าเฉพาะสิ่งที่แอปทำจริง
+    ///
+    /// ทั้งสามที่เคยเขียนว่าใช้ตำแหน่ง "จับระยะทางกับความเร็วตอนกดเริ่มเดิน" ซึ่งคือ SU RUN
+    /// ที่ถอดไปแล้ว · ผู้ตรวจกดหาแล้วไม่เจอ = Guideline 5.1.1 ตรง ๆ และยังขัดกับหน้านโยบาย
+    /// บนเว็บ (URL ที่กรอกใน App Store Connect) ที่บอกว่าใช้สองอย่าง — Apple เทียบสองที่นี้เอง
+    func testLocationPurposeStringsOnlyPromiseWhatTheAppStillDoes() throws {
+        let banned = ["จับระยะทาง", "ความเร็ว", "distance", "pace"]
+
+        for file in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let data = try Data(contentsOf: Self.repoRoot.appendingPathComponent(file))
+            let dict = try XCTUnwrap(
+                PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+            let purpose = try XCTUnwrap(
+                dict["NSLocationWhenInUseUsageDescription"] as? String,
+                "\(file) ไม่มีข้อความขอสิทธิ์ตำแหน่ง")
+            for word in banned {
+                XCTAssertFalse(purpose.contains(word), """
+                    \(file) ยังบอกผู้ใช้ว่าตำแหน่งใช้ "\(word)" ทั้งที่ฟีเจอร์นั้นไปพร้อม SU RUN
+                    เหลือสองอย่างที่ทำจริง: แผนที่พื้นที่งาน กับพิกัดตอนกด SOS
+                    """)
+            }
+        }
+
+        for file in ["WBW/th.lproj/InfoPlist.strings", "WBW/en.lproj/InfoPlist.strings"] {
+            let line = try value(of: "NSLocationWhenInUseUsageDescription", inStringsFile: file)
+            for word in banned {
+                XCTAssertFalse(line.contains(word),
+                               "\(file) ยังแปลข้อความขอสิทธิ์แบบเก่าที่มีคำว่า \"\(word)\"")
+            }
+        }
+
+        // จออธิบายก่อนกล่องของระบบ (LocationPrimer) — ผู้ตรวจเห็นก่อนกล่องขอสิทธิ์เสมอ
+        for file in ["WBW/th.lproj/Localizable.strings", "WBW/en.lproj/Localizable.strings"] {
+            let line = try value(of: "location_primer_body", inStringsFile: file)
+            for word in banned {
+                XCTAssertFalse(line.contains(word),
+                               "\(file): จออธิบายยังบอกว่าจับ \"\(word)\" ให้ตรงกับ plist ด้วย")
+            }
+            XCTAssertFalse(line.contains("3 อย่าง") || line.contains("three things"),
+                           "\(file): เหลือสองอย่างแล้ว ตัวเลขในประโยคต้องตามไปด้วย")
+        }
+    }
+
+    /// คีย์ที่ตายไปพร้อมฟีเจอร์ — ไม่มีโค้ดไหนเรียก แต่ยังนอนอยู่ในตารางแปลทั้งสองภาษา
+    func testDeadDistanceCopyIsGone() throws {
+        for language in ["th", "en"] {
+            let table = try String(
+                contentsOf: Self.repoRoot
+                    .appendingPathComponent("WBW/\(language).lproj/Localizable.strings"),
+                encoding: .utf8)
+            XCTAssertFalse(table.contains("home_base_distance"),
+                           "\(language) ยังมีคีย์ระยะทางที่ไม่มีโค้ดไหนใช้แล้ว")
+        }
+    }
 }

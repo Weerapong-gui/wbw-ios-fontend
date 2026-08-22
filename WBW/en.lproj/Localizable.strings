@@ -95,7 +95,6 @@
 "home_checked_in" = "Checked in %1$ld / %2$ld bases";
 "home_phase_hint" = "%1$ld more bases to reach the “%2$@” stage";
 "home_next_base" = "NEXT BASE";
-"home_base_distance" = "%1$@ from your location";
 "home_navigate" = "Navigate";
 "home_scan_qr" = "Scan base QR";
 "tab_home" = "Home";
@@ -237,6 +236,17 @@
 "group_quota_none" = "No group changes left";
 "chat_members_count" = "%1$lld in this group";
 "chat_offline_queued" = "Offline. Messages will send when you are back in range";
+
+/* จัดการเนื้อหาในแชท — Guideline 1.2 บังคับให้แอปที่มี UGC มีทางรายงานกับทางบล็อก */
+"chat_report" = "Report this message";
+"chat_block" = "Block this person";
+"chat_unblock" = "Unblock";
+"chat_report_mail_subject" = "Reporting a chat message · Walk Beyond the Wild";
+"chat_report_mail_intro" = "A participant reported this group chat message. The details needed to find it are below.";
+"chat_report_mail_outro" = "Sent from the Walk Beyond the Wild iOS app.";
+"settings_blocked" = "Blocked people";
+"blocked_empty" = "You haven't blocked anyone";
+"blocked_note" = "Messages from blocked people are hidden on this device only. Everyone else in the group still sees them.";
 "chat_new_messages" = "New messages";
 "chat_new_messages_count" = "New messages %1$lld";
 "chat_message" = "Message";
@@ -360,7 +370,7 @@
 
 /* Explainer shown before the system location prompt (Guideline 5.1.1 — ask in context) */
 "location_primer_title" = "Use your location";
-"location_primer_body" = "Your location is used only while the app is open, for three things: placing you on the event map, measuring distance and pace once you start walking, and sending your position to staff when you press the emergency help button.";
+"location_primer_body" = "Your location is used only while the app is open, for two things: placing you on the event map, and sending your position to staff when you press the emergency help button.";
 "location_primer_why_now" = "We ask now because there is no time to answer this during a real emergency. You can say no and still use SOS, but staff will only see the last base you checked in at.";
 "location_primer_later" = "Not now";
 

@@ -56,14 +56,10 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน จับระยะทางตอนกดเริ่มเดิน และส่งพิกัดให้เจ้าหน้าที่ตอนคุณกดขอความช่วยเหลือฉุกเฉิน ระหว่างเปิดแอปเท่านั้น</string>
+	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน และส่งพิกัดให้เจ้าหน้าที่ตอนคุณกดขอความช่วยเหลือฉุกเฉิน ระหว่างเปิดแอปเท่านั้น</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>
