@@ -87,6 +87,13 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
                         divider
+                        // ทางปลดบล็อก — บล็อกได้จากเมนูกดค้างในแชท แต่ถ้าไม่มีที่ให้ถอน
+                        // ผู้ใช้ที่กดพลาดจะไม่เห็นข้อความของคนนั้นอีกเลยและหาสาเหตุไม่เจอ
+                        NavigationLink { BlockedUsersView() } label: {
+                            navRow("settings_blocked", systemImage: "hand.raised.slash")
+                        }
+                        .buttonStyle(.plain)
+                        divider
                         // สองแถวนี้ออกเว็บ ไม่ใช่ DocView ที่ฝังข้อความ — ฝังแล้วแก้นโยบายทีไร
                         // ต้องส่งแอปเวอร์ชันใหม่ให้ Apple ตรวจทุกครั้ง (ดู SettingsWebLink)
                         Link(destination: SettingsWebLink.privacy) {
@@ -329,6 +336,62 @@ enum SettingsWebLink {
 
     static let privacyTitleKey = "settings_privacy"
     static let supportTitleKey = "settings_support_web"
+}
+
+/// รายชื่อคนที่บล็อกไว้ + ปุ่มเลิกบล็อก
+///
+/// คู่กับเมนูกดค้างในแชท (`ChatModeration`) — Guideline 1.2 ต้องการทั้งทางบล็อกและ
+/// ทางถอน · รายชื่ออยู่บนเครื่องนี้เท่านั้น ข้อความของคนที่บล็อกไม่ได้ถูกลบจากกลุ่ม
+struct BlockedUsersView: View {
+    @StateObject private var blocked = BlockedUsers()
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("blocked_note")
+                    .font(.wbwBodyMedium)
+                    .foregroundStyle(Color.wbwOnBackdropMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if blocked.entries.isEmpty {
+                    Text("blocked_empty")
+                        .font(.wbwBodyLarge)
+                        .foregroundStyle(Color.wbwOnBackdrop)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 24)
+                } else {
+                    ForEach(blocked.entries) { entry in
+                        HStack(spacing: 12) {
+                            Text(entry.name)
+                                .font(.wbwBodyLarge)
+                                .foregroundStyle(Color.wbwOnBackdrop)
+                            Spacer()
+                            Button { blocked.unblock(entry.id) } label: {
+                                Text("chat_unblock")
+                                    .font(.wbwLabelMedium)
+                                    .foregroundStyle(Color.wbwOnBackdrop)
+                                    .padding(.horizontal, 14)
+                                    .frame(height: Config.Tap.minTarget)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .glassSurface(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 12)
+            .padding(.bottom, ForestSceneHost.tabBarClearance)
+        }
+        .scrollIndicators(.hidden)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .forestBackground(day: ForestMath.dayStill)
+        .navigationTitle("settings_blocked")
+        .navigationBarTitleDisplayMode(.inline)
+    }
 }
 
 struct AboutEventView: View {

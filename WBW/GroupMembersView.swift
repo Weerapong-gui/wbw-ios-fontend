@@ -79,6 +79,10 @@ struct GroupMembersView: View {
 private struct MemberProfileSheet: View {
     let member: GroupMember
     @Environment(\.dismiss) private var dismiss
+    /// ทางบล็อกที่**มองเห็นได้** — เมนูกดค้างบนฟองข้อความในแชททำงานเหมือนกัน แต่ผู้ตรวจ
+    /// ของ Apple (และผู้ใช้ที่กำลังเดือดร้อน) หาเมนูที่ซ่อนอยู่หลังการกดค้างไม่เจอ
+    /// Guideline 1.2 วัดที่ "มีทางบล็อกไหม" ไม่ใช่ "มีโค้ดบล็อกไหม"
+    @StateObject private var blocked = BlockedUsers()
 
     var body: some View {
         VStack(spacing: 16) {
@@ -92,6 +96,31 @@ private struct MemberProfileSheet: View {
             }
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 20)
+
+            Button {
+                if blocked.isBlocked(member.userId) {
+                    blocked.unblock(member.userId)
+                } else {
+                    blocked.block(member.userId, name: member.fullName)
+                }
+            } label: {
+                Text(blocked.isBlocked(member.userId) ? "chat_unblock" : "chat_block")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.wbwDanger)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: Config.Tap.minTarget)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+
+            Text("blocked_note")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 24)
+
             Spacer()
         }
         .frame(maxWidth: .infinity)

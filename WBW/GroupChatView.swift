@@ -22,6 +22,9 @@ struct GroupChatView: View {
     /// sync ได้ของใหม่ตอนจอแชทเปิดอยู่ (ตั้งใจ — "เปิดจออยู่ = อ่านแล้ว" ตาม spec และเป็นค่า
     /// ที่คนอื่นเอาไปคิด "อ่านแล้ว N") unreadCount จึงถูกกดเป็น 0 ทันทีและ pill จะไม่มีวันโผล่
     @State private var newBelow = 0
+    /// คนที่ผู้ใช้บล็อกไว้ — อยู่บนเครื่องนี้เท่านั้น (ดู `Chat/ChatModeration.swift`)
+    @StateObject private var blocked = BlockedUsers()
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 0) {
@@ -112,9 +115,35 @@ struct GroupChatView: View {
             .background(Color.gray)
     }
 
+    /// กรองคนที่ถูกบล็อกออก**ตอนแสดงผล** ไม่ใช่ตอน sync — cache กับเลขอ่านแล้วยังต้อง
+    /// ตรงกับเซิร์ฟเวอร์ ปลดบล็อกแล้วข้อความเก่าจะได้กลับมาครบ (ดู `ChatModeration.visible`)
     private var rows: [ChatRow] {
-        ChatRowBuilder.build(store.messages, myLastReadId: store.unreadLineSnapshot,
+        ChatRowBuilder.build(ChatModeration.visible(store.messages, blocked: blocked.ids),
+                             myLastReadId: store.unreadLineSnapshot,
                              myId: profile.me?.userId ?? "")
+    }
+
+    /// เมนูกดค้างบนฟองข้อความของคนอื่น — รายงาน กับ บล็อก (Guideline 1.2)
+    ///
+    /// ไม่ขึ้นบนข้อความของตัวเอง: รายงานตัวเองไม่มีความหมาย และบล็อกตัวเองจะทำให้ข้อความ
+    /// ที่เพิ่งพิมพ์หายไปต่อหน้า
+    @ViewBuilder
+    private func moderationMenu(for m: ChatMessage) -> some View {
+        if !store.isMine(m) {
+            Button {
+                if let url = ChatModeration.reportMailURL(
+                    for: m, reporterId: profile.me?.userId ?? "") {
+                    openURL(url)
+                }
+            } label: {
+                Label("chat_report", systemImage: "flag")
+            }
+            Button(role: .destructive) {
+                blocked.block(m.senderId, name: m.senderName)
+            } label: {
+                Label("chat_block", systemImage: "hand.raised.slash")
+            }
+        }
     }
 
     /// clientId ของข้อความล่าสุดที่เราส่งและส่งสำเร็จแล้ว — จุดที่โชว์สถานะอ่าน
@@ -138,6 +167,7 @@ struct GroupChatView: View {
                                            photoUrl: members[m.senderId]?.photoUrl,
                                            onRetry: { store.retry(m) },
                                            revealOffset: reveal)
+                                    .contextMenu { moderationMenu(for: m) }
                                 if m.clientId == statusAnchorId {
                                     ChatReadStatusLine(
                                         text: ChatReadStatus.text(readCount: store.readCount(for: m),

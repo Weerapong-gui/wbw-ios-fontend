@@ -84,6 +84,13 @@ enum Config {
     /// ค่าจริงมาจาก emergency_phone ใน /me/progress และคำตอบของ /me/sos แล้ว cache ทับ
     static let emergencyPhoneDefault = "053-916-000"
 
+    /// กล่องอีเมลของทีมงาน — **ค่าเดียวกับที่หน้านโยบายและหน้า /support บนเว็บประกาศไว้**
+    ///
+    /// ใช้ตอนผู้ใช้กดรายงานข้อความในแชท (`ChatModeration.reportMailURL`) · นโยบายสัญญาว่า
+    /// จะลบบัญชีให้ภายใน 7 วันผ่านกล่องนี้ ดังนั้นเปลี่ยนค่าที่นี่แล้วต้องไปเปลี่ยนบนเว็บด้วย
+    /// ไม่งั้นผู้ใช้เขียนไปที่กล่องที่ไม่มีคนอ่าน
+    static let contactEmail = "student-union@lamduan.mfu.ac.th"
+
     static var emergencyPhone: String {
         UserDefaults.standard.string(forKey: "wbw.emergencyPhone.\(backend.cacheNamespace)")
             ?? emergencyPhoneDefault
