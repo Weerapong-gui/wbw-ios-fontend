@@ -77,6 +77,38 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
+    /// เลขเวอร์ชันอยู่สามที่ ต้องขยับพร้อมกันเสมอ
+    ///
+    /// `project.yml` เป็นต้นทางของ build setting ส่วนสอง plist คือค่าที่ฝังไปกับ .ipa จริง
+    /// (`GENERATE_INFOPLIST_FILE: NO` — Xcode ไม่ได้เขียนให้) · บั๊มไม่ครบแล้ว**ไม่มีอะไรฟ้อง**
+    /// ตอน build: จะรู้ตอนอัปขึ้น ASC แล้วโดนปฏิเสธว่าเลขซ้ำ ซึ่งเสียรอบไปแล้ว
+    func testBuildNumberIsTheSameInProjectYmlAndBothPlists() throws {
+        let projectYml = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("project.yml"), encoding: .utf8)
+
+        func setting(_ key: String) throws -> String {
+            let line = try XCTUnwrap(
+                projectYml.components(separatedBy: .newlines)
+                    .first { $0.contains("\(key):") },
+                "project.yml ไม่มี \(key)")
+            return line.components(separatedBy: ":").last?
+                .trimmingCharacters(in: CharacterSet(charactersIn: " \"")) ?? ""
+        }
+
+        let build = try setting("CURRENT_PROJECT_VERSION")
+        let marketing = try setting("MARKETING_VERSION")
+
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let dict = try plist(path)
+            XCTAssertEqual(dict["CFBundleVersion"] as? String, build, """
+                \(path): CFBundleVersion ไม่ตรงกับ CURRENT_PROJECT_VERSION ใน project.yml
+                (\(build)) — บั๊มไม่ครบทุกที่ ASC จะปฏิเสธไฟล์ตอนอัปว่าเลขซ้ำ
+                """)
+            XCTAssertEqual(dict["CFBundleShortVersionString"] as? String, marketing,
+                           "\(path): CFBundleShortVersionString ไม่ตรงกับ MARKETING_VERSION (\(marketing))")
+        }
+    }
+
     /// background mode ต้องมีคู่กับโค้ดที่รับมันจริง — Guideline 2.5.4
     ///
     /// `remote-notification` มีความหมายเดียวคือ "แอปตื่นขึ้นมาทำงานตอนได้ push แบบเงียบ"
