@@ -11,11 +11,17 @@ final class MapModeTests: XCTestCase {
         return defaults
     }
 
-    /// **ค่าเริ่มต้นต้องเป็น 3 มิติ** — สกรีนช็อต `02-map` ที่ส่ง App Store ไปแล้วเป็นจอ 3D
-    /// เปลี่ยนค่านี้เมื่อไหร่ต้องถ่ายสกรีนช็อตใหม่ก่อนส่งรอบหน้า ไม่งั้นคือ Guideline 2.3.3
-    /// ซ้ำรอยรอบ 1.0 (7) ที่ส่งรูปไม่ตรงกับแอป
-    func testDefaultModeIsThreeDBecauseTheShippedScreenshotShowsIt() {
-        XCTAssertEqual(MapMode.stored(in: freshDefaults()), .threeD)
+    /// **ค่าเริ่มต้นคือ 2 มิติ** — โหมดที่เปิดแท็บมาแล้วใช้ได้ทันที
+    ///
+    /// 3 มิติต้องรอโมเดล 9.8 MB โหลดก่อนถึงจะเห็นอะไรนอกจากตัวหมุน (13 วิบนเครื่องจริง) และมันตอบ
+    /// คำถามคนละข้อกับที่คนเปิดแท็บแผนที่ถาม — "เส้นทางไปทางไหน ฉันอยู่ตรงไหนของเส้น" เป็นคำถาม
+    /// ของแผนที่ 2 มิติ ส่วน "ฐานหน้าตายังไง" เป็นของ 3 มิติซึ่งกดสลับเอาได้
+    ///
+    /// **สกรีนช็อต `02-map` ที่ส่ง App Store ไปแล้วยังเป็นจอ 3 มิติ** — ต้องถ่ายใหม่ก่อน archive
+    /// รอบหน้า ไม่งั้นคือ Guideline 2.3.3 ซ้ำรอย 1.0 (7) ที่ส่งรูปไม่ตรงกับแอป · จดค้างไว้แล้วที่
+    /// `docs/appstore/connect-checklist.md`
+    func testDefaultModeIsFlatSoTheTabIsUsableTheMomentItOpens() {
+        XCTAssertEqual(MapMode.stored(in: freshDefaults()), .flat)
     }
 
     /// เลือกแล้วต้องจำ — สลับไป 2 มิติแล้วออกจากแท็บ กลับมาต้องยังเป็น 2 มิติ
@@ -29,11 +35,11 @@ final class MapModeTests: XCTestCase {
         XCTAssertEqual(MapMode.stored(in: defaults), .threeD)
     }
 
-    /// ค่าที่อ่านไม่ออก (คนแก้ด้วยมือ หรือคีย์ชนกับของเก่า) ต้องตกกลับเป็น 3 มิติ ไม่ใช่พังทั้งแท็บ
-    func testUnknownStoredValueFallsBackToThreeD() {
+    /// ค่าที่อ่านไม่ออก (คนแก้ด้วยมือ หรือคีย์ชนกับของเก่า) ต้องตกกลับเป็นค่าเริ่มต้น ไม่ใช่พังทั้งแท็บ
+    func testUnknownStoredValueFallsBackToTheDefault() {
         let defaults = freshDefaults()
         defaults.set("hologram", forKey: MapMode.storageKey)
-        XCTAssertEqual(MapMode.stored(in: defaults), .threeD)
+        XCTAssertEqual(MapMode.stored(in: defaults), .flat)
     }
 
     func testTogglingGoesBackAndForth() {
@@ -55,5 +61,24 @@ final class MapModeTests: XCTestCase {
         for key in [MapMode.threeD.toggleLabelKey, MapMode.flat.toggleLabelKey] {
             XCTAssertNotEqual(Loc.t(key), key, "คีย์ \(key) ไม่มีในชุดคีย์")
         }
+    }
+
+    /// แฟลกถ่ายภาพต้องชนะค่าที่ผู้ใช้เลือกไว้ — ไม่งั้นเครื่องที่เคยกดสลับโหมดจะถ่ายได้แต่โหมดนั้น
+    ///
+    /// เคยพังจริง: แฟลกถูกอ่านใน `onAppear` ของแผนที่ 3 มิติ ซึ่งไม่ถูก mount เมื่อเปิดมาที่ 2 มิติ
+    /// สั่ง `-uitestMapMode 3d` แล้วได้ 2 มิติกลับมาเงียบ ๆ
+    func testLaunchArgumentBeatsTheStoredChoice() {
+        let defaults = freshDefaults()
+        MapMode.flat.store(in: defaults)
+        defaults.set("3d", forKey: "uitestMapMode")
+        XCTAssertEqual(MapMode.initialForLaunch(in: defaults), .threeD)
+    }
+
+    /// แฟลกที่พิมพ์ผิดต้องถูกมองข้าม ไม่ใช่ลากทั้งจอไปโหมดที่ไม่มีอยู่
+    func testUnknownLaunchArgumentFallsBackToTheStoredChoice() {
+        let defaults = freshDefaults()
+        MapMode.threeD.store(in: defaults)
+        defaults.set("isometric", forKey: "uitestMapMode")
+        XCTAssertEqual(MapMode.initialForLaunch(in: defaults), .threeD)
     }
 }

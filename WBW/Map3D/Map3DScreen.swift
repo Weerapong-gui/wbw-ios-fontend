@@ -28,8 +28,9 @@ struct Map3DScreen: View {
     /// ฐานที่แตะค้างไว้อยู่ — nil = ไม่มีการ์ด
     @State private var tappedSequence: Int?
 
-    /// โหมดที่กำลังแสดง — จำข้ามการเปิดแอปผ่าน `UserDefaults` (ดู `MapMode`)
-    @State private var mode = MapMode.stored()
+    /// โหมดที่กำลังแสดง — จำข้ามการเปิดแอปผ่าน `UserDefaults` และรับแฟลกถ่ายภาพ
+    /// `-uitestMapMode` ตรงนี้ ไม่ใช่ใน `onAppear` (ดูเหตุผลยาวที่ `MapMode.initialForLaunch`)
+    @State private var mode = MapMode.initialForLaunch()
     /// หมุดที่มี **วงแสง** อยู่ตอนนี้ — แยกจาก `tappedSequence` ซึ่งแปลว่า "หมุดที่การ์ดเปิดอยู่"
     ///
     /// เดิมตัวเดียวคุมสามอย่าง (วงแสง การ์ด พื้นระยะใกล้สุด) พอ intro ต้องพากล้องไปจอดที่ฐาน 1
@@ -889,13 +890,6 @@ struct Map3DScreen: View {
             // หมุดในฉาก และตำแหน่งนั้นมีให้ก็ต่อเมื่อโมเดลโหลดเสร็จแล้ว · เก็บไว้ให้ปลาย make
             // มาหยิบไปแทน (เดิมตั้งแค่ `tappedSequence` จึงถ่ายยืนยันได้แค่ครึ่งเดียว —
             // บันทึกไว้เป็นข้อจำกัดข้อ 2 ใน docs/map-2-0-verification.md)
-            // บังคับโหมดแผนที่สำหรับถ่ายภาพ — โหมดจำค่าไว้ใน UserDefaults ของเครื่อง การถ่าย
-            // โหมด 2 มิติจึงต้องมีทางสั่งจากภายนอก ไม่งั้นต้องไปแตะปุ่มเอง ซึ่งเครื่องมือถ่ายภาพ
-            // ที่ repo นี้ใช้ทำไม่ได้ (ไม่มี tap tooling — เหตุผลเดียวกับ `-uitestMapPin`)
-            if let raw = UserDefaults.standard.string(forKey: "uitestMapMode"),
-               let forcedMode = MapMode(rawValue: raw) {
-                mode = forcedMode
-            }
             let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
             if forced > 0 {
                 showsHint = false
