@@ -68,7 +68,7 @@ final class Map3DConfigFileTests: XCTestCase {
         """
     }
 
-    private func valid(pins: String = #"[{"sequence":1,"entityNames":["marker_1"]}]"#,
+    private func valid(pins: String = #"[{"sequence":1,"entityNames":["marker_1"],"latitude":20.04155,"longitude":99.89656}]"#,
                        anchor: String? = nil,
                        domeRadius: String = "9.0",
                        minPitch: String = "12",
@@ -184,5 +184,32 @@ final class Map3DConfigFileTests: XCTestCase {
     func testFramingYawIsExposedInRadians() {
         XCTAssertEqual(Map3DConfig.fallback.framingYaw,
                        Map3DConfig.fallback.framingYawDegrees * .pi / 180, accuracy: 1e-6)
+    }
+
+    // MARK: - พิกัดจริงของหมุด (ใช้โดยแผนที่ 2 มิติ)
+
+    /// ทุกฐานต้องมีพิกัดจริง และต้องอยู่ในพื้นที่งาน
+    ///
+    /// ที่มาของตัวเลข: `docs/map-2-0-verification.md` ตารางท้ายไฟล์ — ถอดจาก anchor ของโมเดล
+    /// และเป็นชุดที่เขียนลง DB จริงแล้วสำหรับฐาน 2–8 · ความคลาดราว 110 ม.ต่อจุดจากความหยาบ
+    /// ของการปักหมุดในโมเดล ไม่ใช่ค่าที่สำรวจภาคสนาม
+    ///
+    /// หมุดที่หลุดกรอบพื้นที่งานคือหมุดที่จะไปโผล่กลางป่าคนละลูกบนแผนที่ 2 มิติ โดยที่แผนที่ 3 มิติ
+    /// ยังถูกต้องอยู่ — ไม่มีอะไรฟ้องนอกจากมีคนสลับโหมดไปดู
+    func testEveryPinCarriesACoordinateInsideTheEventArea() throws {
+        let config = try XCTUnwrap(Map3DConfig.bundled)
+        for pin in config.pins {
+            XCTAssertNotNil(Map3DGeo.modelUnits(latitude: pin.latitude, longitude: pin.longitude,
+                                                in: config.anchor),
+                            "ฐานที่ \(pin.sequence) มีพิกัดอยู่นอกพื้นที่งาน")
+        }
+    }
+
+    /// สองฐานที่พิกัดเท่ากันเป๊ะแปลว่ามีคนก๊อปบรรทัดแล้วลืมแก้เลข — บนแผนที่จะเห็นหมุดทับกัน
+    /// สนิทเหลือใบเดียว
+    func testNoTwoPinsShareTheSameCoordinate() throws {
+        let config = try XCTUnwrap(Map3DConfig.bundled)
+        let coordinates = config.pins.map { "\($0.latitude),\($0.longitude)" }
+        XCTAssertEqual(Set(coordinates).count, coordinates.count, "มีฐานที่พิกัดซ้ำกัน")
     }
 }

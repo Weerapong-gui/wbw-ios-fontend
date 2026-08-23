@@ -77,6 +77,15 @@ struct Map3DConfig: Decodable, Equatable {
         /// `Map3DScreen` ไต่จากเลขแล้วไปสุดที่ root โดยไม่เจอฐาน ผลคือคนแตะเลขที่เห็นชัด
         /// ที่สุดบนจอแล้วไม่มีอะไรเกิดขึ้นเลย
         let entityNames: [String]
+
+        /// พิกัดจริงของหมุด — ใช้โดยแผนที่ 2 มิติ (`Map2DView`) ซึ่งไม่มีโมเดลให้อ่านตำแหน่ง prim
+        ///
+        /// ที่มา: `docs/map-2-0-verification.md` ตารางท้ายไฟล์ — ถอดจาก anchor ของโมเดลชุดนี้เอง
+        /// (จึงเป็นค่าเดียวกับที่หมุด 3 มิติยืนอยู่ ไม่ใช่ค่าคนละชุด) และเป็นชุดที่เขียนลง DB จริงแล้ว
+        /// สำหรับฐาน 2–8 · **ไม่ใช่ค่าที่สำรวจภาคสนาม** ความคลาดราว 110 ม.ต่อจุดมาจากความหยาบ
+        /// ของการปักหมุดในโมเดล — พอสำหรับแผนที่ภาพรวม ไม่พอสำหรับการนำทางเข้าหาฐาน
+        let latitude: Double
+        let longitude: Double
     }
 
     let modelName: String
@@ -99,6 +108,12 @@ struct Map3DConfig: Decodable, Equatable {
         guard let config = try? JSONDecoder().decode(Map3DConfig.self, from: data) else { return nil }
         guard !config.pins.isEmpty,
               config.pins.allSatisfy({ !$0.entityNames.isEmpty }),
+              // หมุดที่พิกัดหลุดพื้นที่งานจะไปโผล่กลางป่าคนละลูกบนแผนที่ 2 มิติ ขณะที่แผนที่
+              // 3 มิติยังถูกต้อง — ไม่มีอะไรฟ้องนอกจากมีคนสลับโหมดไปดู
+              config.pins.allSatisfy({ pin in
+                  Map3DGeo.modelUnits(latitude: pin.latitude, longitude: pin.longitude,
+                                      in: config.anchor) != nil
+              }),
               Set(config.pins.flatMap(\.entityNames)).count == config.pins.flatMap(\.entityNames).count,
               config.anchor.unitsPerDegreeLatitude > 0,
               config.anchor.unitsPerDegreeLongitude > 0,
@@ -143,8 +158,16 @@ struct Map3DConfig: Decodable, Equatable {
                        minDistance: 0.8, maxDistance: 4.0, defaultDistance: 1.15,
                        focusPitchDegrees: 34, focusDistance: 0.55, orbitDegreesPerSecond: 8),
         sky: Sky(domeRadius: 9.0),
-        pins: (1...8).map { number in
+        pins: zip(1...8, fallbackPinCoordinates).map { number, coordinate in
             Pin(sequence: number,
-                entityNames: ["marker_\(number)", "markerNum_\(number)"])
+                entityNames: ["marker_\(number)", "markerNum_\(number)"],
+                latitude: coordinate.latitude, longitude: coordinate.longitude)
         })
+
+    /// พิกัดของหมุดทั้ง 8 เรียงตามลำดับฐาน — ต้องตรงกับ `map_config.json` เป๊ะ
+    /// (`Map3DConfigFileTests.testShippedConfigMatchesTheCompiledFallback` คุมไว้)
+    private static let fallbackPinCoordinates: [(latitude: Double, longitude: Double)] = [
+        (20.04155, 99.89656), (20.03660, 99.89930), (20.03498, 99.90004), (20.03540, 99.90474),
+        (20.04454, 99.90955), (20.05100, 99.90932), (20.05287, 99.91135), (20.05533, 99.90914),
+    ]
 }

@@ -24,8 +24,8 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
 
 - `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (45 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `SOS/` (11
   ไฟล์ — ปุ่มขอความช่วยเหลือฉุกเฉิน จอสถานะ จอเจ้าหน้าที่ และ `LocationPrimer` ที่คั่นก่อนกล่อง
-  ขอสิทธิ์ตำแหน่ง), `Map3D/` (10
-  ไฟล์), `Chat/` (6 ไฟล์), `Conditions/` (4 ไฟล์ — อุณหภูมิ/AQI จาก Open-Meteo), `Feedback/` (4 ไฟล์),
+  ขอสิทธิ์ตำแหน่ง), `Map3D/` (14
+  ไฟล์ — แผนที่ 3 มิติจากโมเดล `map.usdz` **กับแผนที่ 2 มิติบน MapKit** ที่สลับกันด้วยปุ่ม), `Chat/` (6 ไฟล์), `Conditions/` (4 ไฟล์ — อุณหภูมิ/AQI จาก Open-Meteo), `Feedback/` (4 ไฟล์),
   `Bloom/` (3 ไฟล์ — ดอกไม้ halftone หน้า Home),
   `Demo/` (3 ไฟล์ — โหมดเดโม่สำหรับ App Review), `Scene3D/` (7 ไฟล์ — ฉากป่า ปิดอยู่ตอนนี้แต่ไม่ได้ลบ),
   `Resources/` (asset 3D `.usdz`/`.glb` +

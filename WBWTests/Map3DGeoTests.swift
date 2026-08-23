@@ -62,4 +62,34 @@ final class Map3DGeoTests: XCTestCase {
         XCTAssertEqual(p.x, 2230, accuracy: 0.01)
         XCTAssertEqual(p.y, 0, accuracy: 0.01)
     }
+
+    // MARK: - ผกผัน: หน่วยของโมเดล → lat/lng
+
+    /// ใช้ตอนเอาตำแหน่งหมุดที่ปักไว้ในโมเดลไปวางบนแผนที่ 2 มิติ — ทิศทางกลับของทั้งไฟล์นี้
+    ///
+    /// ต้องเป็นผกผันของ `modelUnits` เป๊ะ ไม่ใช่สูตรที่เขียนแยกกันแล้วบังเอิญใกล้เคียง: หมุดที่
+    /// เพี้ยนไป 100 ม.บนแผนที่ดาวเทียมคือหมุดที่ไปตกอยู่คนละฝั่งถนน ซึ่งดูเหมือนข้อมูลผิด
+    /// มากกว่าดูเหมือนเลขคณิตผิด
+    func testModelUnitsInvertBackToTheSameCoordinate() {
+        let base5 = Map3DGeo.coordinate(x: 751.2, y: -112.0, in: anchor)
+        XCTAssertEqual(base5.latitude, 20.04454, accuracy: 1e-4)
+        XCTAssertEqual(base5.longitude, 99.90955, accuracy: 1e-4)
+    }
+
+    func testOriginInvertsToTheAnchorCoordinate() {
+        let origin = Map3DGeo.coordinate(x: 0, y: 0, in: anchor)
+        XCTAssertEqual(origin.latitude, anchor.originLatitude, accuracy: 1e-9)
+        XCTAssertEqual(origin.longitude, anchor.originLongitude, accuracy: 1e-9)
+    }
+
+    /// ไป-กลับแล้วต้องได้ที่เดิม — จับกรณีที่คนแก้ตัวหนึ่งแล้วลืมแก้อีกตัว
+    func testRoundTripThroughBothDirectionsLandsWhereItStarted() throws {
+        for (latitude, longitude) in [(20.04155, 99.89656), (20.05533, 99.90914), (20.03498, 99.90004)] {
+            let point = try XCTUnwrap(
+                Map3DGeo.modelUnits(latitude: latitude, longitude: longitude, in: anchor))
+            let back = Map3DGeo.coordinate(x: point.x, y: point.y, in: anchor)
+            XCTAssertEqual(back.latitude, latitude, accuracy: 1e-4)
+            XCTAssertEqual(back.longitude, longitude, accuracy: 1e-4)
+        }
+    }
 }

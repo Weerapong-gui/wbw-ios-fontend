@@ -27,6 +27,9 @@ struct Map3DScreen: View {
     @EnvironmentObject private var checkpoints: CheckpointStore
     /// ฐานที่แตะค้างไว้อยู่ — nil = ไม่มีการ์ด
     @State private var tappedSequence: Int?
+
+    /// โหมดที่กำลังแสดง — จำข้ามการเปิดแอปผ่าน `UserDefaults` (ดู `MapMode`)
+    @State private var mode = MapMode.stored()
     /// หมุดที่มี **วงแสง** อยู่ตอนนี้ — แยกจาก `tappedSequence` ซึ่งแปลว่า "หมุดที่การ์ดเปิดอยู่"
     ///
     /// เดิมตัวเดียวคุมสามอย่าง (วงแสง การ์ด พื้นระยะใกล้สุด) พอ intro ต้องพากล้องไปจอดที่ฐาน 1
@@ -132,10 +135,20 @@ struct Map3DScreen: View {
         // ประเมินครั้งเดียวแล้วใช้ซ้ำ — เดิมเรียก Self.shouldRender(...) ซ้ำสองที่ในฟังก์ชันนี้
         let shouldRender = Self.shouldRender(map3D: Config.map3D, underTest: Self.isRunningUnderXCTest)
 
-        ZStack {
+        // แผนที่ 3 มิติถูกปิดด้วย `Config.map3D` เมื่อไหร่ ตกมาที่ 2 มิติเสมอ ไม่ใช่การ์ด
+        // "แผนที่ปิดอยู่" แบบเดิม — MapKit เบากว่าโมเดล 10 MB มาก และยังตอบคำถามเรื่องเส้นทางได้ครบ
+        let mode = MapMode.effective(stored: self.mode, map3DEnabled: Config.map3D)
+
+        return ZStack {
             Color.wbwForestVoid.ignoresSafeArea()
 
-            if !shouldRender {
+            if mode == .flat {
+                Map2DView(selectedSequence: $tappedSequence,
+                          userCoordinate: location.coordinate)
+                if let tappedSequence {
+                    MapBaseCard(sequence: tappedSequence, onClose: { self.tappedSequence = nil })
+                }
+            } else if !shouldRender {
                 // ปิดสวิตช์อยู่ — ต้องเหลือของที่อ่านรู้เรื่อง ไม่ใช่จอว่าง
                 VStack(spacing: 12) {
                     Image(systemName: "map")
@@ -177,10 +190,19 @@ struct Map3DScreen: View {
                 focusScrim
                 compass
                 if let tappedSequence {
-                    baseCard(sequence: tappedSequence)
+                    MapBaseCard(sequence: tappedSequence, onClose: { endFocus() })
                 } else if showsHint {
                     hint
                 }
+            }
+
+            // ปุ่มสลับโหมด — โผล่ก็ต่อเมื่อมีสองโหมดให้เลือกจริง ปิด 3 มิติไว้แล้วปุ่มนี้จะเป็น
+            // ปุ่มที่กดแล้วไม่มีอะไรเกิดขึ้น
+            //
+            // หลบให้การ์ดฐาน: การ์ดกินความกว้างเต็มจอที่ขอบล่าง ปุ่มกลม ๆ ที่ลอยทับมันอยู่
+            // อ่านเป็นปุ่มของการ์ด ไม่ใช่ปุ่มของแผนที่ (ถ่ายเจอจริงตอนยืนยันโหมด 2 มิติ)
+            if Config.map3D && tappedSequence == nil {
+                modeToggle(current: mode)
             }
         }
     }
@@ -213,6 +235,37 @@ struct Map3DScreen: View {
             .padding(.top, 8)
             .transition(.opacity)
         }
+    }
+
+    /// ปุ่มสลับ 2 มิติ ↔ 3 มิติ มุมขวาล่าง เหนือแถบแท็บ — ตำแหน่งเดียวกับที่ Android วางไว้
+    ///
+    /// อยู่ล่างขวาไม่ใช่บนขวาเพราะบนขวาเป็นที่ของเข็มทิศอยู่แล้ว และปุ่มนี้เป็นของที่กดบ่อยกว่า
+    /// จึงควรอยู่ใต้นิ้วโป้งมากกว่า
+    private func modeToggle(current: MapMode) -> some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Button {
+                    let next = current.toggled()
+                    next.store()
+                    // ปิดการ์ดฐานตอนสลับ — ฐานที่เลือกไว้ในโหมดหนึ่งไม่ได้แปลว่ากล้องอีกโหมด
+                    // กำลังจ้องมันอยู่ การ์ดที่ค้างข้ามโหมดจึงอ่านเป็นการ์ดที่ลืมปิด
+                    tappedSequence = nil
+                    withAnimation(.easeInOut(duration: 0.25)) { mode = next }
+                } label: {
+                    Image(systemName: current.toggleSystemImage)
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .glassSurface(Circle(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(LocalizedStringKey(current.toggleLabelKey))
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, ForestSceneHost.tabBarClearance + 12)
     }
 
     /// ม่านมืดรอบ ๆ ตอนจ้องหมุด — ใสตรงกลาง เข้มที่ขอบ
@@ -251,61 +304,6 @@ struct Map3DScreen: View {
         .transition(.opacity)
     }
 
-    /// การ์ดฐาน — ชื่อ/กิจกรรม/สถานะเช็คอิน
-    ///
-    /// ชื่อกับกิจกรรมมาจาก `GET /wbw/checkpoints` จึงมีครบทุกฐานตั้งแต่ยังไม่ได้เดิน (เดิมมีเฉพาะ
-    /// ฐานที่เช็คอินแล้ว เพราะ `/me/progress` คืนแค่ `checked_in`) · **ห้ามเดาชื่อ** ยังเป็นกติกา —
-    /// ไม่มีข้อมูลก็ขึ้น "ฐานที่ N" ไม่ใช่เดาเอาเอง · สถานะเช็คอินยังมาจาก progress เหมือนเดิม
-    /// เพราะเป็นเรื่องของผู้ใช้คนนี้ ไม่ใช่ข้อมูลของงาน
-    private func baseCard(sequence: Int) -> some View {
-        let checkedIn = progress.progress?.checkedIn ?? []
-        let visited = checkedIn.first { $0.sequence == sequence }
-        let known = checkpoints.checkpoints
-        return VStack {
-            Spacer()
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(Map3DPins.label(sequence: sequence, checkedIn: checkedIn,
-                                         checkpoints: known))
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                    if let activity = Map3DPins.activity(sequence: sequence, checkedIn: checkedIn,
-                                                         checkpoints: known) {
-                        Text(activity)
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.75))
-                    }
-                    Label(visited == nil ? "map_not_checked_in" : "profile_checked_in",
-                          systemImage: visited == nil ? "circle.dashed" : "checkmark.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(visited == nil ? .white.opacity(0.7) : Color.wbwGold)
-                }
-                Spacer(minLength: 0)
-                Button { endFocus() } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.white.opacity(0.8))
-                        // ไอคอน 22pt ลอยอยู่บนแผนที่ที่ลากได้ — พลาดแล้วกลายเป็นการลากแผนที่แทน
-                        // ไม่ใช่แค่ "ไม่มีอะไรเกิดขึ้น"
-                        .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("action_close")
-            }
-            .padding(20)
-            // แผ่นเข้ม ไม่ใช่กระจกใส — การ์ดนี้ลอยอยู่บน **แผนที่ดาวเทียม** ไม่ใช่บนพื้นภาพป่า
-            // ถ่ายจริงตอนหมุดอยู่แถวตัวเมืองแล้วชื่อฐานกับสถานะหายไปในตึกสีขาว · นี่คือเคสที่
-            // ต้นทางเขียนถึงตรง ๆ ที่ `GlassPanel`: ปัญหาคือความแปรปรวนของพื้น ไม่ใช่ระดับ
-            // ฝ้าจางจึงแก้ไม่ได้ แผ่นต้องกลบอาร์ตทิ้ง
-            .glassSurface(RoundedRectangle(cornerRadius: 24, style: .continuous),
-                          tint: Color.glassPanel)
-            .padding(.horizontal, 20)
-            .padding(.bottom, ForestSceneHost.tabBarClearance)
-        }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
 
     // MARK: - โฟกัสหมุด
 
@@ -891,8 +889,24 @@ struct Map3DScreen: View {
             // หมุดในฉาก และตำแหน่งนั้นมีให้ก็ต่อเมื่อโมเดลโหลดเสร็จแล้ว · เก็บไว้ให้ปลาย make
             // มาหยิบไปแทน (เดิมตั้งแค่ `tappedSequence` จึงถ่ายยืนยันได้แค่ครึ่งเดียว —
             // บันทึกไว้เป็นข้อจำกัดข้อ 2 ใน docs/map-2-0-verification.md)
+            // บังคับโหมดแผนที่สำหรับถ่ายภาพ — โหมดจำค่าไว้ใน UserDefaults ของเครื่อง การถ่าย
+            // โหมด 2 มิติจึงต้องมีทางสั่งจากภายนอก ไม่งั้นต้องไปแตะปุ่มเอง ซึ่งเครื่องมือถ่ายภาพ
+            // ที่ repo นี้ใช้ทำไม่ได้ (ไม่มี tap tooling — เหตุผลเดียวกับ `-uitestMapPin`)
+            if let raw = UserDefaults.standard.string(forKey: "uitestMapMode"),
+               let forcedMode = MapMode(rawValue: raw) {
+                mode = forcedMode
+            }
             let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
-            if forced > 0 { pendingForcedPin = forced; showsHint = false }
+            if forced > 0 {
+                showsHint = false
+                // โหมด 2 มิติไม่มีโมเดลให้บินไปหา การ์ดจึงเปิดตรง ๆ ได้เลย · ส่วนโหมด 3 มิติต้อง
+                // รอตำแหน่งหมุดจากฉากก่อน (ดูคอมเมนต์ข้างบน) จึงฝากไว้ที่ pendingForcedPin
+                if MapMode.effective(stored: mode, map3DEnabled: Config.map3D) == .flat {
+                    tappedSequence = forced
+                } else {
+                    pendingForcedPin = forced
+                }
+            }
             // ลองมุมกล้องหลายค่าแล้วถ่ายเทียบกับภาพอ้างอิงโดยไม่ต้อง build ใหม่ทุกครั้ง
             // (หน่วยเป็นองศา · หมุนโมเดล ไม่ใช่หมุนกล้อง เพราะทิศของพื้นที่งานอบอยู่ในโมเดล)
             if UserDefaults.standard.object(forKey: "uitestMapHeading") != nil {

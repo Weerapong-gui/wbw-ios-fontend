@@ -60,8 +60,15 @@ final class SURunRemovalTests: XCTestCase {
     }
 
     /// ไฟล์กับโฟลเดอร์ต้องไม่เหลืออยู่จริง ไม่ใช่แค่ไม่มีใครเรียก
+    ///
+    /// **`WBW/Resources/route_wbw.json` ถูกถอดออกจากรายการนี้เมื่อ 2026-08-24** — ไฟล์กลับเข้ามา
+    /// จริง แต่คนละหน้าที่กับตอนที่มันถูกลบ: ตอนนั้นมันเป็นข้อมูลของ SU RUN (จับระยะที่เดินไปแล้ว)
+    /// ตอนนี้มันคือ **เส้นทางที่วาดบนแผนที่ 2 มิติ** (`TrailRoute`) ซึ่งไม่ได้จับอะไรเลย ไม่แตะ
+    /// เซ็นเซอร์ ไม่มี background location · ของที่ห้ามกลับมาจริง ๆ คือโค้ดนับก้าว ซึ่งถูกค้ำไว้ที่
+    /// `testNothingUsesPedometerAnyMore` กับ `testMotionPermissionRemovedTogetherWithItsOnlyUser`
+    /// ในไฟล์นี้อยู่แล้ว — สองข้อนั้นคือหัวใจของการถอด SU RUN ไม่ใช่ชื่อไฟล์ข้อมูล
     func testNoSURunFilesRemain() throws {
-        for path in ["WBW/SURun", "WBW/SURunView.swift", "WBW/Resources/route_wbw.json"] {
+        for path in ["WBW/SURun", "WBW/SURunView.swift"] {
             XCTAssertFalse(
                 FileManager.default.fileExists(atPath: Self.repoRoot.appendingPathComponent(path).path),
                 "\(path) ยังอยู่ — ลบให้ครบแล้วรัน `xcodegen generate`")

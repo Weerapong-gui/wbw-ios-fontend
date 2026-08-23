@@ -8,9 +8,15 @@ struct RootView: View {
 
     init() {
         #if DEBUG
-        // UI test: ข้าม splash ถ้า launch ด้วย -uitestToken หรือ -uitestLogin (โชว์ Login)
+        // UI test: ข้ามอินโทรถ้า launch ด้วย -uitestToken, -uitestLogin (โชว์ Login) หรือ
+        // -uitestDemo (ทางเข้าของสกรีนช็อตชุดส่ง App Store ทุกใบ)
+        //
+        // **-uitestDemo ต้องอยู่ในนี้ด้วย** — ทุกใบในชุด 10 สกรีนช็อตถ่ายจากโหมดเดโม่ ปล่อยให้
+        // อินโทรเล่นก่อนแปลว่าทุกใบต้องรอดอกไม้บาน ~3 วิ และใบที่ถ่ายเร็วไปจะได้ **รูปดอกไม้**
+        // แทนจอที่สั่งถ่าย โดยที่คำสั่งไม่ error เลย (เจอจริงตอนถ่ายยืนยันโหมด 2 มิติรอบนี้)
         let t = UserDefaults.standard.string(forKey: "uitestToken") ?? ""
-        if !t.isEmpty || UserDefaults.standard.bool(forKey: "uitestLogin") {
+        if !t.isEmpty || UserDefaults.standard.bool(forKey: "uitestLogin")
+            || UserDefaults.standard.bool(forKey: "uitestDemo") {
             _splashDone = State(initialValue: true)
         }
         #endif

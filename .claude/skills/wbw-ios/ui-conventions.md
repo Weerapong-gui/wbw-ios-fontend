@@ -77,7 +77,9 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
 จอเดี่ยว ๆ วางแบน ๆ ที่ราก `WBW/` (เช่น `WBW/HomeView.swift`, `WBW/IntroView.swift`) แตกเป็นโฟลเดอร์
 ย่อยเมื่อฟีเจอร์เกิน ~3 ไฟล์ ของจริงที่มีอยู่ตอนนี้:
 
-- `WBW/Map3D/` — 10 ไฟล์ (`Map3DCamera`, `Map3DConfig`, `Map3DFocus`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
+- `WBW/Map3D/` — 14 ไฟล์ · สองโหมดของแท็บแผนที่อยู่ในโฟลเดอร์เดียวกัน: 3 มิติจากโมเดล `map.usdz`
+  กับ 2 มิติบน MapKit (`Map2DView`, `MapMode`, `TrailRoute`) ที่ใช้การ์ดฐานใบเดียวกัน (`MapBaseCard`)
+  (`Map3DCamera`, `Map3DConfig`, `Map3DFocus`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
   `Map3DScreen`, `Map3DSky`, `MapModelLoader`)
 - `WBW/Chat/` — 5 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`)
 - `WBW/Feedback/` — 4 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`)

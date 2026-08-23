@@ -100,7 +100,8 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestMapHeading <องศา>` | int | ทับมุมกล้อง yaw ของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
 | `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว (ปิด intro ไปด้วย) | `-uitestTab 1` |
 | `-uitestMapDistance <ร้อยเท่า>` | int | ทับระยะกล้อง — `80` = 0.8 (ซูมเข้าสุด), `400` = 4.0 (ออกสุด) | `-uitestTab 1` |
-| `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ | `-uitestTab 1` |
+| `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ (ทำงานทั้งโหมด 3 มิติและ 2 มิติ) | `-uitestTab 1` |
+| `-uitestMapMode 2d\|3d` | string | บังคับโหมดแผนที่สำหรับถ่ายภาพ — โหมดปกติจำค่าไว้ใน `UserDefaults` จึงต้องมีทางสั่งจากนอกแอป | `-uitestTab 1` |
 | `-uitestMapYaw <องศา>` | 0-359 | มุมกวาดรอบตัว ใช้ถ่ายเทียบว่าไม่มีทิศไหนเห็นขอบโมเดล | `-uitestTab 1` |
 | `-uitestChatDraft <ข้อความ>` | string | เติมข้อความในช่องพิมพ์ของจอแชท ใช้ถ่ายทรงช่องตอนหลายบรรทัด | `-uitestChat YES` |
 
