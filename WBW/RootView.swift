@@ -16,9 +16,9 @@ struct RootView: View {
         #endif
     }
 
-    private enum Phase: Equatable { case welcome, login, home }
+    private enum Phase: Equatable { case intro, login, home }
     private var phase: Phase {
-        if !splashDone { return .welcome }
+        if !splashDone { return .intro }
         return session.user != nil ? .home : .login
     }
 
@@ -65,8 +65,8 @@ struct RootView: View {
             }
 
             switch phase {
-            case .welcome:
-                WelcomeView(onContinue: { splashDone = true })
+            case .intro:
+                IntroView(onFinished: { splashDone = true })
                     .transition(.opacity)
             case .login:
                 LoginView()

@@ -7,8 +7,6 @@
 "error_network" = "Can't reach the server. Check your internet connection.";
 "error_unknown" = "An unknown error occurred";
 "login_tagline" = "Walk Around the Doi · Participant sign-in";
-"welcome_title" = "Welcome to";
-"welcome_action_start" = "Get started";
 "login_greeting" = "Participant sign-in";
 "login_password_show" = "Show password";
 "login_password_hide" = "Hide password";

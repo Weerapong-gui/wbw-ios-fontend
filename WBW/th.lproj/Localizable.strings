@@ -6,8 +6,6 @@
 "error_network" = "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต";
 "error_unknown" = "เกิดข้อผิดพลาดที่ไม่รู้จัก";
 "login_tagline" = "เดินรอบดอย · เข้าสู่ระบบผู้เข้าร่วม";
-"welcome_title" = "ยินดีต้อนรับสู่";
-"welcome_action_start" = "เริ่มใช้งาน";
 "login_greeting" = "เข้าสู่ระบบผู้เข้าร่วม";
 "login_password_show" = "แสดงรหัสผ่าน";
 "login_password_hide" = "ซ่อนรหัสผ่าน";

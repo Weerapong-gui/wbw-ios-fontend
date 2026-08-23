@@ -63,8 +63,10 @@
 
 ทุกที่ที่แตะกระจกจริงต้อง guard `#available(iOS 26.0, *)` แล้ว fallback เป็น `.ultraThinMaterial` เพราะ
 deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_DEPLOYMENT_TARGET: "18.0"` ใน `project.yml`) — ตอนนี้มี
-2 จุดที่ guard ไว้แบบนี้: `WBW/GlassSurface.swift:12`, `WBW/WelcomeView.swift:60`
-(`GlassRing` ที่ `HomeView` ถูกลบไปพร้อม avatar บนหัวจอตอนยกเลย์เอาต์ Home มาจาก Android)
+**เหลือจุดเดียว**: `WBW/GlassSurface.swift:20`
+(`GlassRing` ที่ `HomeView` ถูกลบไปพร้อม avatar บนหัวจอตอนยกเลย์เอาต์ Home มาจาก Android ·
+`GlassButton` ที่ `WelcomeView` หายไปพร้อมทั้งจอเมื่อ 2026-08-23 ตอนแทนด้วย `IntroView`
+ซึ่งไม่มีปุ่ม — ดอกไม้บานจบแล้วไปต่อเอง)
 เพิ่มจุดใหม่ก็ต้อง guard แบบเดียวกันเสมอ
 
 **ห้ามปลอมกระจกด้วย blur เอง** (เช่น `.blur()` + opacity ผสมมือ) — ผลลัพธ์ไม่เนียนเท่า `.glassEffect`
@@ -72,7 +74,7 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
 
 ## ไฟล์ใหม่วางที่ไหน
 
-จอเดี่ยว ๆ วางแบน ๆ ที่ราก `WBW/` (เช่น `WBW/HomeView.swift`, `WBW/WelcomeView.swift`) แตกเป็นโฟลเดอร์
+จอเดี่ยว ๆ วางแบน ๆ ที่ราก `WBW/` (เช่น `WBW/HomeView.swift`, `WBW/IntroView.swift`) แตกเป็นโฟลเดอร์
 ย่อยเมื่อฟีเจอร์เกิน ~3 ไฟล์ ของจริงที่มีอยู่ตอนนี้:
 
 - `WBW/Map3D/` — 10 ไฟล์ (`Map3DCamera`, `Map3DConfig`, `Map3DFocus`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,

@@ -19,7 +19,7 @@ final class HardcodedCopyTests: XCTestCase {
         .deletingLastPathComponent()
 
     /// จอที่อยู่ก่อนการล็อกอิน = จอที่ผู้รีวิวเห็นแน่นอน
-    private static let screens = ["WBW/LoginView.swift", "WBW/WelcomeView.swift"]
+    private static let screens = ["WBW/LoginView.swift", "WBW/IntroView.swift"]
 
     /// จอ SOS ทั้งชุด — เขียนบนสาขา `feat/wbw-sos` **ก่อน**โหมดเดโม่จะกลายเป็นทางเข้าของผู้รีวิว
     /// จึงฮาร์ดโค้ดภาษาไทยไว้ 36 จุดโดยไม่มีอะไรจับได้ · ผู้รีวิวที่ใช้เครื่องภาษาอังกฤษกดปุ่ม SOS
