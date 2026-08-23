@@ -145,7 +145,10 @@ struct SOSStatusView: View {
             warningBox {
                 Text("sos_status_loc_undecided")
                     .multilineTextAlignment(.center)
-                Button("sos_status_loc_allow") { SOSLocator.shared.requestPermission() }
+                // คำกลาง ไม่ใช่ "อนุญาตตำแหน่ง" — ปุ่มนี้พาไปสู่กล่องของระบบเหมือน
+                // `LocationPrimerSheet` เป๊ะ จึงอยู่ใต้ Guideline 5.1.1(iv) ข้อเดียวกันที่ตีกลับ
+                // 1.0 (11) แม้ผู้ตรวจจะยกมาเฉพาะจออธิบาย (ดู `WBWTests/PermissionCopyTests`)
+                Button("action_continue") { SOSLocator.shared.requestPermission() }
                     .sosTapTarget()
             }
         } else if SOSLocator.shared.authorization == .denied

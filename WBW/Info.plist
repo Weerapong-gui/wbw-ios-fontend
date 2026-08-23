@@ -1,20 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-	plist ที่ "ส่งขึ้น store" — ใช้กับ config Release
-
-	ห้ามใส่คีย์ที่มีไว้ให้ dev เท่านั้นในไฟล์นี้ ของพวกนั้นอยู่ที่ Info-Debug.plist
-	และ InfoPlistParityTests คุมไม่ให้สองไฟล์เพี้ยนจากกันเกินคีย์ที่อนุญาต
-
-	ห้ามใส่คีย์ขออนุญาตของฟีเจอร์ที่แอปไม่ได้ใช้จริง — NSLocationWhenInUseUsageDescription
-	ด้านล่างมีได้เพราะฟีเจอร์ SOS ใช้ CoreLocation จริง (ดู WBW/SOS/SOSLocator.swift) ถ้าฟีเจอร์
-	SOS ถูกถอดออกวันไหน ต้องถอดคีย์นี้ออกไปด้วย ไม่งั้นเป็นข้อความขอสิทธิ์ที่ไม่มีโค้ดไหนใช้จริง
-	ซึ่งเป็นเหตุให้ App Review ตีกลับได้ตรงๆ เหมือนที่เคยเกิดมาแล้ว
--->
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>th</string>
+	<key>CFBundleDisplayName</key>
+	<string>เดินรอบดอย</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>th</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>12</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน และส่งพิกัดให้เจ้าหน้าที่ตอนคุณกดขอความช่วยเหลือฉุกเฉิน ระหว่างเปิดแอปเท่านั้น</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Sarabun-Regular.ttf</string>
@@ -24,27 +40,6 @@
 		<string>Kanit-SemiBold.ttf</string>
 		<string>Kanit-Bold.ttf</string>
 	</array>
-	<key>CFBundleLocalizations</key>
-	<array>
-		<string>th</string>
-		<string>en</string>
-	</array>
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
-	<key>CFBundleDisplayName</key>
-	<string>เดินรอบดอย</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
-	<key>CFBundleVersion</key>
-	<string>11</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -56,11 +51,5 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>ใช้กล้องเพื่อสแกน QR ตอนเช็คอินเข้าฐาน</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน และส่งพิกัดให้เจ้าหน้าที่ตอนคุณกดขอความช่วยเหลือฉุกเฉิน ระหว่างเปิดแอปเท่านั้น</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 </dict>
 </plist>

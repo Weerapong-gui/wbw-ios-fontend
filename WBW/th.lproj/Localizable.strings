@@ -264,6 +264,7 @@
 "notifications_empty_desc" = "ประกาศจากทีมงานจะขึ้นที่นี่";
 "action_done" = "เสร็จ";
 "action_close" = "ปิด";
+"action_continue" = "ถัดไป";
 "date_unknown_title" = "ไม่ระบุเวลา";
 "scan_title" = "สแกนเช็คอิน";
 "scan_role_staff" = "เจ้าหน้าที่";
@@ -317,7 +318,6 @@
 "sos_status_call_center" = "โทรหาทีมกลาง %1$@";
 "sos_status_already_acked" = "เจ้าหน้าที่รับเรื่องแล้ว ยกเลิกไม่ได้ ให้โทรบอกแทน";
 "sos_status_loc_undecided" = "ยังไม่ได้อนุญาตให้แอปใช้ตำแหน่ง เจ้าหน้าที่จะเห็นแค่ฐานล่าสุดที่คุณเช็คอิน";
-"sos_status_loc_allow" = "อนุญาตตำแหน่ง";
 "sos_status_loc_denied" = "ไม่ได้อนุญาตตำแหน่ง เจ้าหน้าที่จะเห็นแค่ฐานล่าสุดที่คุณเช็คอิน";
 "sos_status_open_settings" = "ไปตั้งค่า";
 "sos_status_note_placeholder" = "บอกเจ้าหน้าที่เพิ่มได้ (ไม่บังคับ)";

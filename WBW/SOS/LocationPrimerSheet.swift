@@ -4,8 +4,13 @@ import SwiftUI
 ///
 /// ประตูว่าจะโชว์เมื่อไหร่อยู่ที่ `LocationPrimer` (เทสได้ครบทุกสาขาที่นั่น) จอนี้ไม่ตัดสินใจเอง
 ///
-/// **ปุ่ม "อนุญาต" ไม่ได้ให้สิทธิ์เอง** — มันเรียกกล่องของระบบต่ออีกที คนที่กดปุ่มนี้จึงเห็นกล่อง
+/// **ปุ่มบนจอนี้ไม่ได้ให้สิทธิ์เอง** — มันเรียกกล่องของระบบต่ออีกที คนที่กดปุ่มนี้จึงเห็นกล่อง
 /// ของ iOS ตามมาทันที ซึ่งเป็นลำดับที่ Apple อยากให้เป็น: แอปอธิบายก่อน ระบบถามทีหลัง
+///
+/// **คำบนปุ่มต้องเป็นคำกลาง ห้ามเขียนว่า "อนุญาต"** — App Review ตีกลับ 1.0 (11) เมื่อ
+/// 2026-08-24 ตาม Guideline 5.1.1(iv) เพราะปุ่มนี้เคยเขียนว่า "อนุญาตตำแหน่ง" / "Allow location"
+/// ซึ่งนับเป็นการชี้นำให้ผู้ใช้กดอนุญาต · ใบตีกลับยกคำที่ใช้ได้มาเองว่า "Continue" หรือ "Next"
+/// จึงเป็น `action_continue` ตอนนี้ (`WBWTests/PermissionCopyTests` คุมไว้ทั้งสองภาษา)
 struct LocationPrimerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -38,7 +43,7 @@ struct LocationPrimerSheet: View {
                 // ไม่ว่าทางไหนก็ทำให้ `shouldShow` เป็น false ตลอดไป (สถานะเลิกเป็น .notDetermined)
                 dismiss()
             } label: {
-                Text("sos_status_loc_allow")
+                Text("action_continue")
                     .font(.wbwTitleMedium)
                     .frame(maxWidth: .infinity)
                     .frame(height: Config.Tap.minTarget)

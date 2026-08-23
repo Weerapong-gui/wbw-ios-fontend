@@ -264,6 +264,7 @@
 "notifications_empty_desc" = "Announcements from the trail team will appear here";
 "action_done" = "Done";
 "action_close" = "Close";
+"action_continue" = "Continue";
 "date_unknown_title" = "No date";
 "scan_title" = "Check-in scanner";
 "scan_role_staff" = "Staff";
@@ -317,7 +318,6 @@
 "sos_status_call_center" = "Call the central team %1$@";
 "sos_status_already_acked" = "Staff already picked this up, so it can't be cancelled. Please call them instead.";
 "sos_status_loc_undecided" = "Location access hasn't been granted, so staff will only see the last base you checked in at";
-"sos_status_loc_allow" = "Allow location";
 "sos_status_loc_denied" = "Location access is off, so staff will only see the last base you checked in at";
 "sos_status_open_settings" = "Open Settings";
 "sos_status_note_placeholder" = "Tell staff more (optional)";
