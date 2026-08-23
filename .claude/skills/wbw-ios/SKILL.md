@@ -6,7 +6,7 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion]
 
 # WBW iOS — ประตูเข้า skill
 
-ไฟล์นี้เป็นสารบัญ อ่านก่อนเสมอ รายละเอียดจริงอยู่ในไฟล์อ้างอิง 4 ไฟล์ในโฟลเดอร์เดียวกัน (ดู `## อ่านต่อ`)
+ไฟล์นี้เป็นสารบัญ อ่านก่อนเสมอ รายละเอียดจริงอยู่ในไฟล์อ้างอิง 5 ไฟล์ในโฟลเดอร์เดียวกัน (ดู `## อ่านต่อ`)
 
 ## ตอนไหนใช้ skill นี้
 
@@ -15,6 +15,7 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion]
 - build/รัน/เก็บสกรีนช็อต
 - แตะอะไรที่คุยกับ backend
 - จะออกแบบฟีเจอร์ใหม่ (ก่อนเขียนโค้ด)
+- จะ archive ส่งขึ้น App Store Connect หรือตอบ App Review
 
 ## แผนที่โปรเจกต์
 
@@ -66,6 +67,11 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
    ภาษาอังกฤษจะได้แอปครึ่งไทยครึ่งอังกฤษ · `Text("key")` ใน View ใช้ทางเดิมได้ (อ่าน `\.locale`)
    · รันตรวจด้วย `scripts/check-localization.sh` — คีย์ที่หายไม่ทำให้ build พัง ผู้ใช้จะเห็นชื่อคีย์บนปุ่มแทน
    และ `%@` ที่คู่กับ `Int` จะ **crash** ตอนวาดจอ (เคยพังจริงที่บัตรผู้เข้าร่วม)
+11. **ทุกงานต้องตอบก่อนปิดว่ากระทบขั้น App Store ไหม** — สกรีนช็อต / App description / Privacy
+   Nutrition Label / เลข build ต้องขยับตามหรือเปล่า ตอบว่า "ไม่มีผล" ได้แต่ต้องตอบ · รอบ 1.0 (7) โดน
+   ตีกลับ 2.3.3 เพราะของนอกโค้ดไม่ขยับตามโค้ด (สกรีนช็อตกับ description ยังโฆษณาฟีเจอร์ที่ถอดไปแล้ว)
+   ไม่ใช่เพราะโค้ดผิด และไม่มี build/test ตัวไหนจับให้ · ตารางว่างานแบบไหนลากอะไรตามมา กับกติกาช่วง
+   รออนุมัติ อยู่ที่ `appstore.md`
 
 ## คำสั่งเร็ว
 
@@ -103,6 +109,8 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 - `build-and-run.md` — คำสั่ง build/test, รันบน simulator/เครื่องจริง, launch args ข้าม UI ทั้งตาราง,
   ทำไม Debug/Release ต้องแยก plist/entitlements
 - `ui-conventions.md` — สีธีม 5 ตัว, วิธีใช้ Liquid Glass, ไฟล์ใหม่วางตรงไหน, สไตล์คอมเมนต์ในโค้ด
+- `appstore.md` — งานแบบไหนลากสกรีนช็อต/description/Nutrition Label/เลข build ตามมาบ้าง,
+  ห้ามทำอะไรระหว่างรอรีวิว, อะไรที่เทสจับให้แล้วและอะไรที่ต้องใช้ตาคน
 - `workflow.md` — วงจรงาน brainstorm → spec → plan → ทำแบบ TDD, กติกาเทส, กติกา commit, เช็คว่า skill
   เน่าไปแล้วหรือยัง
 
