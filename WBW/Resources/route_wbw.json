@@ -8,10 +8,18 @@
     "own path, not a re-route. It replaced an OSRM foot-profile reconstruction over the",
     "same waypoints, which followed different ways and strayed up to 705m from this.",
     "polyline is Google's encoded-polyline format at precision 5, lossless here because",
-    "the GPX carries exactly 5 decimal places. 750 points.",
-    "distanceMetres is summed from the track; the GPX carries no timings, so there is",
-    "deliberately no duration field rather than an invented one."
+    "the GPX carries exactly 5 decimal places.",
+    "TRIMMED 2026-08-24: this is NOT the organisers' full track. The full export is 750",
+    "points ending west of the university at 20.04570,99.89137; Park pointed at the",
+    "junction with road 3303 on the map and asked for the finish to be there, so the",
+    "tail was cut at index 490 (20.05671,99.90875). 491 points remain. The Android app",
+    "still ships the full 750-point track under this same filename — the two apps draw",
+    "different routes until that side is trimmed too.",
+    "distanceMetres is summed from the track with a haversine over R=6371000; the same",
+    "sum over the full 750-point track gives 8348, against the 8358 the untrimmed file",
+    "carried, so upstream totalled it a slightly different way. The GPX carries no",
+    "timings, so there is deliberately no duration field rather than an invented one."
   ],
-  "distanceMetres": 8358,
-  "polyline": "kiiyB_cv`RPBD@l@TVJl@VDDBD@D@@@F@F@F?HA?Ez@Ef@CNAFGPF@HDB@vAMHCHGJIJMHKNFD@PHPD|@Eb@CPAB?DAb@APAPCHAVQ@AJGl@c@FEJSNOJKLW?]@S?GHo@BKFc@@ILYRe@BG`@q@BCPYBEPWDINSBC\\QP[HMDO@C@EBMAO?EA_@AK@U?CDe@BCPYBCNSBCBCRSB?D?NALAHATJZLr@d@R?@?F@F?LAFIVMBANU@EN[@CN[FQHMBEd@y@@CBCLW@CN[BC@CNWDGJW@EBGFM?KCGQOUWGCOGIIEGQUACA?Ia@AQG{@AKAgA?W?E?CA]?CE_@Gc@?A?CCUSm@ACEKMK]WAAYSUSECACUWY[ACUWAAUYCA]SUMEAWKGEa@WUO[_@AAWWGIWM[OSMKCOGc@o@[UCAQOEAa@KEAMEQCKQGEACGOKKA?OMKEA?c@AC?]EA?c@EKCQEA?A?]K?AAAQUAEGUEM?AMa@CQCEEEKGSMAAA?m@KUCG?SEW?QCa@GA?[EEEGEE]D[?C@UCGCCEEWGCAICOAGC?AMECAMUg@q@IKOOQSEG?ACEOWA?ACm@SMBA?A?OBc@LGLA@CFGFEL?@ABUVKJQBA?KAWIKEUISKGAEAQ?IBGB[BM@QJA?A@UHYBOEOGSCAAe@Qo@[IEMEO?C?S@KAA?]CC?WAKASCOCIAQIWYMIQIE??@E?[FA?KBOJA@MHc@\\a@^SLEFA@ILWp@ABGLGJSFS@UBK?A?K?SCWBM@E@[HC@_@BA?y@BS@}@KG?UAEAI?MMMW@MI]EI?AMIOEG@MFIFGBQTKJMLIHEHODUJO@QSAAKOEMAAMUWSKE_@QGCUMGCWWIMEM?AEQCQGa@AaBG_@KSMSKGGCOQc@MA?GCc@OUE]IE?UCODKLGH?@AHEV?RBRBd@Tn@Rr@Hf@?P?LCNAN?FAH@JFJFFFNBFBJ@DBRBPA?m@VqBx@MDEBG?C?A?EAIASEg@IO?IAC?M@S@KAQCUE_BSKAE@G@C@E@EDA@KDCBIDOHSHQHA@ODOBG@i@DU@M?G@ICWAGAFbCFZ?@HTDHHPDNDHLj@BXDf@@f@ATATCTCTCNAJ?N@H@JDHFFHFHBPFVNNNNPPVR^?JALAHAJEJCFEFEDEDGBKBSHKDKFKHC@IHMN?@EFGRADCH?L?F@DBHHHFD@@FFRF@@VHHDD@LHHFDBLNHHHLDP@L?VCLCPU^CDIDKFIDIBSB[FA@_@HG@YH_@LQHMH_@RUPMHGJEJEJEJCPAPAT@N?H@L?JANCJEJIHGDKDGBG@IAOAUEQCMCG?E?K?QBMDOFA@IDMJEBMJMNOPOTKTGRGTETETC\\CT?h@?T@VB`@Fb@F^Nd@Tp@Tb@T\\BFTZNRHJXXNLPLJFZTd@Vf@VPHVLf@Th@T`@RTJVHRHVBV@V@N@\\@X@H?TDRBLDLFFFHLHRBN?RAXAR?R@\\@PJ`@DNDNRf@Pl@Pj@TrALb@JXP^Zf@V^X\\\\\\b@Tt@\\r@Ln@L\\Ht@TRJLF\\XzAjAJHpB~@d@Px@NT@H?vA?V?@AF?LAPA\\E@?^ITE`@MXKt@a@\\QFEHENKz@u@PKTIJCPCVCZAFAB?F?h@BZFNDRFVNb@RRNNJXR`@Zr@X"
+  "distanceMetres": 4995,
+  "polyline": "kiiyB_cv`RPBD@l@TVJl@VDDBD@D@@@F@F@F?HA?Ez@Ef@CNAFGPF@HDB@vAMHCHGJIJMHKNFD@PHPD|@Eb@CPAB?DAb@APAPCHAVQ@AJGl@c@FEJSNOJKLW?]@S?GHo@BKFc@@ILYRe@BG`@q@BCPYBEPWDINSBC\\QP[HMDO@C@EBMAO?EA_@AK@U?CDe@BCPYBCNSBCBCRSB?D?NALAHATJZLr@d@R?@?F@F?LAFIVMBANU@EN[@CN[FQHMBEd@y@@CBCLW@CN[BC@CNWDGJW@EBGFM?KCGQOUWGCOGIIEGQUACA?Ia@AQG{@AKAgA?W?E?CA]?CE_@Gc@?A?CCUSm@ACEKMK]WAAYSUSECACUWY[ACUWAAUYCA]SUMEAWKGEa@WUO[_@AAWWGIWM[OSMKCOGc@o@[UCAQOEAa@KEAMEQCKQGEACGOKKA?OMKEA?c@AC?]EA?c@EKCQEA?A?]K?AAAQUAEGUEM?AMa@CQCEEEKGSMAAA?m@KUCG?SEW?QCa@GA?[EEEGEE]D[?C@UCGCCEEWGCAICOAGC?AMECAMUg@q@IKOOQSEG?ACEOWA?ACm@SMBA?A?OBc@LGLA@CFGFEL?@ABUVKJQBA?KAWIKEUISKGAEAQ?IBGB[BM@QJA?A@UHYBOEOGSCAAe@Qo@[IEMEO?C?S@KAA?]CC?WAKASCOCIAQIWYMIQIE??@E?[FA?KBOJA@MHc@\\a@^SLEFA@ILWp@ABGLGJSFS@UBK?A?K?SCWBM@E@[HC@_@BA?y@BS@}@KG?UAEAI?MMMW@MI]EI?AMIOEG@MFIFGBQTKJMLIHEHODUJO@QSAAKOEMAAMUWSKE_@QGCUMGCWWIMEM?AEQCQGa@AaBG_@KSMSKGGCOQc@MA?GCc@OUE]IE?UCODKLGH?@AHEV?RBRBd@Tn@Rr@Hf@?P?LCNAN?FAH@JFJFFFNBFBJ@DBRBPA?m@VqBx@MDEBG?C?A?EAIASEg@IO?IAC?M@S@KAQCUE_BSKAE@G@C@E@EDA@KDCBIDOHSHQHA@ODOBG@i@DU@M?G@ICWAGA"
 }

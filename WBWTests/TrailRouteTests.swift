@@ -2,8 +2,8 @@ import XCTest
 import CoreLocation
 @testable import WBW
 
-/// เส้นทางเดิน 8.3 กม. ที่อบมากับแอป — **ไฟล์เดียวกับที่ Android ใช้**
-/// (`app/src/main/res/raw/route_wbw.json` ของ repo Student-Union-WBW-Andriod)
+/// เส้นทางเดินที่อบมากับแอป — ~5.0 กม. หลังตัดที่ทางแยกถนน 3303 (ดู `TrailRoute`)
+/// ต้นทางคือ `app/src/main/res/raw/route_wbw.json` ของ repo Student-Union-WBW-Andriod
 ///
 /// ทำไมต้องเทส: polyline ที่ถอดผิดไม่ทำให้แอปพัง มันวาดเส้นที่ **ไปโผล่กลางมหาสมุทร** แทน
 /// แล้วกล้องก็ตามไปด้วย · ตัวถอดรหัสของ Google เป็นเลขฐานหกที่ต้องเลื่อนบิตทีละ 5 บิตแล้วกลับ
@@ -37,8 +37,8 @@ final class TrailRouteTests: XCTestCase {
         let route = try XCTUnwrap(TrailRoute.bundled,
                                   "ไม่เจอ route_wbw.json ใน bundle — แผนที่ 2D จะไม่มีเส้นทางเลย")
         XCTAssertGreaterThan(route.coordinates.count, 100,
-                             "เส้นทาง 8.3 กม. ที่เหลือไม่กี่จุดแปลว่าถอดรหัสหลุดกลางทาง")
-        XCTAssertEqual(route.distanceMetres, 8358,
+                             "เส้นทางที่เหลือไม่กี่จุดแปลว่าถอดรหัสหลุดกลางทาง")
+        XCTAssertEqual(route.distanceMetres, 4995,
                        "ระยะทางในไฟล์เปลี่ยนไป — ถ้าอบเส้นทางใหม่จริงต้องแก้เลขนี้พร้อมกัน")
     }
 
@@ -55,6 +55,20 @@ final class TrailRouteTests: XCTestCase {
         }
         XCTAssertTrue(outside.isEmpty,
                       "มี \(outside.count) จุดอยู่นอกพื้นที่งาน — จุดแรกคือ \(outside.first as Any)")
+    }
+
+    /// **เส้นทางต้องจบที่ทางแยก ชร.3303 ไม่ใช่วิ่งต่อไปทางตะวันตก**
+    ///
+    /// แทร็กเต็มของผู้จัดงานมี 750 จุดและไปจบหลัง มฟล. (20.04570, 99.89137) · ชุดที่ส่งไปกับแอป
+    /// ถูกตัดที่ทางแยกตามที่ Park ชี้บนแผนที่เมื่อ 2026-08-24 · เทสนี้คือตัวกันไม่ให้ใครเอาไฟล์เต็ม
+    /// จาก repo Android (ชื่อไฟล์เดียวกันเป๊ะ) มาทับแล้วหางกลับมาเงียบ ๆ — เทสจำนวนจุด "> 100"
+    /// ผ่านทั้งสองแบบ จับไม่ได้
+    func testRouteEndsAtTheJunctionNotAtTheOldWesternTail() throws {
+        let route = try XCTUnwrap(TrailRoute.bundled)
+        XCTAssertEqual(route.end.latitude, 20.05671, accuracy: 1e-5)
+        XCTAssertEqual(route.end.longitude, 99.90875, accuracy: 1e-5)
+        XCTAssertEqual(route.coordinates.count, 491,
+                       "จำนวนจุดเปลี่ยน — ถ้าตัดใหม่จริงต้องแก้เลขนี้กับ distanceMetres พร้อมกัน")
     }
 
     /// จุดเริ่ม/จุดจบคือหัวกับท้ายของเส้น ไม่ใช่จุดที่ใครมาเลือกทีหลัง — หมุด START/FINISH
