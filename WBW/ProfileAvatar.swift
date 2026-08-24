@@ -44,13 +44,34 @@ struct ProfileAvatar: View {
         return t.isEmpty ? "?" : String(t.prefix(1)).uppercased()
     }
 
+    /// รูปที่ decode แล้ว คีย์ด้วยสตริงดิบที่รับเข้ามา
+    ///
+    /// **ต้องมี เพราะ `decode` ถูกเรียกข้างใน `body`** — จอแชท re-render ทุกครั้งที่
+    /// `store.messages` เปลี่ยน (ทุกข้อความที่เข้ามา ทุกครั้งที่ส่ง ทุกครั้งที่สถานะอ่านขยับ)
+    /// และทุกเฟรมที่เลื่อนลิสต์ ถ้าไม่แคช = base64 decode + `UIImage(data:)` ต่อฟองที่มองเห็น
+    /// **บน main thread ทุกเฟรม** · เฟรมตกช่วงกดส่งทำให้ช่องพิมพ์ดูเหมือนไม่เคลียร์ได้เอง
+    /// ทั้งที่ตัวการล้างถูกแล้ว (ดู `GroupChatView.send()`)
+    ///
+    /// `NSCache` ไม่ใช่ `Dictionary`: มันปล่อยของคืนเองตอนหน่วยความจำตึง จึงไม่ต้องคุมเพดานเอง
+    /// และปลอดภัยข้ามเธรดในตัว · ใส่ `cost` เป็นขนาดข้อมูลจริงเพื่อให้มันเลือกทิ้งรูปใหญ่ก่อน
+    private static let cache = NSCache<NSString, UIImage>()
+
     /// รองรับ "data:image/...;base64,XXXX" และ base64 ล้วน
+    ///
+    /// คีย์แคชคือสตริง **ดิบก่อนตัดหัว** ตั้งใจ — ค่าที่เรียกมาจาก `GroupMember.photoUrl`
+    /// ตัวเดิมทุกครั้ง เทียบสตริงถูกกว่าตัดหัวก่อนแล้วค่อยเทียบ
     static func decode(_ s: String?) -> UIImage? {
         guard var raw = s, !raw.isEmpty else { return nil }
+        let key = raw as NSString
+        if let hit = cache.object(forKey: key) { return hit }
+
         if let comma = raw.range(of: ",") , raw.hasPrefix("data:") {
             raw = String(raw[comma.upperBound...])
         }
-        guard let data = Data(base64Encoded: raw, options: .ignoreUnknownCharacters) else { return nil }
-        return UIImage(data: data)
+        guard let data = Data(base64Encoded: raw, options: .ignoreUnknownCharacters),
+              let img = UIImage(data: data)
+        else { return nil }
+        cache.setObject(img, forKey: key, cost: data.count)
+        return img
     }
 }
