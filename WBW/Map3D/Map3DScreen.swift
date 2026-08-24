@@ -295,7 +295,7 @@ struct Map3DScreen: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.bottom, ForestSceneHost.tabBarClearance + 12)
+        .tabBarClearance(extra: 12)
     }
 
     /// ม่านมืดรอบ ๆ ตอนจ้องหมุด — ใสตรงกลาง เข้มที่ขอบ
@@ -328,7 +328,7 @@ struct Map3DScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .glassSurface(Capsule())
-                .padding(.bottom, ForestSceneHost.tabBarClearance + 16)
+                .tabBarClearance(extra: 16)
         }
         .allowsHitTesting(false)
         .transition(.opacity)

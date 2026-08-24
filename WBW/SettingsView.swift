@@ -139,7 +139,7 @@ struct SettingsView: View {
                 }
             }
             .padding(.horizontal, 18)
-            .padding(.bottom, ForestSceneHost.tabBarClearance)
+            .tabBarClearance()
         }
         .scrollIndicators(.hidden)
         // ปุ่มออกจากระบบอยู่ท้ายสุดของจอที่ยาวกว่าหน้าจอ — ไม่มีแฟลกนี้ก็ถ่ายรูปยืนยันไม่ได้เลย
@@ -326,7 +326,7 @@ private struct DocView: View {
                 .glassSurface(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
-                .padding(.bottom, ForestSceneHost.tabBarClearance)
+                .tabBarClearance()
         }
         .scrollIndicators(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -399,7 +399,7 @@ struct BlockedUsersView: View {
             }
             .padding(.horizontal, 18)
             .padding(.top, 12)
-            .padding(.bottom, ForestSceneHost.tabBarClearance)
+            .tabBarClearance()
         }
         .scrollIndicators(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

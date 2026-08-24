@@ -112,7 +112,7 @@ struct Map2DView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("map_recenter")
         .padding(.horizontal, 20)
-        .padding(.bottom, ForestSceneHost.tabBarClearance + 68)
+        .tabBarClearance(extra: 68)
     }
 
     /// หมุดฐานหนึ่งใบ — เลขฐานในวงกลม ทองเมื่อเช็คอินแล้ว

@@ -158,7 +158,15 @@ private struct ForestBackground: ViewModifier {
     let day: Float
     let plantStep: Int?
     let plantTotal: Int
-    let bottomClearance: CGFloat
+    /// nil = "เอาระยะพ้นแถบแท็บของไอดิอมนี้" · ตัวเลข = จอนี้ขอเองเป็นพิเศษ (Login/Intro ส่ง 0
+    /// เพราะไม่มีแถบแท็บ) — ต้องเป็น Optional ไม่ใช่ค่าคงที่ default เพราะค่าที่ถูกขึ้นกับขนาดจอ
+    /// ซึ่ง default ของพารามิเตอร์ประเมินตอนเรียก ตอนนั้นยังไม่มี environment ให้อ่าน
+    let bottomClearance: CGFloat?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var resolvedClearance: CGFloat {
+        bottomClearance ?? WBWLayout.tabBarClearance(horizontalSizeClass)
+    }
 
     func body(content: Content) -> some View {
         content
@@ -192,7 +200,7 @@ private struct ForestBackground: ViewModifier {
                 host.day = day
                 host.plantStep = plantStep
                 host.plantTotal = plantTotal
-                host.bottomClearance = bottomClearance
+                host.bottomClearance = resolvedClearance
                 claimToken = host.claimScene()
             }
             .onDisappear {
@@ -206,7 +214,7 @@ private struct ForestBackground: ViewModifier {
             .onChange(of: day) { _, v in host.day = v }
             .onChange(of: plantStep) { _, v in host.plantStep = v }
             .onChange(of: plantTotal) { _, v in host.plantTotal = v }
-            .onChange(of: bottomClearance) { _, v in host.bottomClearance = v }
+            .onChange(of: resolvedClearance) { _, v in host.bottomClearance = v }
     }
 }
 
@@ -214,11 +222,13 @@ extension View {
     /// ใช้ฉากป่า 3D เป็นพื้นหลังของหน้านี้
     /// - plantStep: nil = ไม่มีต้นไม้ · มีค่า = ต้นไม้โตตามขั้น (มีแค่ Home ที่ส่ง)
     /// - bottomClearance: ระยะขั้นต่ำจากขอบจอล่างจริงที่หน้านี้ต้องการให้เครดิตโมเดล — ForestOverlay
-    ///   เทียบกับ safe area จริงของเครื่องด้วย max() ไม่ใช่บวก (ดูคอมเมนต์ที่นั่น) ค่าเริ่มต้น = ระยะที่
-    ///   พ้นแท็บบาร์ลอยของ MainTabView เพราะตอนนี้มีแค่ Home ที่เรียก และ Home อยู่ใต้แท็บบาร์เสมอ —
-    ///   จอที่ไม่มีแท็บบาร์ (Welcome, Login) ต้องส่ง 0 มาเอง
+    ///   เทียบกับ safe area จริงของเครื่องด้วย max() ไม่ใช่บวก (ดูคอมเมนต์ที่นั่น)
+    ///   · **nil (ค่าเริ่มต้น) = ระยะพ้นแถบแท็บของไอดิอมปัจจุบัน** ซึ่งเป็น 0 บน iPad เพราะแถบ
+    ///   อยู่ข้างบน — เดิมค่าเริ่มต้นเป็น `ForestSceneHost.tabBarClearance` ตรง ๆ ซึ่งดัน
+    ///   เครดิตโมเดลลอยขึ้นมา 89pt จากก้นจอบน iPad โดยไม่มีอะไรอยู่ตรงนั้นให้หลบ
+    ///   · จอที่ไม่มีแถบแท็บ (Intro, Login) ยังส่ง 0 มาเองเหมือนเดิม
     func forestBackground(day: Float, plantStep: Int? = nil, plantTotal: Int = 0,
-                           bottomClearance: CGFloat = ForestSceneHost.tabBarClearance) -> some View {
+                           bottomClearance: CGFloat? = nil) -> some View {
         modifier(ForestBackground(day: day, plantStep: plantStep, plantTotal: plantTotal,
                                    bottomClearance: bottomClearance))
     }

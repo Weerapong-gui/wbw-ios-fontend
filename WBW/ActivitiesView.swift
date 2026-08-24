@@ -27,7 +27,7 @@ struct ActivitiesView: View {
             }
             .padding(.horizontal, 18)
             .padding(.top, 8)
-            .padding(.bottom, ForestSceneHost.tabBarClearance)
+            .tabBarClearance()
         }
         .scrollIndicators(.hidden)
         // แท็บวาดพื้นทึบของตัวเองใต้ทุกอย่าง — จอที่ไม่เรียก `forestBackground` จะได้พื้นดำสนิท

@@ -35,7 +35,7 @@ struct GroupJoinView: View {
                     .padding(16)
                     // แถบแท็บลอยทับการ์ดใบสุดท้ายครึ่งใบถ้าไม่เว้น (ระยะวัดจากเครื่องจริงสองรุ่น
                     // ดูคอมเมนต์ที่ `ForestSceneHost.tabBarClearance`)
-                    .padding(.bottom, ForestSceneHost.tabBarClearance)
+                    .tabBarClearance()
                 }
             }
             if let error {
@@ -127,6 +127,10 @@ struct GroupJoinView: View {
 
 /// การ์ดกลุ่ม 1 กลุ่ม
 private struct GroupCard: View {
+    // จอสมาชิกที่การ์ดนี้ push ไปยังมีแถบแท็บโชว์อยู่ จึงต้องส่งระยะพ้นแถบเข้าไปเอง —
+    // ที่นี่เป็น **argument** ไม่ใช่ modifier จึงใช้ `.tabBarClearance()` ไม่ได้ ต้องอ่าน
+    // size class เองแล้วส่งค่าไป (ค่าเดียวกับที่ modifier ตัวนั้นใช้)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let group: GroupSummary
     let previews: [GroupMemberIndex]
     let joining: Bool
@@ -138,7 +142,7 @@ private struct GroupCard: View {
             // ทางเข้านี้แถบแท็บยังโชว์อยู่ (ดูคอมเมนต์ที่ `GroupMembersView.bottomInset`)
             NavigationLink {
                 GroupMembersView(groupId: group.groupId, groupNumber: group.groupNumber,
-                                 bottomInset: ForestSceneHost.tabBarClearance)
+                                 bottomInset: WBWLayout.tabBarClearance(horizontalSizeClass))
             } label: {
                 HStack(spacing: 12) {
                     ZStack {

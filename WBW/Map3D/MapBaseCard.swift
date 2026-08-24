@@ -61,7 +61,7 @@ struct MapBaseCard: View {
             .glassSurface(RoundedRectangle(cornerRadius: 24, style: .continuous),
                           tint: Color.glassPanel)
             .padding(.horizontal, 20)
-            .padding(.bottom, ForestSceneHost.tabBarClearance)
+            .tabBarClearance()
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }

@@ -55,7 +55,7 @@ struct ParticipantPassView: View {
                     sosSection
                 }
                 .padding(.bottom, 16)
-                .padding(.bottom, ForestSceneHost.tabBarClearance)
+                .tabBarClearance()
             }
             .scrollIndicators(.hidden)
             // บัตรสูงกว่าจอ ปุ่ม SOS ที่อยู่ต่อจากมันจึงอยู่ใต้ fold เสมอ — ถ่ายภาพยืนยันไม่ได้เลย
