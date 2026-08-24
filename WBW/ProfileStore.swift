@@ -15,19 +15,9 @@ final class ProfileStore: ObservableObject {
         }
     }
 
-    /// เปลี่ยนรูป — โชว์ทันที (optimistic) แล้ว upload; ล้มเหลว = คืนค่าเดิม
-    /// คืน true ถ้าสำเร็จ
-    func updatePhoto(dataUrl: String, token: String) async -> Bool {
-        let old = photoUrl
-        photoUrl = dataUrl                 // ทุกหน้าที่ผูก store เห็นรูปใหม่ทันที
-        do {
-            try await APIClient.shared.updatePhoto(token: token, photoUrl: dataUrl)
-            return true
-        } catch {
-            photoUrl = old                 // upload พลาด → คืนรูปเดิม
-            return false
-        }
-    }
+    // ตัว optimistic update ของการเปลี่ยนรูปถูกถอดออกพร้อมกับ `APIClient.updatePhoto`
+    // (2026-08-24) — ไม่มีจอไหนเรียก ดูเหตุผลเต็มที่ `APIClient` · `photoUrl` ยังอยู่
+    // เพราะมันคือรูปที่ **อ่าน** มาจากโปรไฟล์ ไม่ใช่รูปที่เขียนขึ้นไป
 
     func clear() { me = nil; photoUrl = nil }
 }

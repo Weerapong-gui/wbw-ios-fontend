@@ -162,23 +162,14 @@ struct APIClient {
         return try dec.decode(CheckinResult.self, from: data)
     }
 
-    /// อัปเดตรูปโปรไฟล์ตัวเอง (base64 data URL)
-    func updatePhoto(token: String, photoUrl: String) async throws {
-        if DemoMode.active { return }
-        guard let url = URL(string: "\(Config.apiBase)\(Config.mePath)") else { throw AppError.message(Loc.t("error_bad_url")) }
-        var req = URLRequest(url: url)
-        req.httpMethod = "PATCH"
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["photo_url": photoUrl])
-        let (data, resp): (Data, URLResponse)
-        do { (data, resp) = try await Self.send(req) }
-        catch { throw AppError.message(Loc.t("error_network_short")) }
-        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-            throw AppError.message(b?.error ?? Loc.t("error_photo_failed"))
-        }
-    }
+    // **ทางอัปโหลดรูปโปรไฟล์ถูกถอดออก (2026-08-24)** — `updatePhoto` เคยอยู่ตรงนี้ ยิง
+    // `PATCH /me` พร้อมสตริง base64 ที่ไม่จำกัดขนาด แต่ **ไม่มีใครเรียกเลยทั้งแอป**: ไม่มี
+    // `PhotosPicker` ไม่มี `loadTransferable` ไม่มีปุ่มไหนพาไปถึง · รูปที่แอปแสดงมาจาก
+    // เซิร์ฟเวอร์ทางเดียว
+    //
+    // เอากลับมาได้เมื่อมีฟีเจอร์เปลี่ยนรูปจริง แต่ต้องมาพร้อม **เพดานขนาดและการบีบอัดฝั่งเครื่อง**
+    // — `ProfileAvatar.decode` วิ่งบน main thread รูปใหญ่เกินไปคือ jank บนจอแชทโดยตรง
+    // (`PhotoUploadRemovalTests` เฝ้าไว้อยู่)
 
     // ===== ประกาศ / แจ้งเตือน =====
 

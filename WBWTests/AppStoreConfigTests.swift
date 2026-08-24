@@ -233,13 +233,21 @@ final class AppStoreConfigTests: XCTestCase {
             """)
 
         // ค้ำอีกทาง: ถ้ามีคนเพิ่ม PhotosPicker เข้ามาจริงในอนาคต เทสข้างบนต้องถูกแก้พร้อมกัน
+        //
+        // **ตัดบรรทัดคอมเมนต์ทิ้งก่อนตรวจ** — เดิมค้นสตริงบนซอร์สดิบ คอมเมนต์ที่อธิบายว่า
+        // "แอปนี้ไม่มี PhotosPicker" จึงทำให้เทสแดงเอง (เจอจริงตอนถอด `APIClient.updatePhoto`
+        // แล้วเขียนคอมเมนต์บอกเหตุผลไว้แทน) · คอมเมนต์เลือกรูปไม่ได้ ตัดทิ้งไม่ได้ทำให้ค้ำหลวมลง
+        // — ทรงเดียวกับที่ `SURunRemovalTests` กับ `PhotoUploadRemovalTests` ทำอยู่แล้ว
         let sources = try FileManager.default
             .subpathsOfDirectory(atPath: Self.repoRoot.appendingPathComponent("WBW").path)
             .filter { $0.hasSuffix(".swift") }
         let usesPhotos = try sources.contains { path in
             let text = try String(
                 contentsOf: Self.repoRoot.appendingPathComponent("WBW/\(path)"), encoding: .utf8)
-            return text.contains("import PhotosUI") || text.contains("PhotosPicker")
+            let code = text.components(separatedBy: .newlines)
+                .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+                .joined(separator: "\n")
+            return code.contains("import PhotosUI") || code.contains("PhotosPicker")
         }
         XCTAssertFalse(usesPhotos, """
             มีโค้ดเลือกรูปเข้ามาแล้ว — ต้องประกาศ PhotosorVideos กลับเข้า manifest และแก้เทสนี้
