@@ -131,6 +131,39 @@ final class ChatSessionPersistenceTests: XCTestCase {
         XCTAssertNil(chat.incoming, "toast ที่ค้างชี้ข้อความเดิมต้องถูกเคลียร์ ไม่งั้นจะ render @Model ที่ลบไปแล้ว")
     }
 
+    /// น้องของเทสข้างบน — `purge(upTo:)` ก็ลบ `@Model` ทิ้งเหมือนกัน แต่เดิมไม่ได้เคลียร์ `incoming`
+    ///
+    /// เส้นทางที่พังจริง: toast ข้อความใหม่โผล่อยู่บนจอ (MainTabView ถือ `chat.incoming` ไว้ render)
+    /// แล้ว sync รอบถัดไปได้ `since_id` ที่สูงกว่าข้อความนั้น (เกิดตอนถูกเอาออกแล้วเข้ากลุ่มใหม่
+    /// ระหว่างที่ toast ยังไม่หาย) — `purge` ลบแถวนั้นจาก SwiftData ส่วน toast ยังถือ reference
+    /// ไปที่ object ที่ตายแล้ว พออ่าน `.senderName`/`.body` ต่อคือแอปดับ
+    func testPurgeUpToClearsIncomingWhenThatMessageIsCutOff() {
+        let chat = ChatSession()
+        let context = makeContext()
+        chat.testSetup(groupId: 1, myId: "me", context: context)
+        chat.merge([dto(id: "3", clientId: "c3")], groupId: 1)
+        chat.incoming = chat.messages.first
+
+        chat.purge(upTo: 5)
+
+        XCTAssertTrue(chat.messages.isEmpty)
+        XCTAssertNil(chat.incoming, "toast ที่ชี้ข้อความที่เพิ่งถูกตัดทิ้งต้องถูกเคลียร์ ไม่งั้น render @Model ที่ลบแล้ว")
+    }
+
+    /// อีกทิศ — ข้อความที่รอดจุดตัด toast ต้องไม่ถูกดับไปด้วย (กันแก้เกินมือเป็น `incoming = nil` ล้วน)
+    func testPurgeUpToKeepsIncomingWhenThatMessageSurvives() {
+        let chat = ChatSession()
+        let context = makeContext()
+        chat.testSetup(groupId: 1, myId: "me", context: context)
+        chat.merge([dto(id: "9", clientId: "c9")], groupId: 1)
+        chat.incoming = chat.messages.first
+
+        chat.purge(upTo: 5)
+
+        XCTAssertEqual(chat.messages.count, 1)
+        XCTAssertNotNil(chat.incoming)
+    }
+
     // ===== purgeForLogout() =====
 
     func testPurgeForLogoutRemovesMessagesAcrossAllGroupsAndClearsAllChatDefaults() {

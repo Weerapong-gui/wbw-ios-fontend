@@ -28,7 +28,7 @@ struct GroupChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !store.connectivity.online { offlineBanner }
+            if !store.online { offlineBanner }
             messageList
         }
         // แถบแท็บลอยไม่ควรอยู่บนจอแชท — จอนี้เป็นจอที่คนอยู่ค้างแล้วพิมพ์ ไม่ใช่จอที่แวะดู

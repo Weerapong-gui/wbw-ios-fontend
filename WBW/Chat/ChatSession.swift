@@ -23,6 +23,20 @@ final class ChatSession: ObservableObject {
     @Published var kickedOut = false
 
     let connectivity = Connectivity()
+    /// สถานะเน็ตที่ **view ต้องอ่านตัวนี้** ไม่ใช่ `connectivity.online` ตรง ๆ
+    ///
+    /// `Connectivity` เป็น ObservableObject คนละตัวกับ `ChatSession` — `@ObservedObject var store`
+    /// ของจอแชทไม่ observe nested object ให้ อ่านทะลุไปแล้วแบนเนอร์ "ออฟไลน์อยู่" จะขยับเฉพาะ
+    /// ตอนมีอย่างอื่นบังเอิญมา invalidate body (เช่น sync ได้ข้อความใหม่) เน็ตหลุดตอนที่ไม่มี
+    /// ข้อความไหลเข้าเลยจึงไม่ขึ้นสักที คนพิมพ์ต่อโดยไม่รู้ว่ากำลังเข้าคิว
+    @Published private(set) var online = true
+
+    init() {
+        // ผูกใน init ไม่ใช่ configure() — แบนเนอร์ต้องถูกตั้งแต่ก่อนรู้ groupId ด้วย (จอแชทเปิดได้
+        // ตั้งแต่ยังไม่ configure เสร็จ) และเทสหน่วยยันได้โดยไม่ต้องเรียก configure() ซึ่งลาก start()
+        // ไปยิง network จริง
+        connectivity.onChange = { [weak self] up in self?.online = up }
+    }
 
     private var context: ModelContext?
     private var groupId: Int?
@@ -95,11 +109,16 @@ final class ChatSession: ObservableObject {
     #if DEBUG
     /// สำหรับเทสหน่วยเท่านั้น — ตั้งค่าที่จำเป็นตรงๆ โดยไม่เรียก start() (กัน Task ยิง network จริงตอนเทส)
     /// ต่างจาก configure() ตรงที่ configure() เรียก start() เสมอเมื่อ groupId ไม่ nil
-    func testSetup(groupId: Int?, myId: String = "me", context: ModelContext? = nil) {
+    func testSetup(groupId: Int?, myId: String = "me", token: String = "",
+                   context: ModelContext? = nil) {
         if let context { self.context = context }
         self.groupId = groupId
         self.myId = myId
+        self.token = token
     }
+
+    /// สำหรับเทสหน่วยเท่านั้น — รอ flush ให้จบจริง · `send()` ปล่อย `Task` ลอยไว้ซึ่งเทสรอไม่ได้
+    func testFlushOutbox() async { await flushOutbox() }
     #endif
 
     func start() {
@@ -273,6 +292,10 @@ final class ChatSession: ObservableObject {
     func purge(upTo sinceId: Int64) {
         let stale = messages.filter { !Self.survivesCutoff($0, sinceId: sinceId) }
         guard !stale.isEmpty, let context else { return }
+        // ข้อความที่ toast กำลังโชว์อยู่อาจเป็นตัวที่กำลังจะถูกลบ — เคลียร์ก่อน ไม่งั้น MainTabView
+        // ถือ reference ไปที่ @Model ที่ตายแล้วต่อ แล้วอ่าน .senderName/.body ตอน render = แอปดับ
+        // (กติกาเดียวกับ purgeAll() ข้างล่าง ซึ่งเคยตกหล่นแล้วแก้ไปรอบหนึ่ง — ตัวนี้ตกหล่นตามมา)
+        if let inc = incoming, !Self.survivesCutoff(inc, sinceId: sinceId) { incoming = nil }
         for m in stale { context.delete(m) }
         try? context.save()
         messages = messages.filter { Self.survivesCutoff($0, sinceId: sinceId) }
@@ -380,6 +403,14 @@ final class ChatSession: ObservableObject {
                     try? context.save()
                     messages = Self.sorted(messages)
                 } catch AppError.offline {
+                    return
+                } catch AppError.retryable {
+                    // ไปถึงเซิร์ฟเวอร์แล้วแต่ตอนนี้ยังไม่ได้ (ล้น/gateway ล้ม/ทางผ่านเพี้ยน) —
+                    // **คงไว้ที่ .pending** ให้ trigger ถัดไปเก็บ ไม่ใช่ขึ้นฟอง "ส่งไม่สำเร็จ"
+                    // ให้ผู้ใช้ต้องกด retry เอง (ดูรายชื่อ terminal ที่ APIClient.isTerminalSendStatus)
+                    //
+                    // return ไม่ใช่ continue: ถ้าเซิร์ฟเวอร์กำลังล้น ข้อความถัดไปในคิวก็เจอเหมือนกัน
+                    // ยิงต่อคือซ้ำเติม · sync loop รอบหน้า (~25 วิ) จะเรียกกลับมาเอง
                     return
                 } catch {
                     m.state = .failed

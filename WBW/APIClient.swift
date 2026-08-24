@@ -296,6 +296,23 @@ struct APIClient {
         throw AppError.message(b?.error ?? Loc.t("error_leave_failed"))
     }
 
+    /// status ของ POST ข้อความแชทที่เป็น **ปลายทางจริง** — ยิงซ้ำด้วย payload เดิมไม่มีวันผ่าน
+    ///
+    /// ทุกตัวคือ error ที่เกิดจากตัว request เอง ซึ่งไม่มีอะไรเปลี่ยนตอน retry: body เดิม
+    /// (400 รูปร่างผิด, 413 ยาวเกิน, 422 ผิดความหมาย), header เดิม (401 token หมดอายุ,
+    /// 415 content-type), method/URL เดิม (405, 414), สิทธิ์ (403 ไม่ได้อยู่ในกลุ่มแล้ว)
+    /// หรือหายถาวร (410)
+    ///
+    /// **ที่ไม่อยู่ในรายชื่อนี้ retry ได้ทั้งหมด** — 408/425 (Cloudflare: ส่ง body ไม่จบ /
+    /// TLS early data), 429 (ล้น), 5xx (origin หรือ gateway ล้ม — 502/503/524 หน้า
+    /// api.studentunion.social), 404/407 (ทางผ่านเพี้ยนชั่วคราว) และ status อะไรก็ตามที่
+    /// ยังไม่มีใครนึกถึง · ค่าเริ่มต้นต้องคือ "เก็บข้อความของผู้ใช้ไว้ก่อน" ไม่ใช่ยอมแพ้
+    ///
+    /// แยกเป็น static ไม่ใช่ฝังใน switch — ให้เทสยิงทีละ status ได้ตรง ๆ
+    static func isTerminalSendStatus(_ status: Int) -> Bool {
+        [400, 401, 403, 405, 410, 413, 414, 415, 422].contains(status)
+    }
+
     /// ส่งข้อความ — idempotent ด้วย clientId
     func sendMessage(token: String, groupId: Int, clientId: String, body: String, deviceTime: String) async throws -> MessageDTO {
         if DemoMode.active {
@@ -310,9 +327,17 @@ struct APIClient {
         let (data, resp): (Data, URLResponse)
         do { (data, resp) = try await Self.send(req) }
         catch { throw AppError.offline }   // เน็ตล่ม → offline (flush จะหยุด retry รอบหน้า)
-        guard let http = resp as? HTTPURLResponse, http.statusCode == 201 || http.statusCode == 200 else {
+        guard let http = resp as? HTTPURLResponse else { throw AppError.message(Loc.t("error_unknown")) }
+        guard http.statusCode == 201 || http.statusCode == 200 else {
             let b = try? JSONDecoder().decode(APIErrorBody.self, from: data)
-            throw AppError.message(b?.error ?? Loc.t("error_send_failed"))  // 4xx = mark failed
+            let msg = b?.error ?? Loc.t("error_send_failed")
+            // จำแนกกลับหัวเหมือน submitFeedback: terminal คือรายชื่อที่ระบุไว้ชัด ที่เหลือ retry ได้
+            // — ราคาของการจำแนกผิดสองทางไม่เท่ากันเหมือนกัน เผลอ retry = POST เปล่ารอบละครั้งต่อ
+            // sync loop หนึ่งรอบ (~25 วิ) ส่วนเผลอ terminal = ฟอง "ส่งไม่สำเร็จ" ค้างจนกว่าผู้ใช้
+            // จะสังเกตแล้วกดเอง ซึ่งบนดอยคือข้อความที่กลุ่มไม่ได้อ่านทั้งวัน
+            throw Self.isTerminalSendStatus(http.statusCode)
+                ? AppError.message(msg)
+                : AppError.retryable(msg)
         }
         let dec = JSONDecoder(); dec.keyDecodingStrategy = .convertFromSnakeCase
         return try dec.decode(MessageDTO.self, from: data)
