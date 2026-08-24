@@ -2,4 +2,5 @@
    The values inside Info.plist are only the fallback when this file is missing. */
 "CFBundleDisplayName" = "Doi Walk";
 "NSCameraUsageDescription" = "The camera is used to scan participants' QR codes when checking them in at a base.";
-"NSLocationWhenInUseUsageDescription" = "Your location shows where you are on the event map, and is sent to event staff when you press the emergency help button. It is only used while the app is open.";
+"NSLocationWhenInUseUsageDescription" = "Your location shows where you are on the event map, measures the distance you walk once you start a walk, and is sent to event staff when you press the emergency help button. It is only used while the app is open.";
+"NSMotionUsageDescription" = "The step sensor counts the steps you take while a walk is running. The count is only shown on the map and never leaves your device.";

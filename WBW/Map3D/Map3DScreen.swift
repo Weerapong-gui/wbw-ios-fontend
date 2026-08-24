@@ -104,6 +104,11 @@ struct Map3DScreen: View {
     /// คำใบ้ "แตะหมุดเพื่อดูฐาน" ยังโชว์อยู่ไหม
     @State private var showsHint = false
 
+    /// ตัวจับการเดินรอบนี้ — เจ้าของ `CMPedometer` กับ `CLLocationManager` ของฟีเจอร์นับก้าว
+    /// (คนละตัวกับ `location` ข้างบนที่มีไว้วาดจุดบนแผนที่เท่านั้น ความละเอียดคนละระดับ
+    /// ดูคอมเมนต์ที่ `WalkTracker.init`)
+    @StateObject private var walk = WalkTracker()
+
     /// ฐานที่ `-uitestMapPin` สั่งให้เปิดค้างไว้ แต่ยังบินไปหาไม่ได้เพราะโมเดลยังโหลดไม่เสร็จ
     /// (DEBUG เท่านั้น — ปลาย make เป็นคนหยิบไปใช้แล้วล้างทิ้ง)
     @State private var pendingForcedPin: Int?
@@ -202,9 +207,35 @@ struct Map3DScreen: View {
             //
             // หลบให้การ์ดฐาน: การ์ดกินความกว้างเต็มจอที่ขอบล่าง ปุ่มกลม ๆ ที่ลอยทับมันอยู่
             // อ่านเป็นปุ่มของการ์ด ไม่ใช่ปุ่มของแผนที่ (ถ่ายเจอจริงตอนยืนยันโหมด 2 มิติ)
-            if Config.map3D && tappedSequence == nil {
+            // ซ่อนตอนกำลังเดิน — ตรงกับ Android (`MapScreen.kt:674`) ที่ซ่อนปุ่ม 3D ระหว่างเดิน
+            // ด้วยเหตุผลเดียวกัน: มุมล่างเป็นที่ของปุ่มหยุด ปุ่มอื่นข้าง ๆ ทำให้กดผิดตอนเหนื่อย
+            if Config.map3D && tappedSequence == nil && !walk.stats.active {
                 modeToggle(current: mode)
             }
+
+            // ปุ่มเริ่ม/หยุดเดิน — **ซ้ายล่าง** ระดับเดียวกับปุ่มสลับโหมดที่อยู่ขวาล่าง
+            // ตรงกับที่ Android วางไว้ (`MapScreen.kt:663` ใช้ `Alignment.BottomStart`)
+            if tappedSequence == nil {
+                walkButton
+            }
+        }
+        // แถบตัวเลขตอนเดิน — ใช้ `safeAreaInset` ไม่ใช่วางซ้อนใน ZStack เพราะ **เข็มทิศอยู่ขวาบน
+        // ที่ `.padding(.top, 8)` เหมือนกัน** ทับกันแน่ถ้าวางซ้อน · `safeAreaInset` ดันของที่เหลือ
+        // ในจอลงมาให้เอง ไม่ต้องไปวัดความสูงของ HUD มาบวก padding ของเข็มทิศเอง ซึ่งเป็นเลขที่
+        // เพี้ยนทันทีที่ผู้ใช้ขยายขนาดตัวอักษร (ยืนยันตำแหน่งจริงด้วยสกรีนช็อต ไม่ใช่อ่านโค้ดเอา)
+        .safeAreaInset(edge: .top) {
+            if walk.stats.hasData {
+                WalkHud(stats: walk.stats)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: walk.stats.hasData)
+        // ออกจากแท็บ = หยุดจับ · ตัวจับกิน GPS ความละเอียดสูงสุดตลอดเวลา ปล่อยให้วิ่งต่อ
+        // ตอนผู้ใช้ไปอยู่แท็บอื่นคือเผาแบตให้สิ่งที่ไม่มีใครดู (ทรงเดียวกับ `location.stop()`)
+        .onChange(of: isActive) { _, nowActive in
+            if !nowActive && walk.stats.active { walk.stop() }
         }
         // **ผูกกับรากของจอ ไม่ใช่กับ `mapView`** — `mapView` คือ `RealityView` ของโหมด 3 มิติ
         // ซึ่งไม่ถูก mount เลยเมื่อแท็บเปิดมาที่โหมด 2 มิติ และ 2 มิติคือค่าเริ่มต้นตั้งแต่
@@ -219,6 +250,11 @@ struct Map3DScreen: View {
             // ตั้งเฉพาะการ์ดตรงนี้ไม่พอในโหมด 3 มิติ — ม่านมืดกับกล้องผูกกับ `focus(on:at:)`
             // ซึ่งต้องรู้ตำแหน่งหมุดในฉาก และตำแหน่งนั้นมีให้ก็ต่อเมื่อโมเดลโหลดเสร็จแล้ว
             // จึงฝากไว้ที่ `pendingForcedPin` ให้ปลาย make มาหยิบไปแทน
+            // ถ่ายจอตอนกำลังเดิน — ดูคอมเมนต์ที่ `WalkTracker.fillForScreenshot()`
+            if UserDefaults.standard.bool(forKey: "uitestWalk") {
+                showsHint = false
+                walk.fillForScreenshot()
+            }
             let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
             if forced > 0 {
                 showsHint = false
@@ -292,6 +328,41 @@ struct Map3DScreen: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(LocalizedStringKey(current.toggleLabelKey))
+            }
+        }
+        .padding(.horizontal, 20)
+        .tabBarClearance(extra: 12)
+    }
+
+    /// ปุ่มเริ่ม/หยุดเดิน มุมซ้ายล่าง — แคปซูลกระจกทรงเดียวกับที่ Android ใช้
+    ///
+    /// กดเริ่มแล้ว **ซ่อนคำใบ้ทันที** ไม่ปล่อยให้ค้าง — คำใบ้อยู่กลางล่างที่ระยะใกล้กันมาก
+    /// (`tabBarClearance + 16` เทียบกับปุ่มที่ `+12`) ทับกันแล้วอ่านไม่ออกทั้งคู่
+    private var walkButton: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Button {
+                    showsHint = false
+                    walk.toggle()
+                } label: {
+                    let running = walk.stats.active
+                    HStack(spacing: 9) {
+                        Image(systemName: running ? "stop.fill" : "play.fill")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(running ? Color.wbwGreen : .white)
+                        Text(Loc.t(running ? "walk_stop" : "walk_start").uppercased())
+                            .font(.wbwLabelMedium)
+                            .kerning(1.8)
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.leading, 18)
+                    .padding(.trailing, 22)
+                    .frame(minHeight: Config.Tap.minTarget)
+                    .glassSurface(Capsule(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                Spacer()
             }
         }
         .padding(.horizontal, 20)

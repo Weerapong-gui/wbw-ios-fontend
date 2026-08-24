@@ -124,12 +124,12 @@ final class AppStoreConfigTests: XCTestCase {
             let dict = try plist(path)
             XCTAssertNil(dict["NSPhotoLibraryUsageDescription"],
                          "\(path) ขอสิทธิ์คลังรูปทั้งที่ใช้ PhotosPicker ซึ่งไม่ต้องขอ")
-            // เคยบังคับให้ **ต้องมี** `NSMotionUsageDescription` เพราะแท็บ SU RUN ใช้ CMPedometer
-            // จริง · SU RUN ถูกถอดออกทั้งฟีเจอร์ 2026-08-22 คีย์จึงต้องหายตามไปด้วย —
-            // เงื่อนไขกลับทิศ ไม่ใช่ถูกลบทิ้ง · รายละเอียดกับตัวค้ำอีกด้าน (ห้ามมี CMPedometer
-            // ในโค้ดโดยไม่มีคีย์) อยู่ที่ `SURunRemovalTests`
-            XCTAssertNil(dict["NSMotionUsageDescription"],
-                         "\(path) ยังขอสิทธิ์เซ็นเซอร์ความเคลื่อนไหว ทั้งที่ไม่มีอะไรใช้แล้ว")
+            // **คีย์ `NSMotionUsageDescription` ย้ายออกจากเทสนี้แล้ว ไม่ได้หายไปเฉย ๆ**
+            // มันกลับทิศมาสองรอบ: เคยต้องมี (แท็บ SU RUN ใช้ CMPedometer) → ต้องไม่มี
+            // (SU RUN ถูกถอด 2026-08-22) → ต้องมีอีกครั้ง (ฟีเจอร์นับก้าวกลับมา 2026-08-25)
+            // · ที่นี่เป็นรายการของ "สิทธิ์ที่แอปไม่ได้ใช้" คีย์ที่แอปใช้จริงจึงไม่ควรอยู่ใน
+            // รายการนี้ตั้งแต่แรก — ตัวค้ำอยู่ที่ `WalkTrackingContractTests` ซึ่งผูกคีย์นี้
+            // เข้ากับผู้ใช้รายเดียวของมันทั้งสองทิศ (มีโค้ด = ต้องมีคีย์ครบสี่ที่)
         }
     }
 
