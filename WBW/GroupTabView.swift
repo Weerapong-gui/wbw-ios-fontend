@@ -67,6 +67,14 @@ struct GroupHomeView: View {
 
     var body: some View {
         ZStack {
+            // `Spacer()` กลางจอดันปุ่มออกจากกลุ่มไปก้น — ห่อ `ScrollView` เฉย ๆ แล้วมันยุบ
+            // ปุ่มจะเด้งขึ้นมาชิดใต้แถวสมาชิกทันทีบนทุกเครื่อง · `FitsOrScrolls` เก็บทรงเดิมไว้
+            // ตอนใส่ลง และให้เลื่อนได้เมื่อไม่ลง (ดู `WBW/Layout.swift`)
+            //
+            // **กล่องยืนยันออกจากกลุ่มกับ `clearsHostOpaqueBackground` อยู่นอกตัวนี้โดยตั้งใจ**
+            // เอาเข้าไปข้างในแล้วกล่องยืนยันจะเลื่อนตามเนื้อหา และท่าเคลียร์พื้นทึบของ
+            // hosting controller จะไปลงผิด view
+            FitsOrScrolls {
             VStack(spacing: 20) {
                 VStack(spacing: 6) {
                     Text("group_my_group").font(.system(size: 14)).foregroundStyle(.secondary)
@@ -111,6 +119,8 @@ struct GroupHomeView: View {
                 }
             }
             .padding(20).padding(.top, 8)
+            .contentColumn(.card)
+            }
         }
         .clearsHostOpaqueBackground()
         .navigationBarTitleDisplayMode(.inline)

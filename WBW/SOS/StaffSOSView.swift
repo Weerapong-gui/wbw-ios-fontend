@@ -394,9 +394,17 @@ struct StaffSOSView: View {
                         .padding(.bottom, 12)
                 }
                 if store.cases.isEmpty {
-                    Spacer()
-                    emptyState
-                    Spacer()
+                    // `Spacer()` สองตัวจัด empty state ไว้กลางจอ — ห่อ `ScrollView` เฉย ๆ
+                    // แล้วมันยุบ ข้อความจะไปกองชิดบน · `FitsOrScrolls` เก็บการจัดกลางไว้
+                    // และให้เลื่อนได้เมื่อข้อความยาวจนไม่ลง (ตัวอักษรขนาดใหญ่สุด)
+                    FitsOrScrolls {
+                        VStack {
+                            Spacer()
+                            emptyState
+                            Spacer()
+                        }
+                        .contentColumn(.card)
+                    }
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 12) {
@@ -405,6 +413,7 @@ struct StaffSOSView: View {
                             }
                         }
                         .padding(16)
+                        .contentColumn(.card)
                     }
                 }
             }

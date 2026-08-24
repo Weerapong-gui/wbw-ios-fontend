@@ -50,6 +50,11 @@ struct StaffScanView: View {
             // จอเจ้าหน้าที่เป็นเครื่องมือกลางแดด กลางคืน — มืดตายตัวคือสิ่งที่ต้องการอยู่แล้ว
             Color.wbwForestVoid.ignoresSafeArea()
 
+            // วัดพื้นที่จริงเพื่อคิดขนาดแพนกล้อง — ไม่ใช้ `UIScreen` (ทั้ง repo ไม่มีสักจุด)
+            // และค่าคงที่ต่อรุ่นก็ผิดทันทีบน iPad หรือหน้าต่างที่ถูกย่อ
+            GeometryReader { geo in
+            let paneHeight = min(max(geo.size.height * 0.38, 200), 340)
+
             VStack(spacing: 16) {
                 header
                 basePicker
@@ -64,16 +69,21 @@ struct StaffScanView: View {
                     } else if camera == .ready && !cameraMissing {
                         QRScannerView(onMissingDevice: { cameraMissing = true }) { code in handleScan(code) }
                             .overlay(alignment: .center) {
+                                // กรอบเล็งคิดจากขนาดแพน ไม่ใช่ 180 ตายตัว — แพนหดแล้วกรอบ
+                                // เท่าเดิมจะเกือบเต็มแพน อ่านเป็นขอบของแพนไม่ใช่กรอบเล็ง
                                 RoundedRectangle(cornerRadius: 14)
                                     .stroke(Color.wbwOnBackdrop, lineWidth: 3)
-                                    .frame(width: 180, height: 180)
+                                    .frame(width: paneHeight * 0.6, height: paneHeight * 0.6)
                             }
                     } else {
                         cameraBlocked
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 300)
+                // สูงตามสัดส่วนพื้นที่จริง ไม่ใช่ 300pt ตายตัว — บน iPhone SE (สูง 667) ค่าเดิม
+                // กินเกือบครึ่งจอ จนหัวจอ ตัวเลือกฐาน ช่องกรอกบิบ และข้อความ error เบียดกันจนล้น
+                // · เพดาน 340 กันไม่ให้กลายเป็นช่องมองยักษ์บน iPad
+                .frame(height: paneHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 22))
                 .overlay(RoundedRectangle(cornerRadius: 22).stroke(.white.opacity(0.25), lineWidth: 1))
                 .padding(.horizontal, 20)
@@ -91,6 +101,13 @@ struct StaffScanView: View {
                 Spacer()
             }
             .padding(.top, 8)
+            .contentColumn(.card)
+            }
+            // **ล็อกเพดานขนาดตัวอักษรที่จอนี้จอเดียว** — เป็นเครื่องมือของเจ้าหน้าที่ล้วน
+            // ผู้เข้าร่วมไม่มีทางเห็น และที่ขนาดใหญ่สุด หัวจอ+ตัวเลือกฐาน+ช่องกรอกบิบ จะกิน
+            // ที่จนช่องมองกล้องเหลือนิดเดียว ซึ่งทำให้เครื่องมือใช้งานไม่ได้จริงกลางแดด
+            // · อย่าลบเพดานนี้โดยไม่หาทางอื่นให้ช่องมองก่อน
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
 
             // ผลลัพธ์เช็คอิน
             if let result {
