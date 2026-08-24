@@ -29,12 +29,25 @@ struct AppBackdrop: View {
     }
 
     var body: some View {
-        Image("bg_backdrop")
-            .resizable()
-            .scaledToFill()
-            // frame + clipped ก่อน ignoresSafeArea — scaledToFill ทำให้ภาพล้นกรอบจริง ไม่คลิป
-            // แล้วภาพส่วนเกินจะไปดันขนาดของ container แล้วเลย์เอาต์ข้างในเพี้ยนตาม
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // **`Color.clear` เป็นตัวกำหนดขนาด ไม่ใช่ตัวภาพ** — `Color.clear` รับข้อเสนอขนาดเท่าไร
+        // ก็รายงานเท่านั้นเสมอ ส่วน `.overlay` ไม่มีวันดันขนาดของสิ่งที่มันทับอยู่ ภาพจึงล้นได้
+        // ตามใจแล้วโดน `.clipped()` ตัดทิ้ง โดยไม่มีทางไปยุ่งกับ layout ของใคร
+        //
+        // เดิมเป็น `Image(...).scaledToFill().frame(maxWidth: .infinity, maxHeight: .infinity)`
+        // ซึ่งเอาอยู่บน iPhone แต่ **พังหนักบน iPad**: `frame(max…: .infinity)` ไม่ได้บังคับ
+        // ขนาดให้เท่าข้อเสนอ มันแค่ยอมโตจนเต็ม — พอ `scaledToFill` รายงานขนาดตามอัตราส่วนภาพ
+        // (736×1471 = 1:2) บนจอ 4:3 กรอบนี้จึงรายงานสูง 2063pt บนจอที่สูงจริง 1376pt
+        // · ตัวนี้เป็นลูกของ `ZStack` ใน `RootView` ซึ่งคิดขนาดจากลูกที่ใหญ่ที่สุด **ทั้ง ZStack
+        // จึงสูง 2063 แล้ว `MainTabView` ที่เป็นลูกอีกใบก็ถูกยืดตาม** พอ ZStack จัดกึ่งกลาง
+        // เนื้อหาทุกแท็บเลยถูกดันขึ้นไปพ้นขอบบนจอ 340pt: แท็บกิจกรรมว่างเปล่าสนิท หน้าบัตร
+        // โดนตัดหัวการ์ดทิ้ง หน้าแรกเหลือแต่ดอกไม้ไม่มีตัวอักษรสักบรรทัด (ยืนยันด้วย NSLog
+        // ของ `frame(in: .global)` จริงบน iPad Pro 13" ไม่ใช่จากการอ่านโค้ด)
+        Color.clear
+            .overlay {
+                Image("bg_backdrop")
+                    .resizable()
+                    .scaledToFill()
+            }
             .clipped()
             .ignoresSafeArea()
             .overlay(wash)
