@@ -19,13 +19,35 @@ final class GroupStore: ObservableObject {
     }
 
     /// สมาชิกเต็มของกลุ่ม (cache)
-    func members(groupId: Int, token: String) async -> [GroupMember] {
-        if let cached = membersByGroup[groupId] { return cached }
+    ///
+    /// `force` = ข้ามแคชไปถามใหม่ · แคชนี้ไม่มีวันหมดอายุเองและ `GroupStore` อยู่ยาวเท่าโปรเซส
+    /// (สร้างที่ `WBWApp`) คนที่เพิ่งเข้ากลุ่มจึงไม่มีรูปในแชทจนกว่าจะปิด-เปิดแอป ซึ่งไม่มีใครทำ
+    /// ระหว่างเดินอยู่บนดอย · จอแชทเรียกแบบ force เมื่อ `ChatSession.memberCount` (ค่าที่มากับ
+    /// sync ทุกรอบ) ไม่ตรงกับจำนวนที่ถืออยู่
+    ///
+    /// **ยิงพลาดต้องไม่ล้างของเดิม** — คืนแคชเดิมไป ไม่งั้นเน็ตสะดุดรอบเดียวจอแชทจะกลายเป็น
+    /// avatar ตัวอักษรทั้งจอทั้งที่เมื่อกี้ยังมีรูปครบ
+    func members(groupId: Int, token: String, force: Bool = false) async -> [GroupMember] {
+        if !force, let cached = membersByGroup[groupId] { return cached }
         if let r = try? await APIClient.shared.groupMembers(token: token, groupId: groupId) {
             membersByGroup[groupId] = r.members
             return r.members
         }
-        return []
+        return membersByGroup[groupId] ?? []
+    }
+
+    /// ล้างทุกอย่างที่เป็นของบัญชีปัจจุบัน — เรียกตอน logout จาก `MainTabView.onDisappear`
+    /// ที่เดียวกับ `progress.clear()` / `checkpoints.clear()`
+    ///
+    /// `GroupStore` อยู่ยาวเท่าโปรเซส ไม่ได้ตายไปกับ `MainTabView` — ไม่ล้างแล้วบัญชีที่ 2 ที่
+    /// login เครื่องเดียวกันเห็นรายชื่อสมาชิก (พร้อมรูป) ของบัญชีก่อนหน้า เรื่องเดียวกับที่
+    /// `ChatSession.purgeForLogout()` กับ `Session.logout()` ไล่ล้างไปแล้วทุกก้อน ก้อนนี้ตกหล่น
+    func clear() {
+        groups = []
+        memberIndex = []
+        membersByGroup = [:]
+        search = ""
+        loaded = false
     }
 
     func join(groupId: Int, token: String) async throws {

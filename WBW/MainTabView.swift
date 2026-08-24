@@ -7,6 +7,7 @@ struct MainTabView: View {
     @EnvironmentObject var profile: ProfileStore
     @EnvironmentObject var progress: CheckinProgressStore
     @EnvironmentObject var checkpoints: CheckpointStore
+    @EnvironmentObject var groups: GroupStore
     @EnvironmentObject var host: ForestSceneHost
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
@@ -504,6 +505,9 @@ struct MainTabView: View {
             // Session ไม่ได้ถือ store ไว้ ดูคอมเมนต์ที่นั่น)
             progress.clear()
             checkpoints.clear()
+            // รายชื่อกลุ่ม/สมาชิก (พร้อมรูป) ก็อยู่ยาวเท่าโปรเซสเหมือนกัน — `GroupStore` สร้างที่
+            // `WBWApp` ไม่ได้ตายไปกับจอนี้ ไม่ล้างแล้วบัญชีที่ 2 เห็นของบัญชีก่อนหน้า
+            groups.clear()
             // เคส SOS ที่ยังค้างอยู่ — ล้างหรือไม่ล้างขึ้นกับว่าออกจากระบบทางไหน ไม่ใช่ล้างเสมอ
             // (แก้จากรีวิว Task 14 รอบสอง: ที่นี่เคยเขียนว่า "ทุกทางยืนยันมาก่อนแล้ว" ซึ่งไม่จริง —
             // .wbwUnauthorized ใน Session.init ยิง logout() เองทันทีที่เจอ 401 จากไหนก็ได้ในแอป

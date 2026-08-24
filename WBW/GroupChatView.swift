@@ -102,10 +102,26 @@ struct GroupChatView: View {
                 draft = prefill
             }
             #endif
-            let gid = profile.me?.groupId ?? 0
-            let ms = await groups.members(groupId: gid, token: session.token ?? "")
-            members = Dictionary(uniqueKeysWithValues: ms.map { ($0.userId, $0) })
+            await loadMembers()
         }
+        // จำนวนสมาชิกมากับผลของ sync ทุกรอบ — ไม่ตรงกับที่ถืออยู่แปลว่ามีคนเข้า/ออกกลุ่ม
+        // ต้องถามรายชื่อใหม่ ไม่งั้นฟองของคนที่เพิ่งเข้ามาได้ avatar ตัวอักษรแทนรูปจริงจนกว่า
+        // จะปิด-เปิดแอป ซึ่งไม่มีใครทำระหว่างเดินอยู่บนดอย (แคชของ `GroupStore` ไม่มีวันหมดอายุเอง)
+        .onChange(of: store.memberCount) { _, count in
+            guard count > 0, count != members.count else { return }
+            Task { await loadMembers(force: true) }
+        }
+    }
+
+    /// โหลดรายชื่อสมาชิกมาทำตาราง senderId → member สำหรับหา avatar
+    ///
+    /// `uniquingKeysWith` ไม่ใช่ `uniqueKeysWithValues` — ตัวหลัง **crash** ถ้าเซิร์ฟเวอร์ส่ง
+    /// userId ซ้ำมาแถวเดียว (คนเดียวสองแถวจาก join ที่เพี้ยน) ซึ่งเป็นข้อมูลจากข้างนอกที่แอป
+    /// ควบคุมไม่ได้ · จอแชทดับทั้งจอเพราะแถวซ้ำหนึ่งแถวไม่คุ้มกับอะไรเลย
+    private func loadMembers(force: Bool = false) async {
+        guard let gid = profile.me?.groupId, gid > 0 else { return }
+        let ms = await groups.members(groupId: gid, token: session.token ?? "", force: force)
+        members = Dictionary(ms.map { ($0.userId, $0) }, uniquingKeysWith: { _, latest in latest })
     }
 
     private var offlineBanner: some View {
