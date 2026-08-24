@@ -216,12 +216,61 @@ struct MessageDTO: Codable {
     @FlexibleString var id: String
     let groupId: Int
     let senderId: String
+    /// คีย์ฝั่งเครื่องที่ใช้ dedupe — **ไม่มีวันว่าง** ถึงจะไม่มีในคำตอบก็ตาม (ดู init(from:))
     let clientId: String
     let body: String
     let deviceTime: String?
     let createdAt: String?
     let firstName: String?
     let lastName: String?
+
+    /// memberwise init — เขียนเองเพราะ `init(from:)` ข้างล่างกลบตัวที่ Swift สังเคราะห์ให้
+    /// (เทสหลายไฟล์ประกอบ DTO ตรง ๆ ไม่ผ่าน JSON)
+    init(id: String, groupId: Int, senderId: String, clientId: String, body: String,
+         deviceTime: String?, createdAt: String?, firstName: String?, lastName: String?) {
+        self.id = id
+        self.groupId = groupId
+        self.senderId = senderId
+        self.clientId = clientId
+        self.body = body
+        self.deviceTime = deviceTime
+        self.createdAt = createdAt
+        self.firstName = firstName
+        self.lastName = lastName
+    }
+
+    /// เขียน init เองเพื่อ **ไม่ให้แถวเดียวฆ่าทั้งห้องแชท**
+    ///
+    /// `client_id` เป็นคอลัมน์ที่แอปเป็นคนตั้งตอน POST (ดู docs/backend-contract.md §8) แถวที่
+    /// ไม่ได้เกิดจากแอป — แอดมิน insert เอง, migration, สคริปต์ทดสอบ — จึงมี `null` หรือ `""` ได้
+    /// จริง · ปล่อยให้ synthesized init throw แล้ว `chatSync` จะล้มทั้งก้อน syncLoop เข้า backoff
+    /// วนตลอดไป **โดยไม่มี error บนจอเลย** (แคชเก่ายังโชว์ครบ) = แชทเงียบไปเฉย ๆ ทั้งห้อง
+    ///
+    /// คีย์แทนต้องอิง `id` ของเซิร์ฟเวอร์ ซึ่งไม่ซ้ำกันแน่นอน — ถ้าใช้ค่าคงที่หรือ `""`
+    /// `@Attribute(.unique)` ของ `ChatMessage.clientId` จะ **ยุบทุกแถวแบบนั้นรวมเป็นแถวเดียว**
+    /// และ `ForEach` ในจอแชทจะมี id ซ้ำ
+    ///
+    /// ที่ยังปล่อยให้ throw ไว้เหมือนเดิมคือ `id`/`group_id`/`sender_id`/`body` — ขาดตัวใดตัวหนึ่ง
+    /// แปลว่าแถวนี้ประกอบเป็นข้อความไม่ได้จริง ๆ ให้ `ChatSyncResponse` ทิ้งทั้งแถวไปแทน
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // เก็บลงตัวแปรก่อนแล้วค่อยใช้ — อ่าน `self.id` ตอนที่ยังตั้งค่าไม่ครบทุก property ไม่ได้
+        let serverId = try c.decode(FlexibleString.self, forKey: .id)
+        _id = serverId
+        groupId = try c.decode(Int.self, forKey: .groupId)
+        senderId = try c.decode(String.self, forKey: .senderId)
+        body = try c.decode(String.self, forKey: .body)
+        deviceTime = try c.decodeIfPresent(String.self, forKey: .deviceTime)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        firstName = try c.decodeIfPresent(String.self, forKey: .firstName)
+        lastName = try c.decodeIfPresent(String.self, forKey: .lastName)
+        let raw = try c.decodeIfPresent(String.self, forKey: .clientId)
+        if let raw, !raw.isEmpty {
+            clientId = raw
+        } else {
+            clientId = "srv-\(serverId.wrappedValue)"
+        }
+    }
 
     var senderName: String {
         [firstName, lastName].compactMap { $0?.trimmingCharacters(in: .whitespaces) }
