@@ -110,6 +110,7 @@ struct LoginView: View {
                 Spacer()
             }
             .padding(.horizontal, 28)
+            .contentColumn(.form)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // เที่ยงวันนิ่งๆ (day 0.46) — ไม่มีแท็บบาร์ที่หน้านี้ ส่ง bottomClearance: 0 (เหมือน Welcome)
             .forestBackground(day: ForestMath.dayStill, bottomClearance: 0)

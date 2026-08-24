@@ -62,6 +62,7 @@ struct MapBaseCard: View {
                           tint: Color.glassPanel)
             .padding(.horizontal, 20)
             .tabBarClearance()
+            .contentColumn(.card)
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }

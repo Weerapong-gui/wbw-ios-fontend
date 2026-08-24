@@ -30,6 +30,7 @@ struct FeedbackView: View {
                 Color.wbwBg.ignoresSafeArea()
                 ScrollView {
                     card.padding(.horizontal, 16).padding(.top, 12)
+                        .contentColumn(.form)
                 }
             }
             .navigationTitle(Text("feedback_title"))

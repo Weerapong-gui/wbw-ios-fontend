@@ -197,6 +197,7 @@ struct GroupChatView: View {
                     }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)
+                .contentColumn(.transcript)
             }
             .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
@@ -287,6 +288,9 @@ struct GroupChatView: View {
             .disabled(!ChatDraft.canSend(draft))
         }
         .padding(.horizontal, 14).padding(.vertical, 8)
+        // คอลัมน์เดียวกับบทสนทนา ไม่ใช่เต็มความกว้างจอ — ช่องพิมพ์ที่กว้างกว่าฟองข้อความ
+        // อ่านเป็นของคนละจอกับที่มันกำลังตอบอยู่
+        .contentColumn(.transcript)
         .background(.ultraThinMaterial)
     }
 

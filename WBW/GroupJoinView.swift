@@ -36,6 +36,7 @@ struct GroupJoinView: View {
                     // แถบแท็บลอยทับการ์ดใบสุดท้ายครึ่งใบถ้าไม่เว้น (ระยะวัดจากเครื่องจริงสองรุ่น
                     // ดูคอมเมนต์ที่ `ForestSceneHost.tabBarClearance`)
                     .tabBarClearance()
+                    .contentColumn(.card)
                 }
             }
             if let error {

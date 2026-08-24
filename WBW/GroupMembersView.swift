@@ -35,6 +35,7 @@ struct GroupMembersView: View {
             }
             .padding(16)
             .padding(.bottom, bottomInset)
+            .contentColumn(.card)
         }
         .clearsHostOpaqueBackground()
         .navigationBarTitleDisplayMode(.inline)
