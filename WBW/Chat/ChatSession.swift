@@ -334,6 +334,10 @@ final class ChatSession: ObservableObject {
         for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("chat.") {
             UserDefaults.standard.removeObject(forKey: key)
         }
+        // รายชื่อคนที่บล็อกไว้ขึ้นต้นด้วย `wbw.` จึงรอดจากการกวาดข้างบนมาตลอด — บัญชีที่ 2 บนเครื่อง
+        // เดียวกันสืบทอดรายการบล็อกของบัญชีก่อน และ **เห็นชื่อ** คนที่บัญชีก่อนบล็อกในหน้าตั้งค่า
+        // (BlockedUsers เก็บชื่อคู่กับ id เพื่อให้จอนั้นแสดงได้) = รั่วข้ามบัญชี ไม่ใช่แค่ของค้าง
+        BlockedUsers.clearAll()
     }
 
     /// รวมข้อความจาก server — dedupe ตาม clientId. คืนเฉพาะอันที่เพิ่งเข้ามาใหม่จริงๆ

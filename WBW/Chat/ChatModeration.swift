@@ -68,7 +68,21 @@ final class BlockedUsers: ObservableObject {
         let name: String
     }
 
-    static var storageKey: String { "wbw.chat.blocked" + CacheScope.suffix }
+    /// ต้นคีย์ร่วมของทุก scope — `clearAll` กวาดจากตัวนี้ ไม่ใช่จาก `storageKey` ตัวเดียว
+    static let keyPrefix = "wbw.chat.blocked"
+    static var storageKey: String { keyPrefix + CacheScope.suffix }
+
+    /// ล้างรายชื่อที่บล็อกไว้ **ทุก scope** — เรียกจาก `ChatSession.purgeForLogout()`
+    ///
+    /// คีย์ขึ้นต้นด้วย `wbw.` จึงรอดจากการกวาด `hasPrefix("chat.")` ของ `purgeForLogout` มาตลอด
+    /// บัญชีที่ 2 ที่ login เครื่องเดียวกันจึงสืบทอดรายการบล็อกของบัญชีก่อน และ **เห็นชื่อ** คนที่
+    /// บัญชีก่อนบล็อกไว้ในหน้าตั้งค่า (คลาสนี้เก็บชื่อคู่กับ id เพื่อให้จอนั้นแสดงได้ ดูคอมเมนต์
+    /// หัวคลาส) — เป็นการรั่วข้อมูลข้ามบัญชี ไม่ใช่แค่ของค้าง
+    static func clearAll(defaults: UserDefaults = .standard) {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(keyPrefix) {
+            defaults.removeObject(forKey: key)
+        }
+    }
 
     @Published private(set) var entries: [Entry] = []
 
