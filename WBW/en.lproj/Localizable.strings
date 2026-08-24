@@ -413,3 +413,15 @@
 "scan_camera_interrupted" = "Another app or the system is using the camera. Try leaving Split View or ending the call. You can still check people in by BIB number.";
 "scan_pick_base_first" = "No base selected yet. Pick a base above, then scan again.";
 "scan_no_bases" = "No bases available yet. Check your connection and try again.";
+
+/* --- Staff SOS case screen (previously hardcoded Thai in the source) --- */
+"sos_staff_feed_failing" = "Failed to load cases %1$ld times in a row. What you see may not be current.";
+"sos_staff_ack_failed" = "Could not send “On the way”. It may or may not have reached the server. You can tap again, or wait and see if this card updates on its own.";
+"sos_staff_resolve_failed" = "Could not close the case. It may or may not have reached the server. You can tap again, or wait and see if this card updates on its own.";
+"sos_staff_bib_group" = "BIB %1$@ · Group %2$@";
+"sos_staff_near_base" = "Near %1$@";
+"sos_staff_base_unknown" = "Base unknown";
+"sos_staff_sending" = "Sending…";
+"sos_staff_ack" = "On the way";
+"sos_staff_open_count" = "%1$ld open";
+"sos_staff_none_open" = "No open cases";

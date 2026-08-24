@@ -199,7 +199,7 @@ final class StaffSOSStore: ObservableObject {
 
     var feedWarning: String? {
         guard consecutiveFeedFailures >= Self.feedFailuresBeforeWarning else { return nil }
-        return "โหลดรายการเคสไม่สำเร็จ \(consecutiveFeedFailures) ครั้งติดกัน — ที่เห็นอาจไม่ใช่ล่าสุด"
+        return String(format: Loc.t("sos_staff_feed_failing"), consecutiveFeedFailures)
     }
 
     /// คืน true เมื่อเซิร์ฟเวอร์รับจริง · false = ล้มเหลว และ actionError ถูกตั้งไว้ให้จอแสดง
@@ -216,8 +216,7 @@ final class StaffSOSStore: ObservableObject {
             return true
         } catch {
             actionError = ActionError(caseId: id, message:
-                "ส่งคำขอ \u{201c}กำลังไป\u{201d} ไม่สำเร็จ — ไม่รู้ว่าถึงเซิร์ฟเวอร์แล้วหรือยัง "
-                + "กดใหม่อีกครั้งได้ หรือรอดูว่าการ์ดนี้อัปเดตเองไหม")
+                Loc.t("sos_staff_ack_failed"))
             return false
         }
     }
@@ -230,8 +229,7 @@ final class StaffSOSStore: ObservableObject {
             return true
         } catch {
             actionError = ActionError(caseId: id, message:
-                "ส่งคำขอปิดเคสไม่สำเร็จ — ไม่รู้ว่าถึงเซิร์ฟเวอร์แล้วหรือยัง "
-                + "กดใหม่อีกครั้งได้ หรือรอดูว่าการ์ดนี้อัปเดตเองไหม")
+                Loc.t("sos_staff_resolve_failed"))
             return false
         }
     }
@@ -260,10 +258,12 @@ struct StaffSOSCard: View {
                     .foregroundStyle(.orange)
             }
             Text(c.fullName).font(.title3.bold())
-            Text("BIB \(c.bib.map(String.init) ?? "-") · กลุ่ม \(c.groupNumber.map(String.init) ?? "-")")
+            Text(String(format: Loc.t("sos_staff_bib_group"),
+                        c.bib.map(String.init) ?? "-", c.groupNumber.map(String.init) ?? "-"))
                 .foregroundStyle(Color.wbwForestVoid.opacity(0.65))
 
-            Text(c.checkpointName.map { "ใกล้\($0)" } ?? "ไม่ทราบฐาน")
+            Text(c.checkpointName.map { String(format: Loc.t("sos_staff_near_base"), $0) }
+                    ?? Loc.t("sos_staff_base_unknown"))
             Text("\(c.positionLabel) · \(c.accuracyLabel)")
                 .font(.caption)
                 .foregroundStyle(c.isCoarse ? Color.orange : Color.wbwForestVoid.opacity(0.65))
@@ -314,7 +314,7 @@ struct StaffSOSCard: View {
                 // (`wbwForestVoid` เกือบดำ) ส่วน label รับสีจาก `.foregroundStyle` ของการ์ด
                 // ซึ่งเป็นสีเดียวกัน = ดำบนดำ อ่านไม่ออกเลย (ถ่ายเจอจริง 2026-08-21)
                 Button { run { await store.ack(id: c.id, token: token) } } label: {
-                    Text(busy ? "กำลังส่ง…" : "กำลังไป")
+                    Text(Loc.t(busy ? "sos_staff_sending" : "sos_staff_ack"))
                         .foregroundStyle(Color.wbwOnBackdrop)
                 }
                 .buttonStyle(.borderedProminent)
@@ -426,7 +426,9 @@ struct StaffSOSView: View {
                 Text("sos_staff_title")
                     .font(.wbwText(22, weight: .bold, relativeTo: .title2))
                     .foregroundStyle(.white)
-                Text(store.openCount > 0 ? "ค้างอยู่ \(store.openCount) เคส" : "ไม่มีเคสค้าง")
+                Text(store.openCount > 0
+                     ? String(format: Loc.t("sos_staff_open_count"), store.openCount)
+                     : Loc.t("sos_staff_none_open"))
                     .font(.wbwText(13, relativeTo: .footnote))
                     .foregroundStyle(.white.opacity(0.6))
             }

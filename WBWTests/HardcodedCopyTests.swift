@@ -44,6 +44,51 @@ final class HardcodedCopyTests: XCTestCase {
         !s.isEmpty && s.range(of: "^[a-z][a-z0-9_]*$", options: .regularExpression) != nil
     }
 
+    /// **ไม่มีอักษรไทยในสตริงของจอเหล่านี้เลย นอกบล็อก `#if DEBUG`**
+    ///
+    /// สองแพตเทิร์นข้างบนจับได้แค่ `Text("ลิเทอรัล")` ล้วน ๆ — ข้อความที่มี interpolation
+    /// หรือเป็น ternary รอดไปหมด และนั่นคือรูปแบบที่หลุดไปจริงบนจอเคส SOS ของเจ้าหน้าที่ 6 จุด
+    /// (`Text("BIB \(…) · กลุ่ม \(…)")`, `Text(busy ? "กำลังส่ง…" : "กำลังไป")`,
+    /// ข้อความ error ที่ต่อสตริงสองบรรทัด) · ผู้ตรวจ App Store ที่ใช้เครื่องภาษาอังกฤษเห็น
+    /// การ์ดครึ่งอังกฤษครึ่งไทยบนจอที่ต้องอ่านให้เร็วที่สุดของงาน
+    ///
+    /// กฎ "ห้ามมีอักษรไทย" แรงกว่าและง่ายกว่าการไล่เติมแพตเทิร์นทีละแบบ — ทุกข้อความที่ผู้ใช้
+    /// เห็นต้องมาจากชุดคีย์อยู่แล้ว ในโค้ดจึงไม่ควรมีตัวไทยเหลืออยู่เลย
+    ///
+    /// ยกเว้นบล็อก `#if DEBUG` เพราะ fixture ของแฟลกถ่ายภาพ (ชื่อคนไทย ชื่อฐาน อาการบาดเจ็บ)
+    /// เป็น**ข้อมูลจำลอง ไม่ใช่ข้อความของแอป** และไม่ถูกคอมไพล์เข้า Release อยู่แล้ว
+    func testNoThaiTextIsBakedIntoTheseScreens() throws {
+        for path in Self.screens + Self.sosScreens + ["WBW/StaffScanView.swift"] {
+            let text = try String(
+                contentsOf: Self.repoRoot.appendingPathComponent(path), encoding: .utf8)
+
+            var shipping: [String] = []
+            var debugDepth = 0
+            for line in text.components(separatedBy: .newlines) {
+                let t = line.trimmingCharacters(in: .whitespaces)
+                if t.hasPrefix("#if DEBUG") { debugDepth += 1; continue }
+                if debugDepth > 0 {
+                    if t.hasPrefix("#if") { debugDepth += 1 }
+                    if t.hasPrefix("#endif") { debugDepth -= 1 }
+                    continue
+                }
+                if t.hasPrefix("//") { continue }
+                shipping.append(line)
+            }
+
+            for (offset, line) in shipping.enumerated() {
+                guard let quote = line.firstIndex(of: "\"") else { continue }
+                let inStrings = line[quote...]
+                let thai = inStrings.unicodeScalars.contains { (0x0E00...0x0E7F).contains($0.value) }
+                XCTAssertFalse(thai, """
+                    \(path) บรรทัดที่ \(offset + 1) ของส่วนที่ขึ้น Release มีอักษรไทยในสตริง:
+                    \(line.trimmingCharacters(in: .whitespaces))
+                    ข้อความที่ผู้ใช้เห็นต้องผ่านชุดคีย์ทั้งสองภาษา
+                    """)
+            }
+        }
+    }
+
     func testPreLoginScreensPassEveryStringThroughTheCatalogue() throws {
         for path in Self.screens {
             let url = Self.repoRoot.appendingPathComponent(path)
