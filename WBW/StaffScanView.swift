@@ -54,6 +54,9 @@ struct StaffScanView: View {
     @State private var power: ScannerPower = .stored()
     /// ระบบยึดกล้องไปอยู่ตอนนี้ไหม (สายเข้า แอปอื่นแย่ง Split View บน iPad)
     @State private var interrupted = false
+    /// โฟกัสของช่องกรอก BIB — **แป้นตัวเลขไม่มีปุ่ม return** ไม่มีตัวนี้ก็ไม่มีทางปิดแป้นเลย
+    /// นอกจากกดปุ่มเช็คอิน · แป้นที่ปิดไม่ได้ดันทั้งจอขึ้นค้างไว้ ช่องมองกล้องหายไปทั้งอัน
+    @FocusState private var bibFocused: Bool
     /// เริ่มที่ `.ask` ไม่ใช่ `.ready` — ยังไม่ได้ถามระบบ จะเปิดกล้องเลยไม่ได้
     @State private var camera: CameraPermission = .ask
     /// ซิมูเลเตอร์กับเครื่องที่ไม่มีกล้องจะได้สิทธิ์ผ่าน แต่ `AVCaptureDevice.default` คืน nil
@@ -151,6 +154,13 @@ struct StaffScanView: View {
             .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         }
         .animation(.easeInOut(duration: 0.2), value: shown?.id)
+        // ทางออกจากแป้นตัวเลข — ดูคอมเมนต์ที่ `bibFocused`
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button(Loc.t("action_done")) { bibFocused = false }
+            }
+        }
         .task {
             await requestCamera()
             await load()
@@ -187,7 +197,18 @@ struct StaffScanView: View {
         .padding(.top, 8)
     }
 
+    @ViewBuilder
     private var basePicker: some View {
+        if checkpoints.isEmpty {
+            // **ลิสต์ว่างต้องมีหน้าตา** — ของเดิมเป็น `ScrollView` แนวนอนที่ไม่มีลูกสักตัว
+            // ซึ่งวาดออกมาเป็นความว่างเปล่าที่มองไม่เห็น เจ้าหน้าที่จึงไม่มีทางรู้ว่าที่สแกน
+            // ไม่ติดเพราะยังไม่มีฐานให้เลือก ไม่ใช่เพราะกล้องอ่านไม่ออก
+            Text("scan_no_bases")
+                .font(.wbwText(13, relativeTo: .footnote))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 22)
+        } else {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(checkpoints) { cp in
@@ -205,6 +226,7 @@ struct StaffScanView: View {
                 }
             }
             .padding(.horizontal, 22)
+        }
         }
     }
 
@@ -338,6 +360,8 @@ struct StaffScanView: View {
                 // ผ่านเข้ามาแล้ว `Int()` อ่านไม่ได้ (ดูเหตุผลเต็มที่ `StaffBibInput.sanitise`)
                 .onChange(of: bib) { _, v in bib = StaffBibInput.sanitise(v) }
                 .disabled(busy)
+                .focused($bibFocused)
+                .submitLabel(.done)
             Button { checkin(qr: nil, bib: Int(bib)) } label: {
                 Text("scan_action_checkin")
                     .font(.wbwText(15, weight: .semibold, relativeTo: .subheadline))
@@ -356,7 +380,15 @@ struct StaffScanView: View {
         guard let token = session.token else { return }
         do {
             checkpoints = try await APIClient.shared.staffCheckpoints(token: token)
-            if selected == nil { selected = checkpoints.first?.id }
+            // **ฐานที่เลือกไว้อาจหายไปจากรายการรอบใหม่** (แอดมินย้ายเจ้าหน้าที่ระหว่างงาน) —
+            // ของเดิมตั้งค่าเฉพาะตอน `selected == nil` ค่าที่ค้างอยู่จึงชี้ไปยัง id ที่ไม่มีแล้ว
+            // ไม่มีชิปไหนถูกไฮไลต์ แต่การสแกนยังยิงต่อและโดนเซิร์ฟเวอร์ปฏิเสธทุกครั้ง
+            if selected == nil || !checkpoints.contains(where: { $0.id == selected }) {
+                selected = checkpoints.first?.id
+            }
+            // โหลดสำเร็จแล้วต้องล้างข้อความผิดพลาดของรอบก่อน — ของเดิมล้างเฉพาะตอนเริ่ม
+            // เช็คอิน เส้นแดงจากเน็ตหลุดชั่วคราวจึงค้างอยู่ใต้ช่องกรอกไปเรื่อย ๆ
+            error = nil
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription
         }
