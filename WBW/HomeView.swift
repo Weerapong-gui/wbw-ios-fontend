@@ -71,9 +71,13 @@ struct HomeView: View {
 
             // ช่องว่างที่ชิปทักทายเดิมเคยกิน คืนกลับเป็นอากาศ ไม่ได้ยกให้อย่างอื่น
             VStack(alignment: .leading, spacing: 12) {
-                // น้ำหนักปกติ ไม่ใช่ตัวหนา — ต้นทางตั้ง `displaySmall` เป็น Sarabun Bold 34sp
-                // แต่ Bold ของ Sarabun บาง พอมาเทียบกับสกรีนช็อตจริงของ Android แล้วเส้นบางกว่า
-                // `.bold` ของ SF ชัดเจน · ตามที่ตาเห็นบนเครื่องจริง ไม่ใช่ตามชื่อ weight ในไฟล์
+                // ใช้ `wbwDisplaySmall` ตามสเกลของแอป ไม่ตั้งน้ำหนักเอง
+                //
+                // **บันทึกเก่า (สมัยยังใช้ Sarabun)**: ต้นทาง Android ตั้ง `displaySmall` เป็น
+                // Bold 34sp แต่ Bold ของ Sarabun เส้นบางกว่า `.bold` ของ SF ชัดเจน จึงเทียบ
+                // ด้วยตาบนเครื่องจริงแทนการเชื่อชื่อ weight ในไฟล์ · ตั้งแต่ 2026-08-25 แอป
+                // เปลี่ยนไปใช้ Anuphan ทั้งหมด เหตุผลเรื่องน้ำหนักของ Sarabun จึงไม่ใช้แล้ว
+                // — เก็บไว้เพราะวิธีตัดสิน (เทียบด้วยตาบนเครื่องจริง) ยังใช้ได้เหมือนเดิม
                 Text(String(format: Loc.t("home_greeting"), name))
                     .font(.wbwDisplaySmall)
                     .foregroundStyle(Color.wbwOnBackdrop)

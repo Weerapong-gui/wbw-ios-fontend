@@ -29,7 +29,8 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
   `Bloom/` (3 ไฟล์ — ดอกไม้ halftone หน้า Home),
   `Demo/` (3 ไฟล์ — โหมดเดโม่สำหรับ App Review), `Scene3D/` (7 ไฟล์ — ฉากป่า ปิดอยู่ตอนนี้แต่ไม่ได้ลบ),
   `Resources/` (asset 3D `.usdz`/`.glb` +
-  `Fonts/` ไฟล์ `.ttf` ของ Sarabun/Kanit ที่ยกมาจาก repo Android)
+  `Fonts/` — **Anuphan หน้าเดียวทั้งแอป** (variable font ไฟล์เดียว + `Anuphan-OFL.txt`
+  ที่สัญญาอนุญาตบังคับให้แนบ ห้ามลบ) · Sarabun/Kanit ที่ยกมาจาก Android ถูกถอดออกแล้ว 2026-08-25)
 - `WBW/en.lproj/`, `WBW/th.lproj/` — `Localizable.strings` ชุดคีย์ชื่อเดียวกับ `strings.xml` ของ Android
   ทั้งสองฝั่ง · `Font.wbw*` ใน `Typography.swift` คือสเกลตัวอักษรของแอป (ยกจาก `Type.kt`)
   · **ข้อความนอก View ใช้ `Loc.t("key")` ไม่ใช่ `String(localized:)`** (ดูกติกาข้อ 10)

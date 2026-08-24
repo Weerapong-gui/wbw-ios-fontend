@@ -42,12 +42,7 @@
 	<string>ใช้แสดงตำแหน่งของคุณบนแผนที่พื้นที่งาน จับระยะทางที่คุณเดินได้ตอนกดเริ่มเดิน และส่งพิกัดให้เจ้าหน้าที่ตอนคุณกดขอความช่วยเหลือฉุกเฉิน ระหว่างเปิดแอปเท่านั้น</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Sarabun-Regular.ttf</string>
-		<string>Sarabun-SemiBold.ttf</string>
-		<string>Sarabun-Bold.ttf</string>
-		<string>Kanit-Medium.ttf</string>
-		<string>Kanit-SemiBold.ttf</string>
-		<string>Kanit-Bold.ttf</string>
+		<string>Anuphan.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
