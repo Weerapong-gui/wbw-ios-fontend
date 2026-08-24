@@ -206,6 +206,35 @@ struct Map3DScreen: View {
                 modeToggle(current: mode)
             }
         }
+        // **ผูกกับรากของจอ ไม่ใช่กับ `mapView`** — `mapView` คือ `RealityView` ของโหมด 3 มิติ
+        // ซึ่งไม่ถูก mount เลยเมื่อแท็บเปิดมาที่โหมด 2 มิติ และ 2 มิติคือค่าเริ่มต้นตั้งแต่
+        // 2026-08-24 · ของที่แขวนไว้บนนั้นจึงถูกกลืนเงียบ ๆ ไม่มี error ให้เห็น รอยเดียวกับที่
+        // `-uitestMapMode` เคยโดน (ดู `MapMode.initialForLaunch`) — ที่หลุดไปจริงสองอย่าง:
+        // จุดตำแหน่งของผู้ใช้ไม่เคยขึ้นบนแผนที่ 2 มิติเพราะไม่มีใครสั่งเริ่มอ่านพิกัด และ
+        // `-uitestMapPin` ไม่เปิดการ์ดตอนถ่าย `02-map` ทั้งที่มีสาขาโหมด 2 มิติเขียนรออยู่แล้ว
+        .onAppear {
+            #if DEBUG
+            // เปิดการ์ดฐานตรงๆ โดยไม่ต้องแตะจริง — ทรงเดียวกับ uitestChat/uitestFeedback ที่
+            // MainTabView.swift เป็นทางเดียวที่ถ่ายรูปการ์ดได้ในสภาพแวดล้อมที่ไม่มี tap tooling
+            // ตั้งเฉพาะการ์ดตรงนี้ไม่พอในโหมด 3 มิติ — ม่านมืดกับกล้องผูกกับ `focus(on:at:)`
+            // ซึ่งต้องรู้ตำแหน่งหมุดในฉาก และตำแหน่งนั้นมีให้ก็ต่อเมื่อโมเดลโหลดเสร็จแล้ว
+            // จึงฝากไว้ที่ `pendingForcedPin` ให้ปลาย make มาหยิบไปแทน
+            let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
+            if forced > 0 {
+                showsHint = false
+                if mode == .flat {
+                    tappedSequence = forced
+                } else {
+                    pendingForcedPin = forced
+                }
+            }
+            #endif
+            if isActive { location.start() }
+        }
+        .onChange(of: isActive) { _, nowActive in
+            nowActive ? location.start() : location.stop()
+        }
+        .onDisappear { location.stop() }
     }
 
     // MARK: - ชั้นบนแผนที่
@@ -884,23 +913,6 @@ struct Map3DScreen: View {
         )
         .onAppear {
             #if DEBUG
-            // เปิดการ์ดฐานตรงๆ โดยไม่ต้องแตะจริง — ทรงเดียวกับ uitestChat/uitestFeedback ที่
-            // MainTabView.swift เป็นทางเดียวที่ถ่ายรูปการ์ดได้ในสภาพแวดล้อมที่ไม่มี tap tooling
-            // ตั้งเฉพาะการ์ดตรงนี้ไม่พอ — ม่านมืดกับกล้องผูกกับ `focus(on:at:)` ซึ่งต้องรู้ตำแหน่ง
-            // หมุดในฉาก และตำแหน่งนั้นมีให้ก็ต่อเมื่อโมเดลโหลดเสร็จแล้ว · เก็บไว้ให้ปลาย make
-            // มาหยิบไปแทน (เดิมตั้งแค่ `tappedSequence` จึงถ่ายยืนยันได้แค่ครึ่งเดียว —
-            // บันทึกไว้เป็นข้อจำกัดข้อ 2 ใน docs/map-2-0-verification.md)
-            let forced = UserDefaults.standard.integer(forKey: "uitestMapPin")
-            if forced > 0 {
-                showsHint = false
-                // โหมด 2 มิติไม่มีโมเดลให้บินไปหา การ์ดจึงเปิดตรง ๆ ได้เลย · ส่วนโหมด 3 มิติต้อง
-                // รอตำแหน่งหมุดจากฉากก่อน (ดูคอมเมนต์ข้างบน) จึงฝากไว้ที่ pendingForcedPin
-                if MapMode.effective(stored: mode, map3DEnabled: Config.map3D) == .flat {
-                    tappedSequence = forced
-                } else {
-                    pendingForcedPin = forced
-                }
-            }
             // ลองมุมกล้องหลายค่าแล้วถ่ายเทียบกับภาพอ้างอิงโดยไม่ต้อง build ใหม่ทุกครั้ง
             // (หน่วยเป็นองศา · หมุนโมเดล ไม่ใช่หมุนกล้อง เพราะทิศของพื้นที่งานอบอยู่ในโมเดล)
             if UserDefaults.standard.object(forKey: "uitestMapHeading") != nil {
@@ -933,18 +945,16 @@ struct Map3DScreen: View {
                     Float(UserDefaults.standard.integer(forKey: "uitestMapDistance")) / 100)
             }
             #endif
-            if isActive { location.start(); showHintOnce() }
+            if isActive { showHintOnce() }
             // บอก loader ว่าโมเดลกำลังถูกใช้อยู่ — ตอนระบบเตือนความจำมันจะได้ไม่ปล่อย entity
             // ที่แขวนอยู่ในฉากที่กำลังเรนเดอร์ทิ้ง (แผนที่จะหายไปเฉย ๆ ไม่มี error ให้เห็น)
             MapModelLoader.shared.isInUse = isActive
         }
         .onChange(of: isActive) { _, nowActive in
-            nowActive ? location.start() : location.stop()
             MapModelLoader.shared.isInUse = nowActive
             if nowActive { showHintOnce() }
         }
         .onDisappear {
-            location.stop()
             MapModelLoader.shared.isInUse = false
             // ไม่ยกเลิกแล้วมันหมุนวนต่ออยู่เบื้องหลังหลังออกจากแท็บไปแล้ว — งานที่เขียน @State
             // ทุก 16 มิลลิวินาทีตลอดกาล

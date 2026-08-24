@@ -33,7 +33,7 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
 - `WBW/en.lproj/`, `WBW/th.lproj/` — `Localizable.strings` ชุดคีย์ชื่อเดียวกับ `strings.xml` ของ Android
   ทั้งสองฝั่ง · `Font.wbw*` ใน `Typography.swift` คือสเกลตัวอักษรของแอป (ยกจาก `Type.kt`)
   · **ข้อความนอก View ใช้ `Loc.t("key")` ไม่ใช่ `String(localized:)`** (ดูกติกาข้อ 10)
-- `WBWTests/` — XCTest ล้วน 72 ไฟล์ วางแบนที่ราก
+- `WBWTests/` — XCTest ล้วน 73 ไฟล์ วางแบนที่ราก
 - `docs/` — เอกสารเสริม (spec/plan อยู่ `docs/superpowers/`)
 - `scripts/` — สคริปต์ Blender ทำ asset (`.usdz`) ไม่ใช่ขั้นตอน build ของแอป · กับ
   `check-skill-refs.sh` ที่ตรวจว่าไฟล์ skill 5 ใบนี้ยังตรงกับ repo ไหม (ดู `workflow.md`)
