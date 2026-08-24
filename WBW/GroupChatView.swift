@@ -254,7 +254,10 @@ struct GroupChatView: View {
             // ปิดกับเปิดเป็นปุ่มเดียวกันคนละสถานะ ไม่ใช่คนละปุ่ม — ของเดิมสลับเป็น `Color.gray`
             // ตอนปิด ซึ่งได้ 2.8:1 กับตัวไอคอนขาว **ทั้งสองธีม** ไม่ใช่แค่ตอนเปิด
             Button { send() } label: {
-                let empty = draft.trimmingCharacters(in: .whitespaces).isEmpty
+                // ถามตัวตัดสินตัวเดียวกับที่ store ใช้เสมอ — `.whitespaces` ที่เคยอยู่ตรงนี้
+                // ไม่นับ `\n` ว่าเป็นช่องว่าง ปุ่มจึงเปิดให้กดกับร่างที่ store จะเตะทิ้ง
+                // (ดูคอมเมนต์หัว `ChatDraft`)
+                let empty = !ChatDraft.canSend(draft)
                 Image(systemName: "paperplane.fill")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.wbwOnGreen.opacity(empty ? 0.5 : 1))
@@ -262,7 +265,7 @@ struct GroupChatView: View {
                     .background(Color.wbwGreen.opacity(empty ? 0.35 : 1), in: Circle())
             }
             .accessibilityLabel("action_send")
-            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(!ChatDraft.canSend(draft))
         }
         .padding(.horizontal, 14).padding(.vertical, 8)
         .background(.ultraThinMaterial)

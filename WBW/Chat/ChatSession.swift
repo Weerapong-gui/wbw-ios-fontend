@@ -161,9 +161,11 @@ final class ChatSession: ObservableObject {
 
     // ===== ส่งข้อความ (เหมือนเดิม) =====
 
+    /// ตัดสินว่า "ส่งได้ไหม" ผ่าน `ChatDraft` ตัวเดียวกับที่ปุ่มส่งใช้ ห้าม trimming เองที่นี่
+    /// — สองที่ตัดคนละชุดคือที่มาของบั๊กข้อความหายเงียบ (ดูคอมเมนต์หัว `ChatDraft`)
     func send(_ text: String, senderName: String) {
-        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty, let gid = groupId, let context else { return }
+        let t = ChatDraft.trimmed(text)
+        guard ChatDraft.canSend(text), let gid = groupId, let context else { return }
         let msg = ChatMessage(clientId: UUID().uuidString, serverId: nil, groupId: gid,
                               senderId: myId, body: t, deviceTime: Date(), createdAt: nil,
                               senderName: senderName, state: .pending)
