@@ -149,7 +149,7 @@ struct SOSButton: View {
             HStack(spacing: 8) {
                 Image(systemName: "sos").font(.title3.bold())
                 Text(caseIsActive ? "sos_pass_active" : "sos_pass_title")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.wbwText(16, weight: .semibold, relativeTo: .callout))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }

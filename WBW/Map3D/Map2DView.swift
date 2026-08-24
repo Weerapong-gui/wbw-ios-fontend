@@ -125,7 +125,7 @@ struct Map2DView: View {
             selectedSequence = sequence
         } label: {
             Text("\(sequence)")
-                .font(.system(size: 13, weight: .heavy))
+                .font(.wbwNumeral(13, weight: .bold, relativeTo: .footnote))
                 .foregroundStyle(checkedIn ? Color.wbwOnGreen : .white)
                 .frame(width: 28, height: 28)
                 .background(Circle().fill(checkedIn ? Color.wbwGold : Color.wbwForestVoid))

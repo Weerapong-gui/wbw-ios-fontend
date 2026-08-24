@@ -48,7 +48,7 @@ struct QuotaHeartsRow: View {
                 Image(systemName: "heart.fill")
                     .foregroundStyle(Color.wbwGold)
                 Text("×\(n)")
-                    .font(.system(size: size * 0.8, weight: .semibold))
+                    .font(.wbwText(size * 0.8, weight: .semibold, relativeTo: .caption))
                     .foregroundStyle(Color.wbwGold)
                     .monospacedDigit()
             }
@@ -67,7 +67,7 @@ struct QuotaHeartsRow: View {
             HStack(spacing: 12) {
                 QuotaHeartsRow(quota: q)
                 Text(GroupQuotaText.remaining(quota: q))
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
+                    .font(.wbwText(13, relativeTo: .footnote)).foregroundStyle(.secondary)
             }
         }
     }

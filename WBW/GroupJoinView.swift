@@ -93,14 +93,14 @@ struct GroupJoinView: View {
     private var peopleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             // หัวข้อ section วางบนภาพพื้นหลัง ไม่ใช่บนการ์ด (แถวข้างล่างเท่านั้นที่มีพื้น)
-            Text("group_people_found").font(.system(size: 13, weight: .semibold))
+            Text("group_people_found").font(.wbwText(13, weight: .semibold, relativeTo: .footnote))
                 .foregroundStyle(Color.wbwOnBackdropMuted)
             ForEach(groups.matchedPeople) { p in
                 HStack(spacing: 10) {
                     ProfileAvatar(name: p.firstName ?? "", photoUrl: nil, size: 34)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(p.fullName).font(.system(size: 15, weight: .medium)).foregroundStyle(Color.wbwInk)
-                        Text(String(format: Loc.t("group_number"), p.groupNumber)).font(.system(size: 12)).foregroundStyle(.secondary)
+                        Text(p.fullName).font(.wbwText(15, weight: .semibold, relativeTo: .subheadline)).foregroundStyle(Color.wbwInk)
+                        Text(String(format: Loc.t("group_number"), p.groupNumber)).font(.wbwText(12, relativeTo: .caption)).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
@@ -151,15 +151,15 @@ private struct GroupCard: View {
                         // ถูกประกาศไว้ใน `Config.swift` ว่าโค้ดใหม่ห้ามใช้ · วงนี้อยู่บนการ์ดทึบ
                         // ที่มี ink ของตัวเอง จึงอ่านออกทั้งสองธีมอยู่แล้ว ไม่ต้องเปลี่ยนสี
                         Circle().fill(Color.wbwAccent.opacity(0.15)).frame(width: 46, height: 46)
-                        Text("\(group.groupNumber)").font(.system(size: 18, weight: .heavy))
+                        Text("\(group.groupNumber)").font(.wbwNumeral(18, weight: .bold, relativeTo: .title3))
                             .foregroundStyle(Color.wbwAccent)
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(String(format: Loc.t("group_number"), group.groupNumber)).font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.wbwInk)
+                        Text(String(format: Loc.t("group_number"), group.groupNumber)).font(.wbwText(16, weight: .semibold, relativeTo: .callout)).foregroundStyle(Color.wbwInk)
                         HStack(spacing: 6) {
                             avatarPreview
                             Text("\(group.memberCount)/\(group.capacity)")
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                                .font(.wbwText(12, relativeTo: .caption)).foregroundStyle(.secondary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -178,7 +178,7 @@ private struct GroupCard: View {
             Button(action: onJoin) {
                 Group {
                     if joining { ProgressView().tint(Color.wbwOnBackdrop) }
-                    else { Text(group.isFull ? "group_full" : "group_join").font(.system(size: 13, weight: .semibold)) }
+                    else { Text(group.isFull ? "group_full" : "group_join").font(.wbwText(13, weight: .semibold, relativeTo: .footnote)) }
                 }
                 .foregroundStyle(group.isFull ? Color.wbwOnBackdropMuted : Color.wbwOnBackdrop)
                 .frame(width: 74, height: 34)

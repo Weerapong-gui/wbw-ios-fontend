@@ -68,7 +68,7 @@ struct ForestOverlay: View {
                 // RootView ได้จริง (เรื่อง background color ไม่ใช่เรื่องตำแหน่ง) ส่วนที่ floor ของตำแหน่ง
                 // เครดิตน่าจะมาจากกลไกตระกูลเดียวกันหรือเปล่า ยังเป็นแค่ข้อสงสัย ไม่มีหลักฐานตรงยืนยัน
                 Text("credits_3d_models")
-                    .font(.system(size: 9))
+                    .font(.wbwText(9, relativeTo: .caption2))
                     .foregroundStyle(.white.opacity(0.40))
                     .padding(.leading, 16)
                     .padding(.bottom, max(geo.safeAreaInsets.bottom, bottomClearance))

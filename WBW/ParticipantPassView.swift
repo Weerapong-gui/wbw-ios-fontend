@@ -96,7 +96,7 @@ struct ParticipantPassView: View {
         VStack(spacing: 8) {
             SOSButton(store: sos, token: token, showStatus: $showSOSStatus, shape: .wide)
             Text("sos_pass_hint")
-                .font(.system(size: 12))
+                .font(.wbwText(12, relativeTo: .caption))
                 .foregroundStyle(Color.wbwOnBackdropMuted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -105,7 +105,7 @@ struct ParticipantPassView: View {
             // ซึ่ง App Review อ่านการอ้างความสามารถทางการแพทย์ละเอียดที่สุด
             // (`WBWTests/SOSDisclaimerTests.swift` ค้ำไว้ทั้งจอนี้และจอสถานะ)
             Text("sos_not_emergency_service")
-                .font(.system(size: 11))
+                .font(.wbwText(11, relativeTo: .caption2))
                 .foregroundStyle(Color.wbwOnBackdropMuted)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

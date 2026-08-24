@@ -161,16 +161,16 @@ struct Map3DScreen: View {
                         .font(.system(size: 34))
                         .foregroundStyle(.white.opacity(0.8))
                     Text("map_disabled")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.wbwText(17, weight: .semibold, relativeTo: .headline))
                         .foregroundStyle(.white)
                 }
             } else if loadFailed {
                 VStack(spacing: 12) {
                     Text("map_failed")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.wbwText(17, weight: .semibold, relativeTo: .headline))
                         .foregroundStyle(.white)
                     Text("map_failed_hint")
-                        .font(.system(size: 13))
+                        .font(.wbwText(13, relativeTo: .footnote))
                         .foregroundStyle(.white.opacity(0.7))
                 }
             } else {
@@ -184,7 +184,7 @@ struct Map3DScreen: View {
                         VStack(spacing: 12) {
                             ProgressView().tint(.white)
                             Text("map_loading")
-                                .font(.system(size: 15, weight: .medium))
+                                .font(.wbwText(15, weight: .semibold, relativeTo: .subheadline))
                                 .foregroundStyle(.white.opacity(0.85))
                         }
                     }

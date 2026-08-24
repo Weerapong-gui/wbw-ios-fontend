@@ -28,7 +28,7 @@ struct ProfileAvatar: View {
                 ZStack {
                     fill
                     Text(initial)
-                        .font(.system(size: size * 0.42, weight: .bold))
+                        .font(.wbwText(size * 0.42, weight: .bold, relativeTo: .body))
                         .foregroundStyle(initialColor)
                 }
             }

@@ -31,15 +31,15 @@ struct LeaveGroupDialog: View {
                     .padding(.top, 4)
 
                 Text(GroupQuotaText.remaining(quota: quota))
-                    .font(.system(size: 13))
+                    .font(.wbwText(13, relativeTo: .footnote))
                     .foregroundStyle(.secondary)
 
                 Text(String(format: Loc.t("group_leave_confirm"), groupNumber))
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.wbwText(18, weight: .bold, relativeTo: .title3))
                     .foregroundStyle(Color.wbwInk)
 
                 Text(GroupQuotaText.leaveWarning(groupNumber: groupNumber, quota: quota))
-                    .font(.system(size: 14))
+                    .font(.wbwText(14, relativeTo: .subheadline))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -47,7 +47,7 @@ struct LeaveGroupDialog: View {
                 HStack(spacing: 10) {
                     Button(action: onCancel) {
                         Text("group_pick_cancel")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.wbwText(16, weight: .semibold, relativeTo: .callout))
                             .foregroundStyle(Color.wbwInk)
                             .frame(maxWidth: .infinity).frame(height: 46)
                             .background(Color.wbwLine, in: Capsule())
@@ -58,7 +58,7 @@ struct LeaveGroupDialog: View {
                                 ProgressView().tint(.white)
                             } else {
                                 Text("group_leave")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.wbwText(16, weight: .semibold, relativeTo: .callout))
                                     .foregroundStyle(.white)
                             }
                         }

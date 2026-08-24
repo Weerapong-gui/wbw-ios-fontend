@@ -72,11 +72,11 @@ struct FeedbackView: View {
     private var card: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(item?.name ?? Loc.t("feedback_base_fallback"))
-                .font(.system(size: 19, weight: .bold))
+                .font(.wbwText(19, weight: .bold, relativeTo: .title3))
                 .foregroundStyle(Color.wbwInk)
             if let activity = item?.activityName, !activity.isEmpty {
                 Text(activity)
-                    .font(.system(size: 13))
+                    .font(.wbwText(13, relativeTo: .footnote))
                     .foregroundStyle(Color.wbwInk.opacity(0.55))
                     .padding(.top, 2)
             }
@@ -89,7 +89,7 @@ struct FeedbackView: View {
             .padding(.top, 16)
 
             TextEditor(text: $comment)
-                .font(.system(size: 14))
+                .font(.wbwText(14, relativeTo: .subheadline))
                 .foregroundStyle(Color.wbwInk)
                 .scrollContentBackground(.hidden)
                 .frame(height: 110)
@@ -99,7 +99,7 @@ struct FeedbackView: View {
                 .overlay(alignment: .topLeading) {
                     if comment.isEmpty {
                         Text("feedback_note_hint")
-                            .font(.system(size: 14))
+                            .font(.wbwText(14, relativeTo: .subheadline))
                             .foregroundStyle(Color.wbwInk.opacity(0.35))
                             .padding(.horizontal, 13).padding(.vertical, 16)
                             .allowsHitTesting(false)
@@ -109,13 +109,13 @@ struct FeedbackView: View {
                 .padding(.top, 14)
 
             Text("feedback_named")
-                .font(.system(size: 11))
+                .font(.wbwText(11, relativeTo: .caption2))
                 .foregroundStyle(Color.wbwInk.opacity(0.5))
                 .padding(.top, 8)
 
             if answered {
                 Label("feedback_thanks", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.wbwText(14, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(Color.wbwGreen)
                     .padding(.top, 14)
             } else {
@@ -123,7 +123,7 @@ struct FeedbackView: View {
                 // เงียบๆ โดยไม่มีทางไปต่อ ปุ่มส่งด้านล่างยังกดซ้ำได้เสมอ (rating/comment ไม่ถูกล้าง)
                 if let sendError {
                     Label(sendError, systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.wbwText(12, weight: .semibold, relativeTo: .caption))
                         .foregroundStyle(errorRed)
                         .padding(.top, 10)
                 }
@@ -148,7 +148,7 @@ struct FeedbackView: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: symbol).font(.system(size: 20))
-                Text(label).font(.system(size: 11, weight: .semibold))
+                Text(label).font(.wbwText(11, weight: .semibold, relativeTo: .caption2))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
@@ -168,7 +168,7 @@ struct FeedbackView: View {
         Button(action: send) {
             HStack(spacing: 6) {
                 Image(systemName: "paperplane").font(.system(size: 14, weight: .semibold))
-                Text("feedback_send").font(.system(size: 15, weight: .semibold))
+                Text("feedback_send").font(.wbwText(15, weight: .semibold, relativeTo: .subheadline))
             }
             // ปุ่มส่งใช้คู่สีเดียวกับปุ่มส่งในแชท — `wbwGold` เป็น alias ของ `wbwAccent` ซึ่งเป็น
             // #E9EEE0 ในโหมดมืด คู่กับตัวอักษรขาวตายตัวแล้วได้ปุ่มขาวบนขาว (รอยเดียวกับปุ่ม

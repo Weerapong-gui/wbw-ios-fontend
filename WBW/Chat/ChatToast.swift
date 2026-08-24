@@ -13,10 +13,10 @@ struct ChatToast: View {
         } content: {
             VStack(alignment: .leading, spacing: 1) {
                 Text(message.senderName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.wbwText(13, weight: .semibold, relativeTo: .footnote))
                     .foregroundStyle(Color.wbwInk)
                 Text(message.body)
-                    .font(.system(size: 13))
+                    .font(.wbwText(13, relativeTo: .footnote))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
