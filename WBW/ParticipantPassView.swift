@@ -120,12 +120,11 @@ struct ParticipantPassView: View {
             VStack(alignment: .leading, spacing: 0) {
                 kicker(Loc.t("profile_pass_title"))
 
-                // ทั้งแถวหายไปเมื่อไม่มีกลุ่ม ไม่ใช่เหลือกล่องเปล่า — มันมีไว้ใส่ป้าย ระยะห่างด้านบน
-                // ของมันจะกลายเป็นช่องว่างที่อ่านว่ามีของหายไป
-                if let group = me?.groupNumber {
-                    outlinePill(String(format: Loc.t("group_number"), group))
-                        .padding(.top, 16)
-                }
+                // **หมายเลขกลุ่มย้ายลงไปอยู่แถวเดียวกับหมายเลขบิบแล้ว** (2026-08-25 ให้ตรงกับ
+                // `ui/profile/ProfileScreen.kt` ของ Android) — เดิมเป็น pill ลอยอยู่ตรงนี้
+                // เหตุผลที่ต้นทางเขียนไว้: บิบกับกลุ่มคือคำถามเดียวกันที่ถามสองครั้ง — *คนไหน*
+                // และ *ส่งกลับไปกลุ่มไหน* · เจ้าหน้าที่ที่ถือบัตรอยู่ต้องการทั้งคู่ในสายตาเดียว
+                // ไม่ใช่อันหนึ่งอยู่หัวการ์ดอีกอันอยู่กลางการ์ด
 
                 // ตัวตนกับ QR อยู่แถวเดียวกัน: สองอย่างนี้คือของที่เจ้าหน้าที่มอง และ QR คือตัวที่
                 // ถูกยกขึ้นให้ดู · วางข้างชื่อแทนที่จะเป็นบล็อกของตัวเองข้างบน ทำให้มันใหญ่ได้
@@ -191,18 +190,29 @@ struct ParticipantPassView: View {
 
                 rule.padding(.top, 20)
 
-                // หมายเลขบิบ วางเป็นตัวเลข ไม่ใช่ป้าย — เป็นอีกอย่างบนจอนี้ที่คนอ่านออกเสียง
-                // มันจึงได้ขนาดระดับ display เหมือนกัน
-                HStack(alignment: .bottom, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        kicker(Loc.t("profile_bib_number"))
-                        Text(me?.bibNumber.map(String.init) ?? "—")
-                            .font(.wbwNumeral(46, weight: .bold, relativeTo: .largeTitle))
-                            .foregroundStyle(Color.passInk)
-                            .padding(.top, 4)
+                // บิบกับกลุ่มสองคอลัมน์ในแถวเดียว มีเส้นคั่นตั้งกลาง — ยกจาก Android ทั้งทรง
+                // และเหตุผล (`ui/profile/ProfileScreen.kt` มีคอมเมนต์เต็มอยู่ที่นั่น):
+                // บิบกับกลุ่มคือคำถามเดียวกันที่ถามสองครั้ง — *คนไหน* และ *ส่งกลับกลุ่มไหน*
+                // เจ้าหน้าที่ที่ถือบัตรต้องการทั้งคู่ในสายตาเดียว
+                //
+                // **ขนาดเท่ากันทั้งคู่ น้ำหนักปกติไม่ใช่ตัวหนา** — ต้นทางเคยลองให้กลุ่มเล็กกว่า
+                // ด้วยเหตุผลว่าบิบเป็นพระเอก แล้วพบว่าเลขสองตัวที่นั่งข้างกันใต้ป้ายคู่กัน
+                // อ่านเป็น "คู่" ซึ่งคู่ที่ขนาดต่างกันอ่านเป็นความผิดพลาด ไม่ใช่ลำดับความสำคัญ
+                //
+                // **`ViewThatFits` ไม่ใช่ของเผื่อ** — ต้นทาง Android ออกแบบทรงแถวเดียวไว้กับบิบ
+                // เลขหลักเดียว (สกรีนช็อตต้นทางคือ bib 3 / group 11) แต่บิบจริงของงานนี้เป็น
+                // เลขสี่หลัก แถวเดียวจึงกินกว้างเกินที่การ์ดมีบน iPhone: บิบ 46pt (~130pt) +
+                // เส้นคั่น 33 + กลุ่ม + ชิป "เช็คอินแล้ว" (~120) รวมเกินความกว้างที่เหลือ
+                // ~314pt · ผลที่เกิดจริงไม่ใช่แค่แถวนี้ล้น แต่ไป **บีบทั้งการ์ด** จนชื่อสำนักวิชา
+                // กับผู้ติดต่อฉุกเฉินถูกตัดท้ายด้วย "..." ทั้งที่เมื่อก่อนตัดบรรทัดได้ปกติ
+                // (เห็นจากสกรีนช็อตเทียบก่อน/หลัง ไม่ใช่จากการอ่านโค้ด)
+                ViewThatFits(in: .horizontal) {
+                    bibGroupRow(inlinePill: true)
+                    // บิบยาวหรือจอแคบ — ชิปลงบรรทัดของตัวเอง ตัวเลขยังอยู่แถวเดียวกันเหมือนเดิม
+                    VStack(alignment: .leading, spacing: 10) {
+                        bibGroupRow(inlinePill: false)
+                        if stamped > 0 { filledPill(Loc.t("profile_checked_in")) }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    if stamped > 0 { filledPill(Loc.t("profile_checked_in")) }
                 }
                 .padding(.top, 16)
 
@@ -255,6 +265,52 @@ struct ParticipantPassView: View {
     }
 
     // MARK: - ชิ้นส่วน
+
+    /// แถวบิบ|กลุ่ม — `inlinePill` คุมว่าชิป "เช็คอินแล้ว" อยู่ในแถวเดียวกันไหม
+    /// (ดูคอมเมนต์ที่ `ViewThatFits` ว่าทำไมต้องมีสองทรง)
+    private func bibGroupRow(inlinePill: Bool) -> some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            // แถวชั้นในคือขอบเขตของเส้นคั่น — สูงเท่าคอลัมน์ที่สูงกว่าในสองคอลัมน์เท่านั้น
+            // ไม่รวมชิป · เอาชิปไว้ในแถวเดียวกับเส้นคั่นแล้วความสูงของชิปกลายเป็นตัวกำหนด
+            // ความสูงแถว เส้นคั่นซึ่งยืดเต็มแถวจึงห้อยยาวเลยตัวเลขลงไปแทนที่จะขนาบไว้พอดี
+            HStack(alignment: .top, spacing: 0) {
+                numberColumn(label: Loc.t("profile_bib_number"),
+                             value: me?.bibNumber.map(String.init) ?? "—")
+
+                // เส้นคั่นเดียวกับที่หัวเสาใช้ · ความสูงมาจากแถว ไม่ใช่เลขที่กะเอา —
+                // `Rectangle` ที่กำหนดแต่ความกว้างยืดเต็มความสูงของ `HStack` ให้เอง
+                // (ฝั่ง Compose ต้องใช้ `IntrinsicSize.Min` มาบังคับ ที่นี่ไม่ต้อง)
+                Rectangle()
+                    .fill(Color.passHairline)
+                    .frame(width: 1)
+                    .padding(.horizontal, 16)
+
+                // ขีดกลาง ไม่ใช่ซ่อนทั้งคอลัมน์ — คนที่ถือบัตรที่ยังไม่มีกลุ่มต้องเห็นว่ามีของ
+                // ขาดอยู่ (ประตูจับกลุ่มจะถามเขาตอนเปิดแอปครั้งหน้า) · ซ่อนไปเฉย ๆ จะอ่านเป็น
+                // บัตรที่ไม่เคยมีช่องนั้นตั้งแต่แรก และเหลือเส้นคั่นลอยกับที่ว่าง
+                numberColumn(label: Loc.t("profile_label_group"),
+                             value: me?.groupNumber.map(String.init) ?? "—")
+            }
+            .fixedSize(horizontal: false, vertical: true)
+
+            if inlinePill {
+                Spacer(minLength: 12)
+                // ชิปนั่งกับตัวเลข ไม่ใช่กับป้าย จึงชิดล่างของแถว
+                if stamped > 0 { filledPill(Loc.t("profile_checked_in")) }
+            }
+        }
+    }
+
+    private func numberColumn(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            kicker(label)
+            Text(value)
+                .font(.wbwNumeral(46, relativeTo: .largeTitle))
+                .foregroundStyle(Color.passInk)
+                .lineLimit(1)
+                .padding(.top, 4)
+        }
+    }
 
     /// ป้ายตัวเล็กพิมพ์ใหญ่ที่ถ่างตัวอักษร — สไตล์ตัวอักษรรองแบบเดียวของแผ่นนี้
     private func kicker(_ text: String) -> some View {
