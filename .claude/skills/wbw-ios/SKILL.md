@@ -19,7 +19,7 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion]
 
 ## แผนที่โปรเจกต์
 
-SwiftUI · deployment target iOS 18.0 · Swift 5 · bundle `th.ac.mfu.wbwSwift` · team `NJL4K64JX5` ·
+SwiftUI · deployment target iOS 18.0 · Swift 5 · bundle `th.ac.mfu.su.clubfair` · team `NJL4K64JX5` ·
 dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน `project.yml`)
 
 - `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (49 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `SOS/` (11
@@ -104,7 +104,7 @@ APP=$(xcodebuild -scheme WBW -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17' -showBuildSettings 2>/dev/null \
   | awk -F'= ' '/ BUILT_PRODUCTS_DIR/{print $2}' | head -1)/WBW.app
 xcrun simctl install booted "$APP"
-xcrun simctl launch booted th.ac.mfu.wbwSwift
+xcrun simctl launch booted th.ac.mfu.su.clubfair
 xcrun simctl io booted screenshot /tmp/wbw.png
 ```
 

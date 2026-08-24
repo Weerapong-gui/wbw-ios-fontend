@@ -54,7 +54,7 @@ APP=$(xcodebuild -scheme WBW -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17' -showBuildSettings 2>/dev/null \
   | awk -F'= ' '/ BUILT_PRODUCTS_DIR/{print $2}' | head -1)/WBW.app
 xcrun simctl install booted "$APP"
-xcrun simctl launch booted th.ac.mfu.wbwSwift
+xcrun simctl launch booted th.ac.mfu.su.clubfair
 xcrun simctl io booted screenshot /tmp/wbw.png
 ```
 

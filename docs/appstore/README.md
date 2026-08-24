@@ -31,7 +31,7 @@ xcrun simctl create "iPhone 17 Pro Max" com.apple.CoreSimulator.SimDeviceType.iP
 xcrun simctl erase <device-id>
 
 # 3. build Debug แล้วยิง launch args ทีละจอ (ตารางเต็มอยู่ที่ .claude/skills/wbw-ios/build-and-run.md)
-xcrun simctl launch <device-id> th.ac.mfu.wbwSwift -uitestDemo 1 -uitestTab 0
+xcrun simctl launch <device-id> th.ac.mfu.su.clubfair -uitestDemo 1 -uitestTab 0
 xcrun simctl io <device-id> screenshot --type=png 01-home.png
 ```
 
