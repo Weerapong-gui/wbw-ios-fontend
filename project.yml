@@ -24,7 +24,10 @@ targets:
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "13"
         GENERATE_INFOPLIST_FILE: NO
-        TARGETED_DEVICE_FAMILY: "1"
+        # 1,2 = iPhone + iPad · เปิด iPad จริงเมื่อ 2026-08-25 (เดิมเป็น "1")
+        # จอทุกใบต้องหนีบความกว้างด้วย `.contentColumn()` และเว้นก้นจอด้วย
+        # `.tabBarClearance()` ไม่ใช่ค่าคงที่ของ iPhone — ดู `WBW/Layout.swift`
+        TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
         CODE_SIGN_STYLE: Automatic

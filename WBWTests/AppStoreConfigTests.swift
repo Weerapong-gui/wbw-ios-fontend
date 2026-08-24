@@ -52,6 +52,62 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
+    // MARK: - รองรับ iPad
+
+    /// แอปประกาศตัวว่ารองรับ iPad จริง
+    ///
+    /// **แยกเป็นเทสเพราะค่านี้เปลี่ยนกลับได้ง่ายและไม่มีอะไรฟ้อง** — `project.yml` เป็น
+    /// source of truth ส่วน `.xcodeproj` ถูก gitignore ไว้ ใครสร้างโปรเจกต์ใหม่จากไฟล์ที่
+    /// ถูกแก้กลับเป็น "1" จะได้แอป iPhone-only กลับมาโดยที่โค้ดจอทั้งหมดยังดูรองรับ iPad อยู่
+    func testProjectBuildsForIPadNotJustIPhone() throws {
+        let yml = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("project.yml"), encoding: .utf8)
+        XCTAssertTrue(yml.contains(#"TARGETED_DEVICE_FAMILY: "1,2""#),
+                      "device family ไม่ใช่ 1,2 — แอปจะรันบน iPad ในโหมดย่อส่วนของ iPhone")
+    }
+
+    /// `LSRequiresIPhoneOS` ต้องเป็น true **และนี่ถูกแล้ว**
+    ///
+    /// ชื่อคีย์หลอก: มันไม่ได้แปลว่า "iPhone เท่านั้น" แต่แปลว่า "บันเดิลนี้เป็นแอป iOS
+    /// ไม่ใช่ Catalyst/macOS" แอป universal ทุกตัวมีคีย์นี้ · สิ่งที่คุมไอดิอมจริงคือ
+    /// `UIDeviceFamily` ซึ่ง XcodeGen สร้างจาก `TARGETED_DEVICE_FAMILY`
+    ///
+    /// มีเทสนี้เพื่อกันคนที่มาเปิด iPad แล้วเห็นชื่อคีย์นี้แล้วลบทิ้งเพราะเข้าใจว่ามันขวางอยู่ —
+    /// ผลของการลบคือแอปไปโผล่เป็น "Designed for iPad" บน Mac ชิป Apple ซึ่งไม่มีใครต้องการ
+    /// (ฉาก RealityKit กับกล้องสแกน QR บนแทร็กแพด Mac คือภาระซัพพอร์ตล้วน ๆ)
+    func testLSRequiresIPhoneOSStaysTrueBecauseItDoesNotMeanWhatItSounds() throws {
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            XCTAssertEqual(try plist(path)["LSRequiresIPhoneOS"] as? Bool, true,
+                           "\(path): คีย์นี้ไม่ได้จำกัดแอปไว้ที่ iPhone — ลบแล้วแอปจะไปโผล่บน Mac")
+        }
+    }
+
+    /// หน้าต่างเดียวต่อแอปเท่านั้น
+    ///
+    /// ค่านี้ **ไม่ได้** บล็อก Split View ข้างแอปอื่น และไม่ได้บล็อกการย่อขยายหน้าต่างบน
+    /// iPadOS 26 — มันบล็อกแค่ "หลายหน้าต่างของ WBW เอง" ซึ่งต้องบล็อก:
+    /// `WBWApp` ประกาศ `@StateObject` เจ็ดตัวที่ระดับ App ซึ่ง SwiftUI แชร์ข้ามทุก scene
+    /// สองหน้าต่างจะแชร์ `ForestSceneHost` ใบเดียวกัน ซึ่งเป็นโมเดล claim-token เจ้าเดียว
+    /// (ดูคอมเมนต์ยาวที่ `claimScene()`) บวก `AVCaptureSession` สองตัวและ `RealityView` สองตัว
+    func testOnlyOneWindowPerAppBecauseAppScopeStateIsSharedAcrossScenes() throws {
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let manifest = try plist(path)["UIApplicationSceneManifest"] as? [String: Any]
+            XCTAssertEqual(manifest?["UIApplicationSupportsMultipleScenes"] as? Bool, false,
+                           "\(path): เปิดหลายหน้าต่างแล้ว store ที่ระดับ App จะถูกแชร์ข้ามหน้าต่าง")
+        }
+    }
+
+    /// `UIRequiresFullScreen` ต้องไม่มี
+    ///
+    /// ถูกเลิกใช้และถูกเมินบน iPadOS 26 (ทุกแอปย่อขยายหน้าต่างได้อยู่ดี) ใส่ไว้จึงไม่มีผล
+    /// อะไรนอกจากเป็นคำถามที่ผู้ตรวจ App Review หยิบขึ้นมาถามฟรี ๆ
+    func testNoDeprecatedFullScreenRequirement() throws {
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            XCTAssertNil(try plist(path)["UIRequiresFullScreen"],
+                         "\(path): คีย์นี้ถูกเลิกใช้แล้ว มีแต่ทำให้ถูกถาม")
+        }
+    }
+
     func testReleasePlistCarriesNoDevOnlyKeys() throws {
         let release = try plist("WBW/Info.plist")
         for key in Self.debugOnlyKeys {
