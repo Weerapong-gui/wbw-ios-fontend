@@ -405,3 +405,10 @@
 "walk_stat_pace" = "Pace";
 "walk_unit_metre" = "m";
 "walk_unit_km" = "km";
+
+/* --- Camera on/off control on the staff scanner --- */
+"scan_camera_turn_off" = "Turn camera off";
+"scan_camera_turn_on" = "Turn camera on";
+"scan_camera_off_hint" = "The camera is off. You can still check people in with their BIB number below.";
+"scan_camera_interrupted" = "Another app or the system is using the camera. Try leaving Split View or ending the call. You can still check people in by BIB number.";
+"scan_pick_base_first" = "No base selected yet. Pick a base above, then scan again.";
