@@ -285,7 +285,17 @@ private struct StaffHomeView: View {
             // เริ่ม feed เคสของคนอื่นทันทีที่จอนี้ปรากฏ — ไม่รอให้เปิดแท็บ SOS ก่อน (ดูคอมเมนต์ที่
             // sosStaff ด้านบนว่าทำไม) ทรงเดียวกับ MainTabView.task ที่เรียก updateSceneGate()/
             // resumeIfNeeded ตั้งแต่ต้นโดยไม่รอ onChange รอบแรก
-            sosStaff.start(token: session.token ?? "")
+            // **ไม่มี token ห้ามเริ่ม poll** — `token ?? ""` ยิง `Authorization: Bearer ` เปล่า ๆ
+            // ได้ 401 แล้ว `APIClient.send` โพสต์ `.wbwUnauthorized` ซึ่ง `Session` แปลว่า
+            // "หมดสิทธิ์" แล้วล็อกเอาต์ตัวเอง · เจ้าหน้าที่ถูกเตะไปหน้าล็อกอินกลางงานโดยไม่มี
+            // อะไรอธิบาย — และเป็นการเตะที่แอปทำกับตัวเอง ไม่ใช่เซิร์ฟเวอร์บอกให้เตะ
+            //
+            // เข้าเงื่อนไขนี้ได้จริงเพราะ `phase == .home` ดูแค่ `session.user != nil` ส่วน
+            // `user` กับ `token` ถูกอ่านคนละที่ตอน `Session.init` (UserDefaults กับ Keychain)
+            // Keychain อ่านไม่ออกชั่วคราวจึงได้สภาพ "มีผู้ใช้ แต่ไม่มี token"
+            if let token = session.token, !token.isEmpty {
+                sosStaff.start(token: token)
+            }
             // เคส SOS ของตัวเจ้าหน้าที่เองที่ค้างจากรอบก่อน (relaunch) — ทรงเดียวกับ MainTabView.task
             // ทุกประการ (ดูคอมเมนต์ที่นั่น)
             if staffOwnSOS.status != nil { showStaffSOSStatus = true }
