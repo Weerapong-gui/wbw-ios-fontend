@@ -28,6 +28,10 @@ struct ActivitiesView: View {
             .padding(.horizontal, 18)
             .padding(.top, 8)
             .tabBarClearance()
+            // หนีบเป็นคอลัมน์บนจอกว้าง — ไม่มีผลบน iPhone (ดู `WBW/Layout.swift`)
+            // อยู่ในตัวเนื้อหา ไม่ใช่บน ScrollView: หนีบตัว ScrollView แล้วแถบเลื่อนขยับเข้ามา
+            // จากขอบจอ และพื้นที่รับการปัดถูกตัดเหลือแค่ความกว้างคอลัมน์
+            .contentColumn(.card)
         }
         .scrollIndicators(.hidden)
         // แท็บวาดพื้นทึบของตัวเองใต้ทุกอย่าง — จอที่ไม่เรียก `forestBackground` จะได้พื้นดำสนิท
