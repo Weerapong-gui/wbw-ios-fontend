@@ -22,10 +22,10 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion]
 SwiftUI · deployment target iOS 18.0 · Swift 5 · bundle `th.ac.mfu.wbwSwift` · team `NJL4K64JX5` ·
 dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน `project.yml`)
 
-- `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (46 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `SOS/` (11
+- `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (48 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `SOS/` (11
   ไฟล์ — ปุ่มขอความช่วยเหลือฉุกเฉิน จอสถานะ จอเจ้าหน้าที่ และ `LocationPrimer` ที่คั่นก่อนกล่อง
   ขอสิทธิ์ตำแหน่ง), `Map3D/` (14
-  ไฟล์ — แผนที่ 3 มิติจากโมเดล `map.usdz` **กับแผนที่ 2 มิติบน MapKit** ที่สลับกันด้วยปุ่ม), `Chat/` (6 ไฟล์), `Conditions/` (4 ไฟล์ — อุณหภูมิ/AQI จาก Open-Meteo), `Feedback/` (4 ไฟล์),
+  ไฟล์ — แผนที่ 3 มิติจากโมเดล `map.usdz` **กับแผนที่ 2 มิติบน MapKit** ที่สลับกันด้วยปุ่ม), `Chat/` (7 ไฟล์), `Walk/` (4 ไฟล์ — นับก้าว/ระยะ/เพซ ที่แท็บแผนที่), `Conditions/` (4 ไฟล์ — อุณหภูมิ/AQI จาก Open-Meteo), `Feedback/` (4 ไฟล์),
   `Bloom/` (3 ไฟล์ — ดอกไม้ halftone หน้า Home),
   `Demo/` (3 ไฟล์ — โหมดเดโม่สำหรับ App Review), `Scene3D/` (7 ไฟล์ — ฉากป่า ปิดอยู่ตอนนี้แต่ไม่ได้ลบ),
   `Resources/` (asset 3D `.usdz`/`.glb` +
@@ -33,7 +33,7 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
 - `WBW/en.lproj/`, `WBW/th.lproj/` — `Localizable.strings` ชุดคีย์ชื่อเดียวกับ `strings.xml` ของ Android
   ทั้งสองฝั่ง · `Font.wbw*` ใน `Typography.swift` คือสเกลตัวอักษรของแอป (ยกจาก `Type.kt`)
   · **ข้อความนอก View ใช้ `Loc.t("key")` ไม่ใช่ `String(localized:)`** (ดูกติกาข้อ 10)
-- `WBWTests/` — XCTest ล้วน 75 ไฟล์ วางแบนที่ราก
+- `WBWTests/` — XCTest ล้วน 91 ไฟล์ วางแบนที่ราก
 - `docs/` — เอกสารเสริม (spec/plan อยู่ `docs/superpowers/`)
 - `scripts/` — สคริปต์ Blender ทำ asset (`.usdz`) ไม่ใช่ขั้นตอน build ของแอป · กับ
   `check-skill-refs.sh` ที่ตรวจว่าไฟล์ skill 5 ใบนี้ยังตรงกับ repo ไหม (ดู `workflow.md`)
@@ -67,7 +67,12 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
    ภาษาอังกฤษจะได้แอปครึ่งไทยครึ่งอังกฤษ · `Text("key")` ใน View ใช้ทางเดิมได้ (อ่าน `\.locale`)
    · รันตรวจด้วย `scripts/check-localization.sh` — คีย์ที่หายไม่ทำให้ build พัง ผู้ใช้จะเห็นชื่อคีย์บนปุ่มแทน
    และ `%@` ที่คู่กับ `Int` จะ **crash** ตอนวาดจอ (เคยพังจริงที่บัตรผู้เข้าร่วม)
-11. **ทุกงานต้องตอบก่อนปิดว่ากระทบขั้น App Store ไหม** — สกรีนช็อต / App description / Privacy
+11. **แอปรองรับ iPad แล้ว (device family `1,2`) — ระยะก้นจอห้าม hardcode** ใช้
+   `.tabBarClearance()` กับ `.contentColumn()` จาก `WBW/Layout.swift` เสมอ ห้ามเขียน
+   `ForestSceneHost.tabBarClearance` ตรง ๆ ในจอ · บน iPad แถบแท็บของ `Tab(value:)` อยู่
+   **ข้างบน** ค่า 89 จึงเป็นที่ว่างตายก้นจอ · และ **ห้ามให้รูปภาพเป็นตัวกำหนดขนาด** —
+   `AppBackdrop` เคยยืด `ZStack` ทั้งใบจนเนื้อหาทุกแท็บถูกดันพ้นขอบบนจอ (`AppBackdropSizingTests` ค้ำไว้)
+12. **ทุกงานต้องตอบก่อนปิดว่ากระทบขั้น App Store ไหม** — สกรีนช็อต / App description / Privacy
    Nutrition Label / เลข build ต้องขยับตามหรือเปล่า ตอบว่า "ไม่มีผล" ได้แต่ต้องตอบ · รอบ 1.0 (7) โดน
    ตีกลับ 2.3.3 เพราะของนอกโค้ดไม่ขยับตามโค้ด (สกรีนช็อตกับ description ยังโฆษณาฟีเจอร์ที่ถอดไปแล้ว)
    ไม่ใช่เพราะโค้ดผิด และไม่มี build/test ตัวไหนจับให้ · ตารางว่างานแบบไหนลากอะไรตามมา กับกติกาช่วง

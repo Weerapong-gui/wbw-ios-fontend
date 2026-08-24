@@ -81,6 +81,7 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
   กับ 2 มิติบน MapKit (`Map2DView`, `MapMode`, `TrailRoute`) ที่ใช้การ์ดฐานใบเดียวกัน (`MapBaseCard`)
   (`Map3DCamera`, `Map3DConfig`, `Map3DFocus`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
   `Map3DScreen`, `Map3DSky`, `MapModelLoader`)
+- `WBW/Walk/` — 4 ไฟล์ (นับก้าว/ระยะ/เพซ ที่แท็บแผนที่)
 - `WBW/Chat/` — 5 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`)
 - `WBW/Feedback/` — 4 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`)
 - `WBW/Conditions/` — 4 ไฟล์ (`ConditionsModels`, `ConditionsStore`, `OpenMeteoClient`,
@@ -123,21 +124,30 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
 ที่ decode ผ่านแต่ใช้จริงไม่ได้ (หมุดว่าง, กรอบกลับด้าน, โดมเล็กกว่าระยะกล้องสูงสุด) —
 `WBWTests/Map3DConfigFileTests.swift` คุมไว้ว่าไฟล์จริงกับ fallback ต้องตรงกันเป๊ะ
 
-## SU RUN ถูกถอดออกทั้งฟีเจอร์แล้ว (2026-08-22)
+## SU RUN ถูกถอดแล้ว แต่การนับก้าวกลับมาแล้ว (2026-08-25)
 
-ไฟล์จอ `SURunView`, โฟลเดอร์ `SURun/` ทั้งใบ (`SURunMath`, `SURunTracker`, `TrailRoute`),
-ไฟล์เส้นทาง `route_wbw.json` ใต้ `Resources/`, คีย์ `walk_*` 18 ตัว และเทสสามไฟล์
-**ถูกลบออกจากโปรเจกต์แล้ว** (เขียนชื่อไฟล์แบบไม่เต็ม path โดยตั้งใจ — `check-skill-refs.sh`
-ตรวจว่า path ที่ skill อ้างถึงมีอยู่จริง ของที่ลบไปแล้วจึงต้องไม่ถูกเขียนเป็น path)
-เจ้าของงานตัดสินใจว่างานจะไม่มีกิจกรรมนี้
+**สองเรื่องนี้ไม่ใช่เรื่องเดียวกัน อย่าสับสน**
 
-**สิ่งที่ต้องหายตามไปด้วยและหายแล้ว: `NSMotionUsageDescription`** — `CMPedometer` เป็นผู้ใช้
-รายเดียวของสิทธิ์นั้น สิทธิ์ที่ขอไว้โดยไม่มีโค้ดไหนได้ใช้คือเหตุตีกลับตรง ๆ ตาม Guideline 5.1.1
-(รอยเดียวกับที่ถอด `PhotosorVideos` ออกจาก privacy manifest) · `CMMotionManager` ที่
+ที่ยัง **ไม่กลับมาและห้ามกลับมา**: ไฟล์จอ `SURunView`, โฟลเดอร์ `SURun/` ทั้งใบ,
+การ์ด "แข่งนับก้าว" ในจอกิจกรรม, กระดานผู้นำ, คีย์ `home_base_distance`
+(เขียนชื่อไฟล์แบบไม่เต็ม path โดยตั้งใจ — `check-skill-refs.sh` ตรวจว่า path ที่ skill
+อ้างถึงมีอยู่จริง ของที่ลบไปแล้วจึงต้องไม่ถูกเขียนเป็น path)
+
+ที่ **กลับมาแล้ว**: การนับก้าว/ระยะ/เพซ อยู่ที่แท็บแผนที่ ไม่ใช่แท็บของตัวเอง —
+โฟลเดอร์ `WBW/Walk/` 4 ไฟล์ (`WalkStats`, `WalkMath`, `WalkTracker`, `WalkHud`)
+ยกพฤติกรรมจาก `walk/WalkTracker.kt` + `walk/WalkTrackingService.kt` ของ Android
+· ไม่เก็บลงดิสก์ ไม่ยิงขึ้น backend (SUS ไม่มี endpoint เรื่องเดิน) · ไม่มี background
+mode — จับเฉพาะตอนเปิดแอป ต่างจาก Android ที่ใช้ foreground service เดินต่อตอนล็อกจอ
+
+**`NSMotionUsageDescription` จึงกลับมาด้วย และต้องครบสี่ที่**: `WBW/Info.plist`,
+`WBW/Info-Debug.plist`, และคำแปลในสอง `InfoPlist.strings` — ขาดสอง plist แล้วแอป
+**crash ทันที**ที่เรียก `CMPedometer` (CoreMotion บังคับ ไม่ใช่แค่เตือน) ขาดคำแปลแล้ว
+ผู้ตรวจบนเครื่องภาษาอังกฤษเห็นกล่องเป็นไทย = Guideline 5.1.1 · `CMMotionManager` ที่
 `Scene3D/GyroParallax.swift` ใช้ **ไม่ต้อง**ขอสิทธิ์นี้ ไจโรกับ device-motion ไม่ใช่ข้อมูลกิจกรรม
 
-`WBWTests/SURunRemovalTests.swift` ค้ำสองทาง: ไฟล์ต้องไม่กลับมา **และ** ถ้ามีใครเอา
-`CMPedometer` กลับเข้ามาต้องเอาคีย์กลับมาด้วย ไม่งั้นแอปแครชทันทีที่เรียก
+`WBWTests/WalkTrackingContractTests.swift` (ชื่อเดิม `SURunRemovalTests` ถูกกลับทิศสามข้อ)
+ค้ำทั้งสองทิศ: `CMPedometer` อยู่ได้ไฟล์เดียวคือ `Walk/WalkTracker.swift` · คีย์สิทธิ์ต้องครบ
+สี่ที่ · คำอธิบายสิทธิ์ตำแหน่งต้องพูดถึงการจับระยะทาง (เดิมเทสข้อนี้ **แบน** คำนั้น)
 
 ## แท็บถูกสร้างล่วงหน้าทุกใบ — ของที่ขอสิทธิ์ต้องหน่วงเอง
 
