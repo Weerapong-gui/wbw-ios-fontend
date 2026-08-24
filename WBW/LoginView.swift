@@ -10,13 +10,20 @@ struct LoginView: View {
     @State private var error: String?
 
     var body: some View {
+        // **`Spacer()` สองตัวข้างล่างคือตัวจัดเนื้อหากลางจอ** ห่อด้วย `ScrollView` เฉย ๆ ไม่ได้
+        // มันจะยุบเหลือ 0 แล้วจอที่เคยจัดกลางจะไปกองอยู่ขอบบนทุกเครื่อง — แก้จอที่ล้นบน SE
+        // แล้วไปพังจอบน iPhone 17 แทน · `FitsOrScrolls` ให้เนื้อหาสูงเท่าจอพอดีตอนใส่ลง
+        // (Spacer ยังทำงาน) และสูงกว่าจอเมื่อไม่ลง (เลื่อนได้) — ดู `WBW/Layout.swift`
+        FitsOrScrolls {
             VStack(alignment: .leading, spacing: 0) {
                 Spacer()
 
                 // คีย์นี้มีครบสองภาษามาตลอด แค่ไม่เคยถูกเรียก — แอปตั้ง development region
                 // เป็น th คนไทยจึงเคยเห็นจอแรกเป็นอังกฤษ (ดู `HardcodedCopyTests`)
                 Text("login_greeting")
-                    .font(.system(size: 40, weight: .bold))
+                    .font(.wbwText(40, weight: .bold, relativeTo: .largeTitle))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(2)
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.35), radius: 8, y: 2)
 
@@ -59,7 +66,9 @@ struct LoginView: View {
                                 .foregroundStyle(Color(red: 0.23, green: 0.17, blue: 0.07))
                         }
                     }
-                    .frame(width: 200, height: 46)
+                    // กว้างได้ถึง 260 ไม่ใช่ตายตัว 200 — คำว่า "เข้าสู่ระบบ" ที่ขนาดตัวอักษรใหญ่สุด
+                    // ใส่ไม่ลง 200pt แล้วถูกตัดกลางคำ
+                    .frame(maxWidth: 260, minHeight: 46)
                     .background(Color.wbwCream, in: Capsule())
                 }
                 .frame(maxWidth: .infinity)
@@ -111,10 +120,16 @@ struct LoginView: View {
             }
             .padding(.horizontal, 28)
             .contentColumn(.form)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // เที่ยงวันนิ่งๆ (day 0.46) — ไม่มีแท็บบาร์ที่หน้านี้ ส่ง bottomClearance: 0 (เหมือน Welcome)
-            .forestBackground(day: ForestMath.dayStill, bottomClearance: 0)
-            .ignoresSafeArea()
+            .frame(maxWidth: .infinity)
+        }
+        // **`.ignoresSafeArea()` ถูกถอดออกจากตัวเนื้อหาโดยตั้งใจ** — นั่นคือสาเหตุจริงที่
+        // คีย์บอร์ดไม่มีที่ดันบนจอเตี้ย: ฟอร์มเชื่อว่าจอยาวเลยขอบล่างลงไป จึงไม่มีอะไรต้อง
+        // หลบตอนคีย์บอร์ดขึ้นมา ช่องรหัสผ่านเลยอยู่ใต้แป้นพิมพ์แบบที่เลื่อนตามไม่ได้
+        // · พื้นหลังยังกินเต็มจอเหมือนเดิม เพราะ `AppBackdrop` ยิง `.ignoresSafeArea()`
+        // ของตัวเองอยู่แล้ว ไม่ได้พึ่งบรรทัดนี้
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // เที่ยงวันนิ่งๆ (day 0.46) — ไม่มีแท็บบาร์ที่หน้านี้ ส่ง bottomClearance: 0 (เหมือน Welcome)
+        .forestBackground(day: ForestMath.dayStill, bottomClearance: 0)
     }
 
     // ช่องรหัสนักศึกษา (ตัวเลขล้วน ≤10 หลัก)

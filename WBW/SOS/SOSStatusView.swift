@@ -27,8 +27,17 @@ struct SOSStatusView: View {
     private var isForOther: Bool { store.serverCase?.forOther == true }
 
     var body: some View {
-        VStack(spacing: 20) {
-            statusBlock
+        // **เนื้อหาเลื่อนได้ แต่ทางออกปักไว้เสมอ** — จอนี้ปัดปิดไม่ได้โดยตั้งใจ (ดูคอมเมนต์ที่
+        // `.fullScreenCover` ใน `MainTabView`) และเคยขังผู้ตรวจ App Store ไว้ออกไม่ได้มาแล้ว
+        // รอบหนึ่ง · ห่อทั้งจอด้วย `ScrollView` เฉย ๆ จะสร้างกับดักใบเดิมขึ้นมาใหม่ในรูปแบบที่
+        // แย่กว่าเดิม: บนจอเตี้ยหรือตัวอักษรใหญ่ ปุ่มยกเลิกกับแถวย่อจอจะเลื่อนตกใต้ขอบจอ
+        // **ระหว่างเหตุฉุกเฉินจริง** ซึ่งเป็นตอนที่คนหาปุ่มไม่เจอแล้วแพงที่สุด
+        //
+        // เนื้อหาข้างบน (สถานะ แบนเนอร์ตำแหน่ง โน้ต) ยาวไม่แน่นอนตามเงื่อนไข — ให้มันเลื่อน
+        // ส่วนสองทางออกอยู่ใน `safeAreaInset` ซึ่งอยู่บนจอเสมอไม่ว่าข้างบนจะยาวแค่ไหน
+        ScrollView {
+            VStack(spacing: 20) {
+                statusBlock
 
             if store.statusCheckStopped {
                 // poll ชนเพดาน "ไม่มีเคส" ติดกันแล้วเลิกเช็คไปเอง (ดู SOSStore.maxConsecutiveEmptyPolls)
@@ -48,13 +57,6 @@ struct SOSStatusView: View {
 
             forOtherRow
 
-            if canCancel {
-                Button("sos_status_cancel", role: .destructive) {
-                    Task { cancelOutcome = await store.cancel(token: token) }
-                }
-                .sosTapTarget()
-            }
-
             // เบอร์มาจากเซิร์ฟเวอร์ ไม่ใช่ลิเทอรัล — `URL(string:)!` ที่เคยอยู่ตรงนี้ crash ทันที
             // ถ้าเบอร์ที่ส่งมามีช่องว่างหรือตัวอักษรพ่วง · ต่อไม่ได้ = ซ่อนปุ่ม ไม่ใช่พังทั้งจอ
             if store.showCallFallback, let callURL = Config.emergencyPhoneURL {
@@ -71,19 +73,39 @@ struct SOSStatusView: View {
                 Text("sos_status_already_acked")
                     .foregroundStyle(.secondary)
             }
-
-            minimizeRow
-
-            // ปุ่ม SOS สื่อว่า "กดแล้วมีคนมาช่วยแน่นอน" ซึ่งเกินจริง — แอปนี้แจ้งทีมงานของกิจกรรม
-            // ไม่ใช่หน่วยกู้ชีพ · แอปอยู่หมวด Health & Fitness ซึ่ง Apple อ่านละเอียดที่สุดเรื่อง
-            // การอ้างความสามารถทางการแพทย์/ฉุกเฉิน และผู้ใช้จริงบนดอยก็ต้องรู้ว่ายังต้องโทร 1669 เอง
-            Text("sos_not_emergency_service")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding()
+            .contentColumn(.card)
         }
-        .padding()
+        .scrollBounceBehavior(.basedOnSize)
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 20) {
+                // ปุ่มยกเลิกอยู่ในแถบที่ปักไว้ **ไม่ใช่ในส่วนที่เลื่อน** — นี่คือปุ่มที่แพงที่สุด
+                // บนจอนี้ถ้าหาไม่เจอ: เคสที่ยกเลิกไม่ได้แปลว่าเจ้าหน้าที่ออกเดินไปหาคนที่ไม่ได้
+                // ต้องการความช่วยเหลือแล้ว
+                if canCancel {
+                    Button("sos_status_cancel", role: .destructive) {
+                        Task { cancelOutcome = await store.cancel(token: token) }
+                    }
+                    .sosTapTarget()
+                }
+
+                minimizeRow
+
+                // ปุ่ม SOS สื่อว่า "กดแล้วมีคนมาช่วยแน่นอน" ซึ่งเกินจริง — แอปนี้แจ้งทีมงานของกิจกรรม
+                // ไม่ใช่หน่วยกู้ชีพ · แอปอยู่หมวด Health & Fitness ซึ่ง Apple อ่านละเอียดที่สุดเรื่อง
+                // การอ้างความสามารถทางการแพทย์/ฉุกเฉิน และผู้ใช้จริงบนดอยก็ต้องรู้ว่ายังต้องโทร 1669 เอง
+                Text("sos_not_emergency_service")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding()
+            .contentColumn(.card)
+            // พื้นทึบบาง ๆ ใต้ทางออก — เนื้อหาที่เลื่อนผ่านข้างหลังต้องไม่อ่านปนกับปุ่ม
+            .background(.bar)
+        }
         .onAppear {
             // จอนี้เปิดขึ้นมาแปลว่ามีเคสฉุกเฉินอยู่จริงตอนนี้ — ถ้ายังไม่เคยถูกถามเรื่องสิทธิ์ตำแหน่งเลย
             // นี่คือโอกาสสุดท้ายก่อนที่เจ้าหน้าที่จะได้เคสที่ไม่มีพิกัดติดมาด้วย · ขอเฉพาะตอน
