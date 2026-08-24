@@ -54,7 +54,7 @@ struct TicketView: View {
             }
             // push เนทีฟ = สไลด์จากขวาไปซ้าย และได้ปัดขอบจอกลับมาฟรี — .fullScreenCover เดิม
             // ขึ้นจากล่างเสมอ เปลี่ยน transition ไม่ได้
-            .navigationDestination(isPresented: $showSettings) { SettingsView() }
+            .navigationDestination(isPresented: $showSettings) { SettingsView(drawsOwnBackButton: false) }
         }
     }
 

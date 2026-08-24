@@ -131,7 +131,11 @@ struct FeedbackView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white, in: RoundedRectangle(cornerRadius: 20))
+        // **`wbwSurface` ไม่ใช่ขาวตายตัว** — ตัวอักษรบนการ์ดใบนี้ใช้ `wbwInk` ซึ่งเป็นขาวเกือบขาว
+        // (#E9EEE0) ในโหมดมืด วางบนแผ่นขาวแล้วได้ขาวบนขาว: หัวข้อฐาน คำโปรย และปุ่มส่งหายไป
+        // กับพื้นทั้งหมด (เห็นจริงในสกรีนช็อต `08-feedback` ที่เตรียมส่ง App Store)
+        // การ์ดใบนี้ไม่ใช่ "กระดาษ" แบบบัตรผู้เข้าร่วม จึงต้องเดินตามธีมเหมือนการ์ดใบอื่น
+        .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.wbwInk.opacity(0.07), lineWidth: 1))
     }
 
@@ -165,9 +169,13 @@ struct FeedbackView: View {
                 Image(systemName: "paperplane").font(.system(size: 14, weight: .semibold))
                 Text("feedback_send").font(.system(size: 15, weight: .semibold))
             }
-            .foregroundStyle(.white)
+            // ปุ่มส่งใช้คู่สีเดียวกับปุ่มส่งในแชท — `wbwGold` เป็น alias ของ `wbwAccent` ซึ่งเป็น
+            // #E9EEE0 ในโหมดมืด คู่กับตัวอักษรขาวตายตัวแล้วได้ปุ่มขาวบนขาว (รอยเดียวกับปุ่ม
+            // "เข้ากลุ่ม" ที่เคยโดน — ดูคอมเมนต์ของ `wbwSolid` ใน Config.swift)
+            // ขาปิดใช้งานใช้ `wbwSolid` ซึ่งตรึงไว้เข้มทั้งสองธีม ตัวอักษรขาวจึงอ่านออกเสมอ
+            .foregroundStyle(rating == nil ? Color.white : Color.wbwOnGreen)
             .frame(maxWidth: .infinity).frame(height: 44)
-            .background(rating == nil ? Color.wbwInk.opacity(0.3) : Color.wbwGold,
+            .background(rating == nil ? Color.wbwSolid : Color.wbwGreen,
                         in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)

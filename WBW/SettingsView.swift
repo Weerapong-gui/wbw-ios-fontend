@@ -8,6 +8,17 @@ import SwiftUI
 /// **ตัวเลือกภาษากลับมาแล้ว** หลังถูกถอดไปเพราะเคยแปลจริงแค่หน้านี้หน้าเดียว — ตอนนี้ชุดคีย์
 /// ทั้ง `en.lproj`/`th.lproj` ยกมาจาก `strings.xml` ของ Android ครบแล้ว ปุ่มจึงมีของจริงให้เปลี่ยน
 struct SettingsView: View {
+    /// วาดปุ่มย้อนกลับของตัวเองไหม — **ปิดตอนถูก push เข้า `NavigationStack` ที่มีอยู่แล้ว**
+    ///
+    /// ทางที่เปิดจอนี้มีสองทรง: `HomeView`/`ParticipantPassView` เปิดเป็น sheet พร้อม
+    /// `NavigationStack` ของตัวเอง ซึ่งไม่มีปุ่มย้อนกลับให้ จอจึงต้องวาดเอง · ส่วน `TicketView`
+    /// push เข้า stack เดิม ซึ่งวาด chevron ของระบบให้อยู่แล้ว ปล่อยไว้ทั้งคู่แล้วหัวจอมีปุ่ม
+    /// ย้อนกลับสองใบเรียงกัน (เห็นจริงตอนถ่ายด้วย `-uitestProfile -uitestSettings`)
+    ///
+    /// เลือกซ่อนของ *เรา* ไม่ใช่ซ่อนของระบบ เพราะปุ่มของระบบพ่วงท่าปัดขอบจอกลับมาให้ด้วย
+    /// ซึ่งเป็นเหตุผลที่ `TicketView` เปลี่ยนจาก `.fullScreenCover` มาเป็น push ตั้งแต่แรก
+    var drawsOwnBackButton = true
+
     @EnvironmentObject var session: Session
     @EnvironmentObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
@@ -137,11 +148,13 @@ struct SettingsView: View {
         .forestBackground(day: ForestMath.dayStill)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: {
-                    Image(systemName: "arrow.left").font(.body.weight(.semibold))
+            if drawsOwnBackButton {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "arrow.left").font(.body.weight(.semibold))
+                    }
+                    .accessibilityLabel("action_back")
                 }
-                .accessibilityLabel("action_back")
             }
             ToolbarItem(placement: .principal) {
                 Text("settings_title")
