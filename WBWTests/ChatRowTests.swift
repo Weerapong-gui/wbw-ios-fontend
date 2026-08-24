@@ -183,7 +183,14 @@ final class ChatRowTests: XCTestCase {
         XCTAssertFalse(label.contains("25"), "ปีนี้ไม่ต้องมีปี: \(label)")
     }
 
-    func testDayLabelPreviousYearHasBuddhistYear() {
+    /// พ.ศ. ผูกกับ **ภาษาไทย** ไม่ใช่ฮาร์ดโค้ดไว้ในตัวจัดรูปอีกแล้ว จึงต้องระบุภาษาให้ชัด
+    ///
+    /// เดิม `ChatFormat.dayFormatter` ตั้ง `Locale(identifier: "th_TH")` ตายตัว เทสนี้จึงผ่าน
+    /// โดยไม่ต้องบอกภาษา — ซึ่งก็คือตัวบั๊กเอง: คนที่เลือก English ได้ป้ายวันเป็นไทยอยู่จุดเดียว
+    /// ทั้งแอป · ฝั่งอังกฤษยันไว้ที่ `ChatDayLabelLocaleTests` แล้ว
+    func testDayLabelPreviousYearHasBuddhistYearInThai() {
+        defer { Loc.use(.system) }
+        Loc.use(.th)
         let now = date("2026-07-31T18:00:00+07:00")
         let label = ChatFormat.dayLabel(for: date("2025-12-31T09:00:00+07:00"), now: now, calendar: cal)
         XCTAssertTrue(label.contains("2568"), "ปีก่อนต้องมี พ.ศ.: \(label)")

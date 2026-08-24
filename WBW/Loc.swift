@@ -15,6 +15,13 @@ import Foundation
 enum Loc {
     /// เขียนจาก main thread ตอนตั้งค่าเปลี่ยน อ่านได้จากทุก thread — เป็นตัวชี้ bundle เฉย ๆ
     nonisolated(unsafe) private static var bundle = Bundle.main
+    /// ภาษาที่ `use(_:)` เลือกไว้จริง — เก็บแยกจาก `bundle` เพราะ **ถาม bundle ไม่ได้**
+    ///
+    /// `Bundle(path: ".../th.lproj")` ไม่มี localization อยู่ข้างในตัวเอง `preferredLocalizations`
+    /// ของมันจึงตอบเป็นภาษาของ *เครื่อง* ไม่ใช่ `th` · `t(_:_:)` เคยถาม bundle แบบนั้นเพื่อหา
+    /// locale ไปจัดรูปตัวเลข = ได้ locale ผิดมาตลอดโดยไม่มีใครเห็น (ตัวคั่นหลักพันของไทยกับ
+    /// อังกฤษเหมือนกันพอดี อาการเลยไม่โผล่) — พบตอนย้ายป้ายวันในแชทมาใช้ทางเดียวกัน
+    nonisolated(unsafe) private static var current: AppLanguage = .system
 
     /// เลือก bundle ตามภาษาที่ผู้ใช้ตั้งไว้ · `.system` = กลับไปใช้ของเครื่อง
     static func use(_ language: AppLanguage) {
@@ -23,9 +30,26 @@ enum Loc {
               let localised = Bundle(path: path)
         else {
             bundle = .main
+            current = .system
             return
         }
         bundle = localised
+        current = language
+    }
+
+    /// Locale ของภาษาที่กำลังใช้อยู่ — แหล่งเดียวสำหรับโค้ดที่จัดรูป **เอง** ไม่ได้ผ่านชุดคีย์
+    ///
+    /// มีเพราะ `ChatFormat.dayFormatter` เคยตั้ง `Locale(identifier: "th_TH")` ตายตัว คนที่เลือก
+    /// English ในหน้าตั้งค่าจึงได้แอปอังกฤษทั้งใบ **ยกเว้นป้ายคั่นวันในแชทที่เป็นไทย** — อาการ
+    /// เดียวกับที่ `Loc` ถูกสร้างขึ้นมาแก้ตั้งแต่แรก แค่ย้ายที่ไปอยู่ในตัวจัดรูปวันที่แทน
+    ///
+    /// `DateFormatter`/`NumberFormatter` ที่ต้องเดินตามภาษาในแอปให้ถามที่นี่ ห้ามฮาร์ดโค้ดเอง
+    static var locale: Locale {
+        if let chosen = current.locale { return chosen }
+        // `.system` = ตามเครื่อง แต่ต้องเป็นภาษาที่ **แอปมีจริง** ไม่ใช่ภาษาเครื่องดิบ ๆ —
+        // เครื่องที่ตั้งภาษาญี่ปุ่นได้ข้อความจาก en.lproj (fallback) ป้ายวันต้องเป็นอังกฤษตาม
+        // ไม่ใช่ญี่ปุ่นอยู่จุดเดียว · `Bundle.main` ตอบคำถามนี้ได้จริง ต่างจาก bundle ของ .lproj
+        return Bundle.main.preferredLocalizations.first.map(Locale.init(identifier:)) ?? .current
     }
 
     /// ข้อความของคีย์นี้ในภาษาที่กำลังใช้ · คีย์ที่ไม่มีจะคืนชื่อคีย์กลับมา (เหมือน iOS ปกติ)
@@ -45,7 +69,6 @@ enum Loc {
     /// — `scripts/check-localization.sh` ตรวจว่าทั้งสองภาษามีชุดเดียวกัน และคู่ `%@` กับ `Int`
     /// ที่ไม่ตรงกันเคย **crash** จริงมาแล้วที่บัตรผู้เข้าร่วม
     static func t(_ key: String, _ arguments: CVarArg...) -> String {
-        let locale = bundle.preferredLocalizations.first.map(Locale.init(identifier:))
-        return String(format: t(key), locale: locale, arguments: arguments)
+        String(format: t(key), locale: locale, arguments: arguments)
     }
 }

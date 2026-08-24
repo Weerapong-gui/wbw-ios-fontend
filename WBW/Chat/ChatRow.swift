@@ -83,11 +83,10 @@ enum ChatFormat {
     // แคช DateFormatter ไว้ระดับ static — สร้างใหม่ทุกครั้งแพง (locale/calendar lookup) ตอนลากซ้ายค้างดูเวลา
     // ฟองที่โชว์อยู่ทุกฟองเรียก time(_:) รัวทุก touch event เปลี่ยนแค่ .timeZone/.dateFormat ต่อครั้งพอ ไม่ต้อง
     // สร้างอินสแตนซ์ใหม่ — เรียกจาก main thread เสมอ (view rendering) จึงไม่ต้องกังวล concurrency ระหว่างเรียก
-    private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "th_TH")   // ได้ พ.ศ. อัตโนมัติ
-        return f
-    }()
+    // locale ตั้งต่อครั้ง ไม่ใช่ตอนสร้าง — ฮาร์ดโค้ด `th_TH` ไว้ตรงนี้ทำให้คนที่เลือก English
+    // ได้แอปอังกฤษทั้งใบยกเว้นป้ายวันในแชท · ปฏิทินพุทธของฝั่งไทยยังได้อยู่ มันมากับ locale `th`
+    // เองไม่ต้องบังคับ (เทส ChatDayLabelLocaleTests ตรึงไว้ทั้งสองฝั่ง)
+    private static let dayFormatter = DateFormatter()
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -101,6 +100,8 @@ enum ChatFormat {
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
            calendar.isDate(day, inSameDayAs: yesterday) { return Loc.t("date_yesterday") }
         let sameYear = calendar.component(.year, from: day) == calendar.component(.year, from: now)
+        // ตั้ง locale ก่อน dateFormat เสมอ — สลับ locale ทีหลังทำให้ dateFormat ถูกตีความใหม่
+        dayFormatter.locale = Loc.locale
         dayFormatter.timeZone = calendar.timeZone
         dayFormatter.dateFormat = sameYear ? "d MMM" : "d MMM yyyy"
         return dayFormatter.string(from: day)
