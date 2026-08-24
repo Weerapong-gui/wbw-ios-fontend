@@ -77,20 +77,20 @@ struct GroupHomeView: View {
             FitsOrScrolls {
             VStack(spacing: 20) {
                 VStack(spacing: 6) {
-                    Text("group_my_group").font(.system(size: 14)).foregroundStyle(.secondary)
+                    Text("group_my_group").font(.wbwText(14, relativeTo: .subheadline)).foregroundStyle(.secondary)
                     Text(String(format: Loc.t("group_number"), groupNo))
-                        .font(.system(size: 34, weight: .heavy)).foregroundStyle(Color.wbwInk)
+                        .font(.wbwText(34, weight: .bold, relativeTo: .largeTitle)).foregroundStyle(Color.wbwInk)
                     QuotaHeartsRow(quota: quota, size: 22)
                         .padding(.top, 2)
                     Text(GroupQuotaText.remaining(quota: quota))
-                        .font(.system(size: 13)).foregroundStyle(.secondary)
+                        .font(.wbwText(13, relativeTo: .footnote)).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 28)
                 .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 20))
 
                 Button { path.append(.members) } label: {
                     Label("group_members_link", systemImage: "person.2.fill")
-                        .font(.system(size: 16)).foregroundStyle(Color.wbwInk)
+                        .font(.wbwText(16, relativeTo: .callout)).foregroundStyle(Color.wbwInk)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(16)
                         .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 16))
                 }
@@ -104,7 +104,7 @@ struct GroupHomeView: View {
                         // แดงของระบบบนภาพพื้นหลังได้ 3.1:1 · `wbwDanger` ยิ่งแย่กว่าในโหมดสว่าง
                         // (ขาสว่างของมันคือ #C0503A = 2.4:1) ปุ่มนี้ไม่มีพื้นของตัวเอง
                         Text(leaving ? "group_leaving" : "group_leave")
-                            .font(.system(size: 15)).foregroundStyle(Color.wbwOnBackdropDanger)
+                            .font(.wbwText(15, relativeTo: .subheadline)).foregroundStyle(Color.wbwOnBackdropDanger)
                             // `Text` เปล่าไม่มี padding ของตัวเอง พื้นที่รับนิ้วจึงสูงเท่าบรรทัด
                             // ตัวอักษร (~20pt) — ขยายชั้นนอก ไม่ใช่ทำตัวอักษรให้ใหญ่ขึ้น
                             .frame(minHeight: Config.Tap.minTarget)

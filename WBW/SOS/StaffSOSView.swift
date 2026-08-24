@@ -383,7 +383,7 @@ struct StaffSOSView: View {
                 // ตอนมีเคสและตอนไม่มี ซึ่งเป็นสองสถานะที่แยกจาก "โหลดไม่ขึ้น" ไม่ออกถ้าไม่มีบรรทัดนี้
                 if let warning = store.feedWarning {
                     Label(warning, systemImage: "wifi.exclamationmark")
-                        .font(.system(size: 13))
+                        .font(.wbwText(13, relativeTo: .footnote))
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -424,10 +424,10 @@ struct StaffSOSView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("sos_staff_title")
-                    .font(.system(size: 22, weight: .heavy))
+                    .font(.wbwText(22, weight: .bold, relativeTo: .title2))
                     .foregroundStyle(.white)
                 Text(store.openCount > 0 ? "ค้างอยู่ \(store.openCount) เคส" : "ไม่มีเคสค้าง")
-                    .font(.system(size: 13))
+                    .font(.wbwText(13, relativeTo: .footnote))
                     .foregroundStyle(.white.opacity(0.6))
             }
             Spacer()

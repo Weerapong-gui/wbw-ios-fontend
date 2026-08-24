@@ -63,12 +63,12 @@ struct GroupMembersView: View {
         HStack(spacing: 12) {
             ProfileAvatar(name: m.firstName ?? "", photoUrl: m.photoUrl, size: 42)
             VStack(alignment: .leading, spacing: 2) {
-                Text(m.fullName).font(.system(size: 15, weight: .medium)).foregroundStyle(Color.wbwInk)
-                if let s = m.school { Text(s).font(.system(size: 12)).foregroundStyle(.secondary) }
+                Text(m.fullName).font(.wbwText(15, weight: .semibold, relativeTo: .subheadline)).foregroundStyle(Color.wbwInk)
+                if let s = m.school { Text(s).font(.wbwText(12, relativeTo: .caption)).foregroundStyle(.secondary) }
             }
             Spacer()
             if let bib = m.bib {
-                Text("BIB \(bib)").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                Text("BIB \(bib)").font(.wbwText(12, weight: .semibold, relativeTo: .caption)).foregroundStyle(.secondary)
             }
             Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(.tertiary)
         }
@@ -89,7 +89,7 @@ private struct MemberProfileSheet: View {
         VStack(spacing: 16) {
             Capsule().fill(Color.secondary.opacity(0.4)).frame(width: 40, height: 5).padding(.top, 10)
             ProfileAvatar(name: member.firstName ?? "", photoUrl: member.photoUrl, size: 96).padding(.top, 6)
-            Text(member.fullName).font(.system(size: 22, weight: .bold)).foregroundStyle(Color.wbwInk)
+            Text(member.fullName).font(.wbwText(22, weight: .bold, relativeTo: .title2)).foregroundStyle(Color.wbwInk)
             VStack(spacing: 0) {
                 infoRow(Loc.t("profile_row_school"), member.school)
                 Divider().padding(.leading, 16)
@@ -106,7 +106,7 @@ private struct MemberProfileSheet: View {
                 }
             } label: {
                 Text(blocked.isBlocked(member.userId) ? "chat_unblock" : "chat_block")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.wbwText(15, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(Color.wbwDanger)
                     .frame(maxWidth: .infinity)
                     .frame(height: Config.Tap.minTarget)
@@ -116,7 +116,7 @@ private struct MemberProfileSheet: View {
             .padding(.horizontal, 20)
 
             Text("blocked_note")
-                .font(.system(size: 12))
+                .font(.wbwText(12, relativeTo: .caption))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

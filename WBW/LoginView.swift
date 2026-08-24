@@ -62,7 +62,7 @@ struct LoginView: View {
                             ProgressView().tint(.wbwInk)
                         } else {
                             Text("login_action_submit")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.wbwText(16, weight: .semibold, relativeTo: .callout))
                                 .foregroundStyle(Color(red: 0.23, green: 0.17, blue: 0.07))
                         }
                     }
@@ -86,7 +86,7 @@ struct LoginView: View {
                     session.startDemo()
                 } label: {
                     Text("login_demo_title")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.wbwText(14, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(.white)
                         .frame(width: 200, height: Config.Tap.minTarget)
                         .glassSurface(Capsule(), interactive: true)
@@ -97,7 +97,7 @@ struct LoginView: View {
                 .disabled(busy)
 
                 Text("login_demo_desc")
-                    .font(.system(size: 11))
+                    .font(.wbwText(11, relativeTo: .caption2))
                     .foregroundStyle(.white.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .padding(.top, 6)

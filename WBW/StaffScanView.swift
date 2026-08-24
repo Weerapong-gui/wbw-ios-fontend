@@ -93,7 +93,7 @@ struct StaffScanView: View {
 
                 if let error {
                     Text(error)
-                        .font(.system(size: 13))
+                        .font(.wbwText(13, relativeTo: .footnote))
                         .foregroundStyle(.red)
                         .padding(.horizontal, 22)
                 }
@@ -126,10 +126,10 @@ struct StaffScanView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("scan_title")
-                    .font(.system(size: 22, weight: .heavy))
+                    .font(.wbwText(22, weight: .bold, relativeTo: .title2))
                     .foregroundStyle(.white)
                 Text(session.user?.username ?? Loc.t("scan_role_staff"))
-                    .font(.system(size: 13))
+                    .font(.wbwText(13, relativeTo: .footnote))
                     .foregroundStyle(.white.opacity(0.6))
             }
             Spacer()
@@ -152,7 +152,7 @@ struct StaffScanView: View {
                 ForEach(checkpoints) { cp in
                     Button { selected = cp.id } label: {
                         Text(cp.name)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.wbwText(13, weight: .semibold, relativeTo: .footnote))
                             .foregroundStyle(selected == cp.id ? Color.wbwForestVoid : .white)
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(selected == cp.id ? Color.wbwOnBackdrop : Color.white.opacity(0.12), in: Capsule())
@@ -176,7 +176,7 @@ struct StaffScanView: View {
                 .font(.system(size: 34))
                 .foregroundStyle(.white.opacity(0.55))
             Text(cameraMissing ? "scan_camera_missing" : "scan_camera_denied")
-                .font(.system(size: 14))
+                .font(.wbwText(14, relativeTo: .subheadline))
                 .foregroundStyle(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 28)
@@ -186,7 +186,7 @@ struct StaffScanView: View {
                     UIApplication.shared.open(url)
                 } label: {
                     Text("scan_open_settings")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.wbwText(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(Color.wbwForestVoid)
                         .frame(minWidth: 160, minHeight: Config.Tap.minTarget)
                         .background(Color.wbwOnBackdrop, in: Capsule())
@@ -229,7 +229,7 @@ struct StaffScanView: View {
                 .onChange(of: bib) { _, v in bib = String(v.filter(\.isNumber).prefix(5)) }
             Button { checkin(qr: nil, bib: Int(bib)) } label: {
                 Text("scan_action_checkin")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.wbwText(15, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(Color.wbwForestVoid)
                     .frame(width: 96, height: 48)
                     .background(Color.wbwOnBackdrop, in: RoundedRectangle(cornerRadius: 14))
@@ -294,24 +294,24 @@ private struct ResultCard: View {
                     .font(.system(size: 44))
                     .foregroundStyle(result.alreadyCheckedIn ? Color.wbwOnBackdropMuted : .green)
                 Text(result.fullName.isEmpty ? Loc.t("role_participant") : result.fullName)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.wbwText(22, weight: .bold, relativeTo: .title2))
                     .foregroundStyle(Color.wbwForestVoid)
                 if let bib = result.bib {
-                    Text("BIB #\(bib)").font(.system(size: 15)).foregroundStyle(Color(white: 0.4))
+                    Text("BIB #\(bib)").font(.wbwText(15, relativeTo: .subheadline)).foregroundStyle(Color(white: 0.4))
                 }
                 Text(result.alreadyCheckedIn ? "scan_already_checked_in" : "scan_checked_in")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.wbwText(15, weight: .semibold, relativeTo: .subheadline))
                     .foregroundStyle(result.alreadyCheckedIn ? Color(red: 0.7, green: 0.5, blue: 0.1) : .green)
                 if result.hasMedicalFlag {
                     Label("scan_medical_warning", systemImage: "cross.case.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.wbwText(13, weight: .semibold, relativeTo: .footnote))
                         .foregroundStyle(.red)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(.red.opacity(0.1), in: Capsule())
                 }
                 Button(action: onClose) {
                     Text("scan_next")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.wbwText(15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity).frame(height: 46)
                         .background(Color.wbwForestVoid, in: Capsule())
