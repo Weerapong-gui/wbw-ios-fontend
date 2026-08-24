@@ -261,7 +261,10 @@ struct GroupChatView: View {
         HStack(spacing: 10) {
             // สี่เหลี่ยมขอบมน ไม่ใช่ Capsule — ที่บรรทัดเดียวสองทรงนี้แยกกันแทบไม่ออก แต่พอ
             // lineLimit ขยายเป็น 4 บรรทัด แคปซูลกลายเป็นทรงยาปลายโค้งเกินจริง (เห็นจากสกรีนช็อต)
-            TextField("chat_message", text: $draft, axis: .vertical)
+            // `chat_composer_hint` ไม่ใช่ `chat_message` — ตัวหลังเป็นคำนามเดี่ยว ("ข้อความ")
+            // อ่านเหมือนป้ายกำกับฟิลด์ในฟอร์ม บนจอที่ไม่มีป้ายอะไรอยู่ข้าง ๆ เลย คำชวนพิมพ์
+            // ทำงานกว่า · คีย์นี้มีอยู่ทั้งสองภาษามาตลอดแต่ไม่เคยถูกเรียก
+            TextField("chat_composer_hint", text: $draft, axis: .vertical)
                 .font(.body)
                 .lineLimit(1...4)
                 .padding(.horizontal, 16).padding(.vertical, 10)
