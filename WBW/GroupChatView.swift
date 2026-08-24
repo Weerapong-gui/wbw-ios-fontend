@@ -271,9 +271,35 @@ struct GroupChatView: View {
         .background(.ultraThinMaterial)
     }
 
+    /// ส่งร่างปัจจุบัน แล้วล้างช่องพิมพ์ให้เกลี้ยงจริง
+    ///
+    /// **ลำดับสามขั้นนี้ load-bearing ทั้งหมด ห้ามสลับ** — อาการที่แก้อยู่คือ "พิมพ์แล้วกดส่ง
+    /// ฟองขึ้นแล้วแต่ข้อความยังค้างอยู่ในช่อง" ซึ่ง Park เจอเป็นครั้งคราว
+    ///
+    /// ต้นเหตุ: `draft` มีคนเขียนแค่สองทางคือฟังก์ชันนี้กับ binding ของ `TextField` เอง
+    /// ฟังก์ชันนี้ล้างทุกครั้งไม่มีเงื่อนไข แปลว่าที่ค้างคือ **UITextView เขียนข้อความเก่ากลับ
+    /// เข้า binding ทีหลัง** · ช่องพิมพ์เป็น `axis: .vertical` ซึ่งหลังบ้านคือ UITextView
+    /// ไม่ใช่ UITextField และคีย์บอร์ดค้างเปิดตลอดการส่ง (ไม่มีใครปล่อยโฟกัส) session ของ
+    /// autocorrect/inline predictive text จึงข้ามการส่งไป — ตั้ง `text = ""` ตอนที่ยังมี
+    /// marked text ค้างอยู่ UIKit ไม่ล้าง marked ให้ พอ composition commit ตัวเองข้อความกลับมา
+    ///
+    /// 1. ล้าง `draft` **ก่อน** แตะ store — ของเดิมแตะ store ก่อน ซึ่ง publish `messages`
+    ///    ทันทีในเฟรมเดียวกัน ยิ่งถ่างจังหวะให้ write-back ของคีย์บอร์ดชนะการล้าง
+    /// 2. ค่อยส่งเข้า store ด้วยข้อความที่สแนปไว้แล้ว (ไม่อ่าน `draft` ซ้ำ — ตอนนี้มันว่างแล้ว)
+    /// 3. ล้างซ้ำใน runloop ถัดไป เพื่อกวาดสิ่งที่คีย์บอร์ด commit กลับมาหลังข้อ 1
+    ///    (`DispatchQueue.main.async` ไม่ใช่ `Task { }` — ต้องการรอบ runloop ถัดไปของ UIKit
+    ///    ไม่ใช่แค่ suspension point ของ Swift Concurrency ซึ่งอาจกลับมาก่อนที่คีย์บอร์ดจะ commit)
+    ///
+    /// **ถ้ายังเจออาการค้างอยู่หลังจากนี้** ขั้นถัดไปคือบังคับให้ UIKit สร้าง UITextView ใหม่
+    /// ด้วย `.id(sentTick)` บน `TextField` + `@FocusState` ที่ยึดโฟกัสคืนทันทีในทรานแซกชัน
+    /// เดียวกัน — ฆ่า marked text ได้แน่นอน แต่แลกกับความเสี่ยงคีย์บอร์ดกระพริบ จึงยังไม่ทำ
+    /// ตอนนี้ ที่นี่ไม่มี tap tooling ให้พิสูจน์ว่าคุ้ม
     private func send() {
-        store.send(draft, senderName: profile.me?.displayName ?? Loc.t("chat_me"))
+        let text = ChatDraft.trimmed(draft)
+        guard ChatDraft.canSend(draft) else { return }
         draft = ""
+        store.send(text, senderName: profile.me?.displayName ?? Loc.t("chat_me"))
         sentTick += 1
+        DispatchQueue.main.async { draft = "" }
     }
 }
