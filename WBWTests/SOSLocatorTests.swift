@@ -24,7 +24,7 @@ private final class FakeLocationProvider: SOSLocationProviding {
 final class SOSLocatorTests: XCTestCase {
 
     override func tearDown() {
-        UserDefaults.standard.removeObject(forKey: Session.tokenKey)
+        DemoMode.forcedActive = nil
         super.tearDown()
     }
 
@@ -36,7 +36,9 @@ final class SOSLocatorTests: XCTestCase {
     /// เลยสักครั้ง (`DemoSOS` สร้างเคสในหน่วยความจำล้วน) · Guideline 5.1.1 อ่านเรื่องนี้ตรง ๆ:
     /// ขอสิทธิ์ที่ไม่มีอะไรในแอปได้ใช้จริง
     func testDemoModeNeverAsksForLocation() {
-        UserDefaults.standard.set(DemoMode.token, forKey: Session.tokenKey)
+        // ตั้งผ่าน seam ที่มีไว้สำหรับเรื่องนี้อยู่แล้ว ไม่ใช่ไปยัด token ลงที่เก็บ —
+        // ตั้งแต่ JWT ย้ายเข้า Keychain (TokenStore) การเขียน UserDefaults ตรง ๆ ไม่มีผลอีกแล้ว
+        DemoMode.forcedActive = true
         let p = FakeLocationProvider()
         p.status = .notDetermined
         let locator = SOSLocator(provider: p)
@@ -50,7 +52,7 @@ final class SOSLocatorTests: XCTestCase {
 
     /// อีกด้านของเทสข้างบน — บัญชีจริงต้องยังถูกถามเหมือนเดิม
     func testRealSessionStillAsksForLocation() {
-        UserDefaults.standard.removeObject(forKey: Session.tokenKey)
+        DemoMode.forcedActive = false
         let p = FakeLocationProvider()
         p.status = .notDetermined
         let locator = SOSLocator(provider: p)

@@ -126,7 +126,7 @@ final class PushManager {
         // configure เลย (ตอน launch ข้ามไป) ไม่เรียกตรงนี้เครื่องนั้นจะไม่ได้รับ push ทั้งวันโดยไม่มี
         // อะไรฟ้อง — อาการเดียวกับที่เคยไล่หาแล้วเห็นแค่ device_token ค้างที่ 0
         configureFirebaseIfAvailable()
-        let jwt = UserDefaults.standard.string(forKey: "wbw.token")
+        let jwt = TokenStore.read()
         guard Self.shouldRegister(pushEnabled: enabled,
                                   notiEnabled: Self.notificationsEnabledPreference(),
                                   fcmToken: fcmToken, jwt: jwt),
@@ -138,7 +138,7 @@ final class PushManager {
     /// ถอน token (เรียกก่อนล้าง JWT ตอน logout)
     func unregister() {
         guard let fcm = fcmToken,
-              let jwt = UserDefaults.standard.string(forKey: "wbw.token"), !jwt.isEmpty
+              let jwt = TokenStore.read(), !jwt.isEmpty
         else { return }
         Task { try? await APIClient.shared.unregisterDevice(token: jwt, fcmToken: fcm) }
     }

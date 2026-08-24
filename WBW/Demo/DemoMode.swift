@@ -22,7 +22,7 @@ enum DemoMode {
 
     static var active: Bool {
         if let forcedActive { return forcedActive }
-        return UserDefaults.standard.string(forKey: Session.tokenKey) == token
+        return TokenStore.read() == token
     }
 
     /// ผู้ใช้ปลอมของโหมดเดโม่ · role เป็น `participant` เสมอ — เข้าโหมดเดโม่แล้วต้องไม่หลุดไปจอ
