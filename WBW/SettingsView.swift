@@ -131,6 +131,8 @@ struct SettingsView: View {
             .padding(.bottom, ForestSceneHost.tabBarClearance)
         }
         .scrollIndicators(.hidden)
+        // ปุ่มออกจากระบบอยู่ท้ายสุดของจอที่ยาวกว่าหน้าจอ — ไม่มีแฟลกนี้ก็ถ่ายรูปยืนยันไม่ได้เลย
+        .modifier(UITestScrollToBottom(flag: "uitestSettingsBottom"))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .forestBackground(day: ForestMath.dayStill)
         .navigationBarTitleDisplayMode(.inline)

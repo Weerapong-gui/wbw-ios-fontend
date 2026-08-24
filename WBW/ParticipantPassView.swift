@@ -60,7 +60,7 @@ struct ParticipantPassView: View {
             .scrollIndicators(.hidden)
             // บัตรสูงกว่าจอ ปุ่ม SOS ที่อยู่ต่อจากมันจึงอยู่ใต้ fold เสมอ — ถ่ายภาพยืนยันไม่ได้เลย
             // ถ้าไม่มีทางสั่งให้เลื่อนลงสุด (เครื่องนี้ไม่มีตัวกดจอ ทรงเดียวกับ `-uitestCredits`)
-            .modifier(UITestScrollToBottom())
+            .modifier(UITestScrollToBottom(flag: "uitestPassBottom"))
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -355,17 +355,3 @@ struct ParticipantPassView: View {
     }
 }
 
-/// เลื่อน `ScrollView` ลงสุดตอน launch ด้วย `-uitestPassBottom` — DEBUG เท่านั้น
-private struct UITestScrollToBottom: ViewModifier {
-    func body(content: Content) -> some View {
-        #if DEBUG
-        if UserDefaults.standard.bool(forKey: "uitestPassBottom") {
-            content.defaultScrollAnchor(.bottom)
-        } else {
-            content
-        }
-        #else
-        content
-        #endif
-    }
-}

@@ -91,6 +91,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestSettings` | flag | เปิดหน้าตั้งค่าตรงๆ (จาก Ticket) | `-uitestProfile` |
 | `-uitestStaffScreen` | flag | บังคับ `RootView` ให้แสดงจอเจ้าหน้าที่ (สแกน QR) โดยไม่ต้องมีบัญชี staff จริง — `-uitestToken` ปลอมไปไม่ถึงเพราะ backend ตอบ 401 แล้วเด้งกลับหน้าล็อกอิน | `-uitestDemo` (ให้มี session) |
 | `-uitestPassBottom` | flag | เปิดหน้าบัตรโดยเลื่อนลงสุด — ปุ่ม SOS อยู่ใต้การ์ดซึ่งสูงกว่าจอ ไม่มีแฟลกนี้ก็ถ่ายไม่เห็น | `-uitestTab 4` |
+| `-uitestSettingsBottom` | flag | เปิดหน้าตั้งค่าโดยเลื่อนลงสุด — ปุ่มออกจากระบบอยู่ท้ายจอที่ยาวกว่าหน้าจอ (ตัวเดียวกับ `-uitestPassBottom` คนละแฟลก ดู `WBW/UITestScrollToBottom.swift`) | `-uitestProfile` + `-uitestSettings` |
 | `-uitestStaffSOSCase <แบบ>` | `fine` / `coarse` | ยัดเคส SOS ตัวอย่างหนึ่งใบเข้าแท็บ SOS ของเจ้าหน้าที่ (ปิด long-poll ไปด้วย) — `coarse` ให้พิกัด ±450 ม. ซึ่งเป็นแบบเดียวที่วาดวงความคลาดเคลื่อน | `-uitestStaffScreen` |
 | `-uitestCameraDenied` | flag | บังคับจอเจ้าหน้าที่ให้แสดงสถานะ "ไม่ได้รับสิทธิ์กล้อง" — `simctl privacy revoke` รีเซ็ตเป็น "ยังไม่เคยถาม" ไม่ใช่ "ปฏิเสธ" จึงตั้งจากภายนอกไม่ได้ | `-uitestToken <jwt>` + `-uitestRole staff` |
 | `-uitestSOSStatus` | flag | เปิดจอสถานะ SOS ตรง ๆ พร้อมเคสจำลองที่สถานะ `.received` — ทางเข้าจริงคือกดปุ่มค้าง 3 วินาที ซึ่งถ่ายรูปไม่ได้ที่นี่ | `-uitestTab 4` |
