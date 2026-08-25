@@ -11,6 +11,9 @@ struct SOSStatusView: View {
     @Environment(\.dismiss) private var dismiss
     /// คนที่เปิดตัวเลือกนี้ไว้ต้องได้พื้นหลังแดงที่ **นิ่ง** ไม่ใช่เต้น (ดู `SOSPulse`)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// ตัวอักษรใหญ่ระดับ Accessibility แล้วแถบทางออกที่ปักไว้จะกินเกือบทั้งจอ จนการ์ดข้อมูล
+    /// ที่ทำมาให้ยื่นให้คนช่วยดูถูกดันออกนอกจอ — กติกาการปรับทรงอยู่ที่ `BigTextLayout`
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var note = ""
     @State private var secondsSinceRaise = 0
     @State private var cancelOutcome: APIClient.SOSCancelOutcome?
@@ -78,6 +81,8 @@ struct SOSStatusView: View {
                 }
             }
 
+            if BigTextLayout.pinsOnlyTheCancelButton(dynamicTypeSize) { exitExtras }
+
             if cancelOutcome == .alreadyAcked || cancelOutcome == .tooLate {
                 Text("sos_status_already_acked")
                     .foregroundStyle(.secondary)
@@ -89,6 +94,10 @@ struct SOSStatusView: View {
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 20) {
+                // **ที่ขนาดตัวอักษรใหญ่ เหลือปักไว้เฉพาะปุ่มยกเลิก** — ของเดิมปักทั้งสามอย่าง
+                // (ยกเลิก + ย่อลง + ข้อความ 1669) ซึ่งที่ `AccessibilityXXXL` กินเกือบทั้งจอ
+                // เหลือที่ให้เนื้อหาราวหนึ่งบรรทัด · สองอย่างหลังย้ายไปอยู่ในส่วนที่เลื่อนได้
+                // (ดู `exitExtras`) เพราะอ่านครั้งเดียวก็พอ ไม่ต้องอยู่ตรงหน้าตลอดเวลา
                 // ปุ่มยกเลิกอยู่ในแถบที่ปักไว้ **ไม่ใช่ในส่วนที่เลื่อน** — นี่คือปุ่มที่แพงที่สุด
                 // บนจอนี้ถ้าหาไม่เจอ: เคสที่ยกเลิกไม่ได้แปลว่าเจ้าหน้าที่ออกเดินไปหาคนที่ไม่ได้
                 // ต้องการความช่วยเหลือแล้ว
@@ -99,16 +108,7 @@ struct SOSStatusView: View {
                     .sosTapTarget()
                 }
 
-                minimizeRow
-
-                // ปุ่ม SOS สื่อว่า "กดแล้วมีคนมาช่วยแน่นอน" ซึ่งเกินจริง — แอปนี้แจ้งทีมงานของกิจกรรม
-                // ไม่ใช่หน่วยกู้ชีพ · แอปอยู่หมวด Health & Fitness ซึ่ง Apple อ่านละเอียดที่สุดเรื่อง
-                // การอ้างความสามารถทางการแพทย์/ฉุกเฉิน และผู้ใช้จริงบนดอยก็ต้องรู้ว่ายังต้องโทร 1669 เอง
-                Text("sos_not_emergency_service")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                if !BigTextLayout.pinsOnlyTheCancelButton(dynamicTypeSize) { exitExtras }
             }
             .padding()
             .contentColumn(.card)
@@ -142,6 +142,21 @@ struct SOSStatusView: View {
         .onChange(of: store.status) { _, new in
             if new == nil { dismiss() }
         }
+    }
+
+    /// ปุ่มย่อลง + คำเตือนว่าไม่ใช่หน่วยกู้ชีพ — อยู่ในแถบปักตอนตัวอักษรขนาดปกติ และย้ายลงไป
+    /// อยู่ในส่วนที่เลื่อนได้เมื่อตัวอักษรใหญ่ระดับ Accessibility (ดู `BigTextLayout`)
+    @ViewBuilder private var exitExtras: some View {
+        minimizeRow
+
+        // ปุ่ม SOS สื่อว่า "กดแล้วมีคนมาช่วยแน่นอน" ซึ่งเกินจริง — แอปนี้แจ้งทีมงานของกิจกรรม
+        // ไม่ใช่หน่วยกู้ชีพ · ผู้ตรวจ App Review อ่านการอ้างความสามารถทางการแพทย์/ฉุกเฉิน
+        // ละเอียดที่สุด และผู้ใช้จริงบนดอยก็ต้องรู้ว่ายังต้องโทร 1669 เอง
+        Text("sos_not_emergency_service")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     /// ทางออกจากจอนี้ที่ **มีอยู่ทุกสถานะ** — ไม่ใช่แค่ตอนเคสปิดแล้ว

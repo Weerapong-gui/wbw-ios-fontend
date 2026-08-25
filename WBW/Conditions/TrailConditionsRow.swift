@@ -15,9 +15,17 @@ import SwiftUI
 struct TrailConditionsRow: View {
     let conditions: TrailConditions?
 
+    /// ตัวอักษรใหญ่ระดับ Accessibility แล้วสองก้อนนี้อยู่บรรทัดเดียวไม่พอ — ของเดิมตัดคำทิ้ง
+    /// จนเหลือ "27° รู้…" กับ "AQI… ดี" ซึ่งคือการทิ้งตัวเลขที่คนอ่านต้องการไปทั้งคู่
+    /// (เจอจากการรันจริงที่ `AccessibilityXXXL` · กติกาอยู่ที่ `BigTextLayout`)
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         if let conditions, !conditions.isEmpty {
-            HStack(spacing: 22) {
+            let stacked = BigTextLayout.stacksTrailConditions(dynamicTypeSize)
+            let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                                 : AnyLayout(HStackLayout(spacing: 22))
+            layout {
                 if let weather = conditions.weather {
                     let sky = Sky.of(code: weather.code)
                     reading(symbol: sky.symbol,
@@ -47,14 +55,18 @@ struct TrailConditionsRow: View {
                 .font(.system(size: 17))
                 .foregroundStyle(iconTint)
                 .accessibilityLabel(accessibility)
+            // **ห้ามตัดคำทิ้ง** — ค่าที่ถูกตัดคือตัวเลขที่คนอ่านต้องการพอดี ("27° รู้…")
+            // ให้ขึ้นบรรทัดใหม่แทน ที่ว่างมีให้อยู่แล้วเพราะแถวนี้เรียงลงเมื่อตัวอักษรใหญ่
             Text(lead)
                 .font(.wbwBodyLarge)
                 .foregroundStyle(Color.wbwOnBackdrop)
+                .fixedSize(horizontal: false, vertical: true)
             if let trail {
                 Text(trail.uppercased())
                     .font(.wbwLabelMedium)
                     .kerning(1.1)
                     .foregroundStyle(trailTint)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
