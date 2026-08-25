@@ -4,8 +4,13 @@ import SwiftUI
 /// คนกดต้องเห็นว่าเกิดอะไรขึ้น และปุ่มยกเลิกกับปุ่มโทรต้องอยู่ตรงหน้า
 struct SOSStatusView: View {
     @ObservedObject var store: SOSStore
+    /// โปรไฟล์ที่โหลดไว้แล้ว — การ์ด "ให้คนที่มาถึงอ่าน" อ่านจากตัวนี้ ไม่ยิงเน็ตเพิ่มสักครั้ง
+    /// (ดู `SOSVitals`) · มาถึงจอนี้ทาง environment ของ `WBWApp` เหมือนทุกจอในแอป
+    @EnvironmentObject var profile: ProfileStore
     let token: String
     @Environment(\.dismiss) private var dismiss
+    /// คนที่เปิดตัวเลือกนี้ไว้ต้องได้พื้นหลังแดงที่ **นิ่ง** ไม่ใช่เต้น (ดู `SOSPulse`)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var note = ""
     @State private var secondsSinceRaise = 0
     @State private var cancelOutcome: APIClient.SOSCancelOutcome?
@@ -39,6 +44,8 @@ struct SOSStatusView: View {
             VStack(spacing: 20) {
                 statusBlock
 
+                whereRow
+
             if store.statusCheckStopped {
                 // poll ชนเพดาน "ไม่มีเคส" ติดกันแล้วเลิกเช็คไปเอง (ดู SOSStore.maxConsecutiveEmptyPolls)
                 // ต้องบอกตรงๆ ว่าหยุดแล้ว ไม่ใช่ปล่อยให้จอค้างสถานะเก่าเงียบๆ โดยดูเหมือนยังติดตามอยู่
@@ -56,6 +63,8 @@ struct SOSStatusView: View {
             noteRow
 
             forOtherRow
+
+            vitalsCard
 
             // เบอร์มาจากเซิร์ฟเวอร์ ไม่ใช่ลิเทอรัล — `URL(string:)!` ที่เคยอยู่ตรงนี้ crash ทันที
             // ถ้าเบอร์ที่ส่งมามีช่องว่างหรือตัวอักษรพ่วง · ต่อไม่ได้ = ซ่อนปุ่ม ไม่ใช่พังทั้งจอ
@@ -106,6 +115,15 @@ struct SOSStatusView: View {
             // พื้นทึบบาง ๆ ใต้ทางออก — เนื้อหาที่เลื่อนผ่านข้างหลังต้องไม่อ่านปนกับปุ่ม
             .background(.bar)
         }
+        // **พื้นหลังต้องอยู่ชั้นนอกสุด คลุมทั้งจอรวมใต้แถบทางออกที่ปักไว้** — วางไว้ชั้นใน
+        // (บน `ScrollView` เฉย ๆ) แล้วแดงจะหยุดตรงขอบแถบพอดี กลายเป็นเส้นแบ่งกลางจอที่ดูเหมือน
+        // ของพัง · ขอบจอเรืองแดงตลอดเวลาที่เคสยังเปิดอยู่ เพื่อให้คนที่อยู่ห่างออกไป (หรือคนที่
+        // ถูกยื่นเครื่องให้ดู) อ่านออกทันทีว่านี่คือเครื่องที่กำลังรอความช่วยเหลือ ไม่ใช่เครื่องที่
+        // เปิดค้างไว้เฉย ๆ · เหตุผลเต็มของสีกับจังหวะอยู่ที่ `SOSEmergencyBackdrop`
+        .background {
+            SOSEmergencyBackdrop(pulsing: SOSPulse.pulses(status: store.status),
+                                 reduceMotion: reduceMotion)
+        }
         .onAppear {
             // จอนี้เปิดขึ้นมาแปลว่ามีเคสฉุกเฉินอยู่จริงตอนนี้ — ถ้ายังไม่เคยถูกถามเรื่องสิทธิ์ตำแหน่งเลย
             // นี่คือโอกาสสุดท้ายก่อนที่เจ้าหน้าที่จะได้เคสที่ไม่มีพิกัดติดมาด้วย · ขอเฉพาะตอน
@@ -153,6 +171,72 @@ struct SOSStatusView: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    /// เจ้าหน้าที่เห็นตำแหน่งของเคสนี้แบบไหน — ตรรกะอยู่ที่ `SOSWhere` (เทสครบทุกสาขาที่นั่น)
+    ///
+    /// **คนละหน้าที่กับ `locationBanner` ข้างล่าง** อันนั้นเตือนเรื่อง *สิทธิ์* ที่ยังไม่ได้ให้
+    /// อันนี้บอก *ผลลัพธ์* ที่เกิดขึ้นจริงกับเคสนี้ — ให้สิทธิ์แล้วแต่จับพิกัดไม่ทันก็ยังได้
+    /// `last_checkin` ซึ่งเป็นคนละคำสัญญากับ "เรารู้ว่าคุณอยู่ไหน"
+    @ViewBuilder private var whereRow: some View {
+        if let c = store.serverCase {
+            let place = SOSWhere.from(locSource: c.locSource, checkpointName: c.checkpointName)
+            Group {
+                if case .nearCheckpoint(let name) = place {
+                    Text(Loc.t(place.textKey, name))
+                } else {
+                    Text(LocalizedStringKey(place.textKey))
+                }
+            }
+            .font(.wbwBodySmall)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// การ์ดที่ยื่นให้คนที่มาถึงอ่าน — กรุ๊ปเลือด เบอร์ญาติ บิบ กลุ่ม (ดู `SOSVitals`)
+    ///
+    /// **ไม่ขึ้นเมื่อเคสถูกทำเครื่องหมายว่ากดแทนคนอื่น** — คนเจ็บไม่ใช่เจ้าของเครื่อง
+    /// กรุ๊ปเลือดของเจ้าของเครื่องบนจอนั้นคือข้อมูลผิดคนในมือคนที่กำลังจะช่วย · เซิร์ฟเวอร์กัน
+    /// เรื่องเดียวกันด้วยเงื่อนไข `NOT s.for_other` ตอนเปิดข้อมูลสุขภาพให้เจ้าหน้าที่
+    @ViewBuilder private var vitalsCard: some View {
+        if !isForOther {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("sos_vitals_title")
+                    .font(.wbwBodySmall)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(SOSVitals.rows(for: profile.me), id: \.labelKey) { row in
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(LocalizedStringKey(row.labelKey))
+                            .font(.wbwBodySmall)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
+                        // ค่าที่ไม่มีพิมพ์ว่า "ไม่ได้ระบุ" ไม่ใช่ซ่อนแถว — แถวที่หายไปทำให้การ์ด
+                        // ดูครบทั้งที่ไม่ครบ (เหตุผลเต็มที่ `SOSVitals`)
+                        Text(row.value ?? Loc.t("sos_vitals_not_given"))
+                            .font(row.labelKey == "sos_vitals_blood" ? .wbwTitleMedium : .wbwBodyLarge)
+                            .foregroundStyle(row.value == nil ? .secondary : .primary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+
+                // เบอร์ญาติกดโทรได้จากตรงนี้เลย — คนที่มาถึงไม่ต้องพิมพ์เลขตามจากจอ
+                if let dial = SOSVitals.dialable(profile.me?.emergencyContactPhone),
+                   let url = URL(string: "tel://\(dial)") {
+                    Link(destination: url) {
+                        Label(Loc.t("sos_vitals_call_contact"), systemImage: "phone.arrow.up.right")
+                            .frame(maxWidth: .infinity, minHeight: Config.Tap.minTarget)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 

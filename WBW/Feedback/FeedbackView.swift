@@ -16,6 +16,10 @@ struct FeedbackView: View {
     @EnvironmentObject var feedback: FeedbackStore
 
     @State private var rating: Int?
+    /// สามข้อที่ยกมาจากฝั่ง Android — ไม่บังคับตอบ (ดู `FeedbackDraft.canSubmit`)
+    @State private var ratingScenery: Int?
+    @State private var ratingActivity: Int?
+    @State private var ratingStaff: Int?
     @State private var comment = ""
     @State private var sent = false
     // ข้อความ error ตอนส่งไม่สำเร็จแบบถาวร (retry ด้วย draft เดิมไม่มีทางสำเร็จ) — nil = ไม่มี error ค้าง
@@ -81,10 +85,18 @@ struct FeedbackView: View {
                     .padding(.top, 2)
             }
 
-            HStack(spacing: 10) {
-                faceButton(1, "hand.thumbsdown", Loc.t("feedback_dislike"))
-                faceButton(2, "minus.circle", Loc.t("feedback_neutral"))
-                faceButton(3, "hand.thumbsup", Loc.t("feedback_like"))
+            // **สี่คำถาม ไม่ใช่คำถามเดียว** — ยกมาจากฝั่ง Android (`3011729`) พร้อมเหตุผลของมัน:
+            // "ฐานนี้เป็นอย่างไรบ้าง" คำถามเดียวยุบทุกอย่างที่ฐานหนึ่งเป็นให้เหลือเลขตัวเดียว
+            // แล้วผู้จัดเอาไปทำอะไรต่อไม่ได้ · ฐานที่วิวดีแต่กิจกรรมน่าเบื่อกับฐานที่ตรงข้ามกัน
+            // ได้คะแนนเท่ากันทั้งที่ต้องแก้คนละเรื่อง
+            //
+            // เรียงภาพรวมไว้บนสุดเพราะเป็นข้อเดียวที่บังคับ — คนที่จะตอบข้อเดียวแล้วปิดจะได้
+            // เจอข้อที่ใช่ก่อน ไม่ต้องเลื่อนหาผ่านสามข้อที่ข้ามได้
+            VStack(spacing: 14) {
+                questionRow("feedback_q_overall", "feedback_q_overall_hint", $rating)
+                questionRow("feedback_q_scenery", "feedback_q_scenery_hint", $ratingScenery)
+                questionRow("feedback_q_activity", "feedback_q_activity_hint", $ratingActivity)
+                questionRow("feedback_q_staff", "feedback_q_staff_hint", $ratingStaff)
             }
             .padding(.top, 16)
 
@@ -140,23 +152,50 @@ struct FeedbackView: View {
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.wbwInk.opacity(0.07), lineWidth: 1))
     }
 
-    private func faceButton(_ value: Int, _ symbol: String, _ label: String) -> some View {
-        let picked = rating == value
+    /// หนึ่งคำถาม: หัวข้อ + คำอธิบายสั้น + ปุ่มคะแนน 1–5
+    ///
+    /// **สเกล 1–5 เท่าฝั่ง Android** ของเดิมเป็นสามหน้า (ไม่ชอบ/เฉย ๆ/ชอบ) ซึ่งอ่านง่ายกว่าก็จริง
+    /// แต่คนละสเกลกับอีกแอปแปลว่าผู้จัดเอาคะแนนสองฝั่งมารวมกันไม่ได้เลย ทั้งที่เป็นงานเดียวกัน
+    private func questionRow(_ titleKey: String, _ hintKey: String,
+                             _ value: Binding<Int?>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(LocalizedStringKey(titleKey))
+                .font(.wbwText(14, weight: .semibold, relativeTo: .subheadline))
+                .foregroundStyle(Color.wbwInk)
+            Text(LocalizedStringKey(hintKey))
+                .font(.wbwText(11, relativeTo: .caption2))
+                .foregroundStyle(Color.wbwInk.opacity(0.5))
+            HStack(spacing: 8) {
+                ForEach(Array(FeedbackDraft.scale), id: \.self) { score in
+                    scaleButton(score, value)
+                }
+            }
+            // ปลายสเกลบอกด้วยคำ ไม่ใช่ให้เดาเอาว่า 1 คือดีหรือแย่
+            HStack {
+                Text("feedback_scale_low")
+                Spacer()
+                Text("feedback_scale_high")
+            }
+            .font(.wbwText(10, relativeTo: .caption2))
+            .foregroundStyle(Color.wbwInk.opacity(0.4))
+        }
+    }
+
+    private func scaleButton(_ value: Int, _ binding: Binding<Int?>) -> some View {
+        let picked = binding.wrappedValue == value
         return Button {
             guard !answered else { return }
-            rating = value
+            binding.wrappedValue = value
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: symbol).font(.system(size: 20))
-                Text(label).font(.wbwText(11, weight: .semibold, relativeTo: .caption2))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .foregroundStyle(picked ? Color.wbwGreen : Color.wbwInk.opacity(0.5))
-            .background(picked ? Color.wbwGreen.opacity(0.12) : Color.wbwBg,
-                        in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12)
-                .stroke(picked ? Color.wbwGreen : Color.wbwInk.opacity(0.14), lineWidth: 1))
+            Text("\(value)")
+                .font(.wbwNumeral(16, relativeTo: .body))
+                .frame(maxWidth: .infinity)
+                .frame(height: Config.Tap.minTarget)
+                .foregroundStyle(picked ? Color.wbwOnGreen : Color.wbwInk.opacity(0.6))
+                .background(picked ? Color.wbwGreen : Color.wbwBg,
+                            in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .stroke(picked ? Color.wbwGreen : Color.wbwInk.opacity(0.14), lineWidth: 1))
         }
         .buttonStyle(.plain)
         // ที่เลือกอยู่ต่างกันแค่สีพื้นกับสีเส้น — VoiceOver ไม่มีทางรู้ถ้าไม่บอก
@@ -190,6 +229,9 @@ struct FeedbackView: View {
             clientId: UUID().uuidString.lowercased(),
             checkpointId: checkpointId,
             rating: rating,
+            ratingScenery: ratingScenery,
+            ratingActivity: ratingActivity,
+            ratingStaff: ratingStaff,
             comment: trimmed.isEmpty ? nil : trimmed,
             deviceTime: ISO8601DateFormatter().string(from: Date()))
         sendError = nil

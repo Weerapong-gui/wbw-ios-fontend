@@ -116,6 +116,33 @@ final class WalkTrackingContractTests: XCTestCase {
         }
     }
 
+    /// **ข้อความสิทธิ์เซ็นเซอร์ต้องบอกด้วยว่านับต่อตอนไม่ได้เปิดแอป**
+    ///
+    /// ตั้งแต่ 2026-08-25 การเดินไม่หยุดตอนแอปลงหลังแล้ว — ช่วงนั้นถามชิปนับก้าวย้อนหลัง
+    /// (`WalkTracker.backfillFromPedometer`) ซึ่งเป็นการใช้ข้อมูลกิจกรรมของช่วงเวลาที่แอป
+    /// ไม่ได้รันอยู่ · ข้อความเดิมเขียนว่า "แสดงบนแผนที่เท่านั้น" ซึ่งกลายเป็นคำที่ไม่ตรงกับ
+    /// ของจริง และ Apple เทียบข้อความนี้กับหน้านโยบายบนเว็บเองตาม 5.1.1
+    func testMotionPurposeStringSaysItKeepsCountingWhileTheAppIsClosed() throws {
+        func closedAppWord(for path: String) -> String {
+            path.contains("/en.lproj/") ? "closed" : "ปิดแอป"
+        }
+        for file in ["WBW/th.lproj/InfoPlist.strings", "WBW/en.lproj/InfoPlist.strings"] {
+            let line = try value(of: "NSMotionUsageDescription", inStringsFile: file)
+            XCTAssertTrue(line.contains(closedAppWord(for: file)), """
+                \(file): ข้อความสิทธิ์เซ็นเซอร์ยังบอกว่าใช้เฉพาะตอนเปิดแอป ทั้งที่ตอนนี้นับต่อ
+                ตอนปิดแอปด้วย — ข้อความที่ไม่ตรงกับสิ่งที่แอปทำคือเหตุตีกลับตาม 5.1.1
+                """)
+        }
+        for file in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let data = try Data(contentsOf: Self.repoRoot.appendingPathComponent(file))
+            let dict = try XCTUnwrap(
+                PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+            let purpose = try XCTUnwrap(dict["NSMotionUsageDescription"] as? String)
+            XCTAssertTrue(purpose.contains("ปิดแอป"),
+                          "\(file): ค่าสำรองใน plist ยังเล่าเรื่องเก่า")
+        }
+    }
+
     /// `CMPedometer` อยู่ได้ **ไฟล์เดียว** คือตัว tracker
     ///
     /// ไม่ได้ห้ามใช้แล้ว แต่ห้ามกระจาย — เซ็นเซอร์ที่ถูกเรียกจากหลายที่แปลว่ามีหลายที่ที่ต้อง

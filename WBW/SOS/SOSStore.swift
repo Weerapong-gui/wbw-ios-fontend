@@ -27,6 +27,14 @@ final class SOSStore: ObservableObject {
         draft = SOSDraft(clientId: "screenshot", deviceTime: "2026-08-21T09:00:00Z",
                          forOther: false, ownerId: "demo-user")
         status = .received
+        // เคสจำลองที่เซิร์ฟเวอร์ "ยังไม่รู้พิกัด" — `loc_source = last_checkin` คือสาขาที่บรรทัด
+        // บอกตำแหน่ง (`SOSWhere`) มีอะไรให้พูดจริง ๆ และเป็นสาขาที่ต้องมีคนดูด้วยตาว่าอ่านรู้เรื่อง
+        // ไหม เพราะมันคือคำสัญญาที่แย่ที่สุดที่จอนี้ต้องบอกคนที่กำลังรอความช่วยเหลือ
+        serverCase = SOSCase(id: 1, forOther: false, lat: nil, lng: nil, accuracyM: nil,
+                             locSource: "last_checkin", checkpointId: 5, checkpointName: "จุดปลูก",
+                             message: nil, resolved: false, resolveReason: nil,
+                             ackedAt: nil, ackedByName: nil,
+                             createdAt: "2026-08-21T09:00:00Z", emergencyPhone: nil)
     }
     #endif
 

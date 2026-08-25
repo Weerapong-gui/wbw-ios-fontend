@@ -4,6 +4,7 @@ import SwiftData
 /// แถบแท็บหลัก — native TabView icon-only · iOS 26 เรนเดอร์เป็น Liquid Glass + fongkaew lens (แบบ App Store) ให้อัตโนมัติ
 struct MainTabView: View {
     @EnvironmentObject var session: Session
+    @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var profile: ProfileStore
     @EnvironmentObject var progress: CheckinProgressStore
     @EnvironmentObject var checkpoints: CheckpointStore
@@ -37,6 +38,19 @@ struct MainTabView: View {
     @State private var showSOSStatus = false
     /// จออธิบายก่อนกล่องขอสิทธิ์ตำแหน่งของระบบ — ดู `LocationPrimer`
     @State private var showLocationPrimer = false
+
+    /// รอจนกล่องขอสิทธิ์แจ้งเตือนถูกตอบ หรือครบเพดานเวลา
+    ///
+    /// เพดานมีเพราะเครื่องที่ push ถูกปิดทั้งเครื่อง/Firebase โหลดไม่ขึ้นจะไม่มีกล่องให้ตอบเลย
+    /// รอไม่จำกัดแปลว่าจออธิบายตำแหน่งไม่มีวันโผล่บนเครื่องพวกนั้น (ดู `PermissionSequence`)
+    private func waitForPushAnswer() async {
+        let deadline = ContinuousClock.now.advanced(by: PermissionSequence.maxWaitForPushAnswer)
+        while ContinuousClock.now < deadline {
+            let status = await PermissionSequence.pushAuthorization()
+            if PermissionSequence.mayShowLocationPrimer(pushAuthorization: status) { return }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+    }
     // ฐานที่กำลังเปิดหน้าให้ความเห็นอยู่ (nil = ไม่มีจอเปิด) — จุดบรรจบของทั้ง 4 ทางเข้า: แตะ push ตอน
     // แอปปิด (PendingPush → .openCheckinFeedback), push ตอนแอปเปิด, แตะการ์ดในหน้าแจ้งเตือน,
     // และ toast จาก poll 60 วิ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว ไม่มีทางลัดอื่นไป FeedbackView
@@ -151,7 +165,16 @@ struct MainTabView: View {
                 // อ่าน ไม่ await inline เพราะ resumeIfNeeded รอผลเน็ตได้นานเป็นสิบวิ (ทางเดียวกับที่
                 // raise() เองก็ยิงผ่าน Task { } แยกจาก SOSButton ไม่ใช่ await ตรงๆ) บล็อกอยู่ตรงนี้จะดึง
                 // การโหลด noti/profile/progress ทั้งหมดข้างล่างช้าตามไปด้วยทั้งที่ไม่เกี่ยวกันเลย
-                if sos.status != nil { showSOSStatus = true }
+                // **สลับไปแท็บบัตร ไม่ใช่เด้งจอสถานะ** (เปลี่ยนเมื่อ 2026-08-25) — หลักการเดียวกับ
+                // ที่ `SOSButton` เลิกเด้งจอสถานะตอนกดครบ: ไม่เอาจออะไรมาบังบัตรที่ต้องยื่นให้คนช่วยดู
+                // · แท็บบัตรคือแท็บที่ขอบจอเรืองแดงตอนเคสเปิด เคสที่ค้างข้ามการเปิดแอปจึงยังหาเจอ
+                // ทันทีที่จอแรกวาดเสร็จ ไม่ได้เงียบหายไป
+                if sos.status != nil { tab = 4 }
+                // **คนที่ล็อกอินค้างมาจาก build ก่อนไม่เคยถูกถามเรื่องแจ้งเตือนเลย** — เส้นทางขอสิทธิ์
+                // วิ่งจาก `Session.save(_:)` ซึ่งเกิดตอนล็อกอินสำเร็จเท่านั้น · ตัวนี้ขอเฉพาะเครื่องที่
+                // ยัง `.notDetermined` (guard อยู่ใน requestAuthorizationIfNeeded) และลำดับกับชีต
+                // อธิบายตำแหน่งมี `PermissionSequence` คุมอยู่แล้ว ไม่ชนกัน
+                PushManager.shared.requestAuthorizationIfNeeded()
                 Task { await sos.resumeIfNeeded(token: session.token ?? "") }
 
                 // ขอสิทธิ์ตำแหน่งให้คนที่ "ล็อกอินค้างอยู่แล้ว" ด้วย — Session.save(_:) เป็นทางเดียวที่
@@ -206,6 +229,12 @@ struct MainTabView: View {
                 if UserDefaults.standard.bool(forKey: "uitestSOSStatus") {
                     sos.raiseForScreenshot()
                     showSOSStatus = true
+                }
+                // เคสจำลองแบบ **ไม่เปิดจอสถานะ** — ใช้ถ่ายจอบัตรตอนขอบจอเรืองแดง ซึ่งเป็นสภาพจริง
+                // หลังกดปุ่มครบ 3 วินาทีตั้งแต่ 2026-08-25 · `-uitestSOSStatus` ข้างบนถ่ายภาพนี้ไม่ได้
+                // เพราะจอสถานะเต็มจอจะขึ้นมาทับบัตรทันที
+                if UserDefaults.standard.bool(forKey: "uitestSOSActive") {
+                    sos.raiseForScreenshot()
                 }
                 // จำลอง "แตะสลับแท็บ" แบบ headless (ไม่มี tap tooling ในสภาพแวดล้อมนี้) ใช้ verify การสลับแท็บ
                 // "จริง" ในโปรเซสเดียวกัน ต่างจาก -uitestTab (ตั้งค่าเริ่มต้นตอน launch เท่านั้น) ตรงที่นี่คือ
@@ -318,6 +347,10 @@ struct MainTabView: View {
                 // ไม่ได้แขวน socket จริง ต้องปล่อยให้ sync/heartbeat วิ่งต่อ มีแค่ .background เท่านั้นที่ iOS
                 // แขวน connection จริง — ปล่อยให้ push รับช่วงตอนนั้น
                 if phase == .active {
+                    // กลับเข้า foreground = อีกจังหวะที่ต้องมี APNs token แน่ ๆ (ผู้ใช้อาจเพิ่งไป
+                    // เปิดสวิตช์แจ้งเตือนของแอปนี้ในหน้าตั้งค่าของเครื่องแล้วสลับกลับมา)
+                    // — ไม่ขึ้นกล่องอะไร ดู `PushManager.registerForPushIfAlreadyAuthorized`
+                    PushManager.shared.registerForPushIfAlreadyAuthorized()
                     chat.start()
                     // กลับมา foreground — ความคืบหน้าอาจเปลี่ยนระหว่างที่แอปอยู่หลัง (เช็คอินฐานใหม่)
                     // และเน็ตอาจกลับมาแล้ว ลองส่งความเห็นที่ค้างคิวอีกรอบ
@@ -363,7 +396,9 @@ struct MainTabView: View {
             // false) เงื่อนไขนี้จะเป็น false ทำให้ toast ไม่โผล่ — chat.incoming ที่ตั้งไว้ (ChatSession
             // เห็นว่าจอไม่ visible แล้ว) เลยไม่มี .task(id:) มาเคลียร์ให้ ค้างเป็น latch ไปเรื่อยๆ จนกว่าจะ
             // สลับแท็บออกไปแล้วโผล่มาแบบข้อความเก่า
-            if let m = chat.incoming, !chatVisible {
+            // `settings.notiChat` ปิด = ไม่ต้องขึ้นแบนเนอร์นี้ — สวิตช์ในหน้าตั้งค่าคุมของจริง
+            // ตรงนี้ที่เดียว (ดู `AppSettings.notiChat`) ไม่ใช่เก็บค่าไว้เฉย ๆ เหมือนของเดิม
+            if let m = chat.incoming, !chatVisible, settings.notiChat {
                 VStack {
                     ChatToast(message: m, photoUrl: nil, onTap: {
                         chat.incoming = nil
@@ -491,6 +526,10 @@ struct MainTabView: View {
             #endif
             guard LocationPrimer.shouldShowNow else { return }
             try? await Task.sleep(for: .seconds(1))
+            // **รอให้กล่องขอสิทธิ์แจ้งเตือนถูกตอบก่อน** — ตั้งแต่ย้ายการขอสิทธิ์แจ้งเตือนมาไว้
+            // หลังล็อกอิน (ดู `PermissionSequence`) กล่องสองใบมาอยู่ในจังหวะเดียวกัน ปล่อยไว้
+            // กล่องของระบบจะซ้อนทับชีตอธิบายที่เพิ่งแก้ตาม 5.1.1(iv) พอดี
+            await waitForPushAnswer()
             guard LocationPrimer.shouldShowNow else { return }
             showLocationPrimer = true
         }

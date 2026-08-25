@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 /// การ์ดฐาน — ชื่อ/กิจกรรม/สถานะเช็คอิน · **ใบเดียวกันทั้งแผนที่ 3 มิติและ 2 มิติ**
@@ -11,6 +12,9 @@ import SwiftUI
 /// เพราะเป็นเรื่องของผู้ใช้คนนี้ ไม่ใช่ข้อมูลของงาน
 struct MapBaseCard: View {
     let sequence: Int
+    /// พิกัดของคนอ่านตอนนี้ — ใช้บอกว่าฐานนี้ห่างเท่าไร · nil = ยังไม่ให้สิทธิ์/ยังจับไม่ได้
+    /// แล้วบรรทัดระยะจะหายไปทั้งบรรทัด (ดู `Map3DPins.distanceFromMe`)
+    var userLocation: CLLocationCoordinate2D?
     let onClose: () -> Void
 
     @EnvironmentObject private var progress: CheckinProgressStore
@@ -38,6 +42,21 @@ struct MapBaseCard: View {
                           systemImage: visited == nil ? "circle.dashed" : "checkmark.circle.fill")
                         .font(.footnote)
                         .foregroundStyle(visited == nil ? .white.opacity(0.7) : Color.wbwGold)
+
+                    // สองบรรทัดที่ยกมาจากฝั่ง Android — "คิวยาวแค่ไหน" กับ "จะเดินไปตอนนี้ดีไหม"
+                    // คือคำถามที่คนยืนดูแผนที่ถามจริง ๆ และการ์ดเดิมตอบไม่ได้ทั้งสองข้อ
+                    Text(Loc.t("map_checkpoint_checked_in",
+                               Map3DPins.checkinCount(sequence: sequence, checkpoints: known)))
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.7))
+
+                    if let metres = Map3DPins.distanceFromMe(sequence: sequence,
+                                                             checkpoints: known,
+                                                             me: userLocation) {
+                        Text(Loc.t("map_checkpoint_from_me", WalkMath.distanceText(metres)))
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
                 }
                 Spacer(minLength: 0)
                 Button { onClose() } label: {

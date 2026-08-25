@@ -149,6 +149,19 @@ struct SOSStaffCase: Codable, Identifiable, Equatable {
     let bloodType: String?
     let healthNotes: String?
 
+    /// สิ่งที่เจ้าหน้าที่สรุปว่าพบ (`false_alarm`/`minor`/`major`/`urgent`) — ยังไม่มีใครสรุป = nil
+    let severity: String?
+
+    /// เคสนี้ถูกยกระดับให้ทั้งงานเห็นหรือยัง — **optional เพราะ backend รุ่นก่อนไม่ส่งคีย์นี้มา**
+    ///
+    /// ทำเป็น `Bool` ตรง ๆ แล้วลิสต์เคสทั้งจอจะ decode ไม่ผ่านในวันที่ backend ยังไม่ได้ deploy
+    /// ซึ่งแย่กว่าการไม่มีป้ายบอกชั้นเป็นไหน ๆ (รอยเดียวกับ `leave_quota` ที่ `MeDecodeTests` ค้ำไว้)
+    /// · อ่านผ่าน `isEscalated` เสมอ อย่าอ่านตัวนี้ตรง ๆ
+    let escalated: Bool?
+
+    /// ยังไม่ยกระดับ = ยังเห็นเฉพาะเจ้าหน้าที่ประจำกลุ่มของคนกด กับแอดมิน
+    var isEscalated: Bool { escalated ?? false }
+
     var fullName: String {
         [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ")
     }
@@ -267,6 +280,19 @@ extension APIClient {
         // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
         if DemoMode.active { return true }
         return try await postSOSAction("/staff/sos/\(id)/resolve", token: token, body: ["reason": reason])
+    }
+
+    /// สรุปว่าพบอะไรที่หน้างาน — **คนละเรื่องกับการปิดเคส**
+    ///
+    /// `major`/`urgent` ยกระดับเคสให้ทั้งงานเห็นและ**ยังเปิดค้างไว้** ส่วน `false_alarm`/`minor`
+    /// ปิดเคสไปในตัว (เซิร์ฟเวอร์เป็นคนตัดสิน ไม่ใช่แอป) · การปิดเคสที่ยกระดับแล้วใช้
+    /// `resolveSOS(reason: "helped")` ตามเดิม
+    @discardableResult
+    func reportSOS(token: String, id: Int64, outcome: SOSOutcome) async throws -> Bool {
+        // โหมดเดโม่ห้ามแตะเน็ต — token ปลอมจะได้ 401 แล้วเตะผู้ใช้ออกทั้งเซสชัน (ดู DemoSOS)
+        if DemoMode.active { return true }
+        return try await postSOSAction("/staff/sos/\(id)/report", token: token,
+                                       body: ["outcome": outcome.wire])
     }
 
     private func postSOSAction(_ path: String, token: String, body: [String: Any]?) async throws -> Bool {

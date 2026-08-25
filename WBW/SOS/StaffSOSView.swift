@@ -120,7 +120,10 @@ final class StaffSOSStore: ObservableObject {
             participantId: "demo-1", firstName: "ดินดิน", lastName: "เดินดอย",
             bib: 1042, groupNumber: 7, contactPhone: "0800000002",
             emergencyContactName: "ผู้ปกครอง ตัวอย่าง", emergencyContactPhone: "0800000001",
-            bloodType: "O", healthNotes: "แพ้ยาเพนนิซิลลิน")
+            bloodType: "O", healthNotes: "แพ้ยาเพนนิซิลลิน",
+            // เคสจำลองอยู่ชั้นแรกโดยตั้งใจ — ป้าย "ยังเห็นเฉพาะเจ้าหน้าที่ประจำกลุ่ม" กับปุ่ม
+            // สรุปเคสจะได้ติดมาในสกรีนช็อตด้วย (ดู `SOSOutcome`)
+            severity: nil, escalated: false)
     }
     #endif
 
@@ -221,6 +224,19 @@ final class StaffSOSStore: ObservableObject {
         }
     }
 
+    /// สรุปว่าพบอะไร — `major`/`urgent` ยกระดับให้ทั้งงานเห็นและเคสยังเปิดอยู่ (ดู `SOSOutcome`)
+    @discardableResult
+    func report(id: Int64, outcome: SOSOutcome, token: String) async -> Bool {
+        do {
+            _ = try await APIClient.shared.reportSOS(token: token, id: id, outcome: outcome)
+            actionError = nil
+            return true
+        } catch {
+            actionError = ActionError(caseId: id, message: Loc.t("sos_staff_report_failed"))
+            return false
+        }
+    }
+
     @discardableResult
     func resolve(id: Int64, reason: String, token: String) async -> Bool {
         do {
@@ -246,6 +262,8 @@ struct StaffSOSCard: View {
     let token: String
     @ObservedObject var store: StaffSOSStore
     @State private var showReasons = false
+    /// กล่องเลือก "พบอะไร" — คนละชุดกับ `showReasons` ที่เป็นเหตุผลปิดเคส (ดู `SOSOutcome`)
+    @State private var showOutcomes = false
     /// มีคำสั่งกำลังวิ่งอยู่ — ปุ่มต้องกดซ้ำไม่ได้และต้องบอกว่ากำลังทำงาน (พบจากรีวิว Task 15
     /// ค้างไว้เป็นรายการรอ) เดิมปุ่ม "กำลังไป" ไม่มีสถานะ disabled เลย กดรัวได้ตามใจโดยไม่มีอะไร
     /// เปลี่ยนบนจอ ซึ่งบนเน็ตที่ช้าแยกไม่ออกจาก "แตะไม่โดน"
@@ -285,6 +303,15 @@ struct StaffSOSCard: View {
                     .background(.red.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
             if let blood = c.bloodType { Text(Loc.t("sos_staff_blood_type", blood)).font(.callout) }
+
+            // **เคสชั้นแรกยังไม่มีใครนอกกลุ่มเห็น** — บอกให้เจ้าหน้าที่ที่ถือเคสอยู่รู้ตัว
+            // ไม่งั้นจะยืนรอกำลังเสริมที่ยังไม่มีใครเรียก (ดู `SOSOutcome.showsStageOneBadge`)
+            if SOSOutcome.showsStageOneBadge(escalated: c.isEscalated, resolved: c.resolved) {
+                Label("sos_staff_stage_one", systemImage: "eye.slash")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let m = c.message { Text("\u{201c}\(m)\u{201d}").italic() }
 
             HStack {
@@ -322,6 +349,17 @@ struct StaffSOSCard: View {
             }
 
             if !c.resolved {
+                Button("sos_staff_report") { showOutcomes = true }
+                    .disabled(busy)
+                    .confirmationDialog("sos_staff_report_why", isPresented: $showOutcomes) {
+                        ForEach(SOSOutcome.allCases) { outcome in
+                            Button(Loc.t(outcome.labelKey)) {
+                                run { await store.report(id: c.id, outcome: outcome, token: token) }
+                            }
+                        }
+                        Button("action_cancel", role: .cancel) {}
+                    }
+
                 Button("sos_staff_resolve") { showReasons = true }
                     .disabled(busy)
                     .confirmationDialog("sos_staff_resolve_why", isPresented: $showReasons) {

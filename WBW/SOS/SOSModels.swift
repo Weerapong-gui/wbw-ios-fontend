@@ -125,3 +125,50 @@ struct SOSCase: Codable, Equatable {
         return .received
     }
 }
+
+/// สิ่งที่เจ้าหน้าที่สรุปว่าพบเมื่อไปถึงเคส — ยกมาจาก `SosOutcome` ของ Android (`6a213ee`)
+///
+/// **สี่คำตอบนี้ตอบคำถามคนละข้อกับปุ่มปิดเคส** — อันนี้บอกว่า *พบอะไร* ส่วนการปิดบอกว่า
+/// *จบแล้ว* · สองในสี่ (`false_alarm`/`minor`) ปิดเคสไปในตัวเพราะไม่มีอะไรให้ทำต่อ
+/// ส่วนอีกสอง (`major`/`urgent`) **ยกระดับให้ทั้งงานเห็นแล้วเปิดค้างไว้** — เคสที่มีคนกำลัง
+/// เดินไปหาต้องไม่หายไปจากจอของคนอื่น
+enum SOSOutcome: String, CaseIterable, Identifiable {
+    case falseAlarm, minor, major, urgent
+
+    var id: String { rawValue }
+
+    /// ค่าที่เซิร์ฟเวอร์รู้จัก — ตรงกับฝั่ง Android ตัวต่อตัว
+    var wire: String {
+        switch self {
+        case .falseAlarm: return "false_alarm"
+        case .minor: return "minor"
+        case .major: return "major"
+        case .urgent: return "urgent"
+        }
+    }
+
+    /// ยกระดับให้ทั้งงานเห็นไหม
+    var escalates: Bool {
+        switch self {
+        case .falseAlarm, .minor: return false
+        case .major, .urgent: return true
+        }
+    }
+
+    var labelKey: String {
+        switch self {
+        case .falseAlarm: return "sos_staff_outcome_false"
+        case .minor: return "sos_staff_outcome_minor"
+        case .major: return "sos_staff_outcome_major"
+        case .urgent: return "sos_staff_outcome_urgent"
+        }
+    }
+
+    /// ป้าย "ยังเห็นเฉพาะเจ้าหน้าที่ประจำกลุ่ม" ควรขึ้นไหม
+    ///
+    /// ขึ้นเฉพาะตอนเคสยังเปิดและยังไม่ถูกยกระดับ — ขึ้นผิดเวลาแปลว่าเจ้าหน้าที่ที่ถือเคสอยู่
+    /// จะรอคนที่ไม่มีวันมา หรือคิดว่าไม่มีใครเห็นทั้งที่ทั้งงานเห็นแล้ว
+    static func showsStageOneBadge(escalated: Bool, resolved: Bool) -> Bool {
+        !escalated && !resolved
+    }
+}

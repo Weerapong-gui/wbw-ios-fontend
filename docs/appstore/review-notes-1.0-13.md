@@ -59,6 +59,8 @@ Chat is limited to the members of one walking group. Every participant is a regi
 whose identity was verified at registration: no anonymous posting, no public posting, no images,
 no discovery of strangers.
 
+- **Filtering** — messages containing offensive language are refused at send time, in Thai and in
+  English. The sender sees an explanation above the composer and can rewrite the message.
 - **Block** — open the group chat, tap the group name at the top, tap a member, then "Block this
   person". The same action is on a long press of any message. Blocked people's messages are hidden
   immediately.

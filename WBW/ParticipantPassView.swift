@@ -26,6 +26,8 @@ struct ParticipantPassView: View {
     @Binding var showSOSStatus: Bool
 
     @State private var showSettings = false
+    /// คนที่เปิดตัวเลือกนี้ไว้ต้องได้ขอบจอแดงที่ **นิ่ง** ไม่ใช่เต้น (ดู `SOSPulse`)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var me: Me? { profile.me }
 
@@ -72,6 +74,17 @@ struct ParticipantPassView: View {
         // ใต้ทุกอย่างจึงมองไม่เห็นจากในแท็บ ต้องให้ forestBackground เจาะพื้นทึบนั้นทิ้งก่อน
         // (ดูคอมเมนต์ TabRootOpaqueBackgroundRemover) — ไม่ใส่แล้วบัตรลอยอยู่บนพื้นดำสนิท
         .forestBackground(day: ForestMath.dayStill)
+        // **ขอบจอเรืองแดงตราบใดที่เคส SOS ยังเปิดอยู่** — จอนี้คือจอที่คนเจ็บยื่นให้คนอื่นดู
+        // (QR · กรุ๊ปเลือด · เบอร์ญาติ อยู่บนบัตรใบเดียวกัน) ตั้งแต่ 2026-08-25 กดปุ่ม SOS ครบแล้ว
+        // จะ **ไม่มี**จอสถานะเด้งมาบังบัตรอีก (ดูคอมเมนต์ที่ `SOSButton.tick`) ขอบจอที่เรืองแดง
+        // จึงเป็นตัวบอกแทนว่าเครื่องนี้กำลังรอความช่วยเหลืออยู่ อ่านออกจากระยะไกลและจากหางตา
+        // · **ต้องเป็น `overlay` ไม่ใช่ `background`** — `forestBackground` วาดพื้นป่าทึบไว้แล้ว
+        // อะไรที่วางเป็น background จะไปอยู่ *ใต้* พื้นป่าและมองไม่เห็นเลย (ลองมาแล้ว จอออกมาเขียว
+        // ล้วนเหมือนเดิม) · วงไล่เฉดมีใจกลางโปร่งอยู่แล้ว วางทับข้างบนจึงไม่บังบัตร
+        .overlay {
+            SOSEmergencyBackdrop(pulsing: SOSPulse.pulses(status: sos.status),
+                                 reduceMotion: reduceMotion)
+        }
         .sheet(isPresented: $showSettings) {
             // ต้องมี NavigationStack ครอบ — SettingsView ใช้ทั้ง .toolbar และ NavigationLink
             // ซึ่งทั้งคู่เงียบสนิทถ้าไม่มี stack ให้เกาะ (ปุ่มกลับหาย กดแถวแล้วไม่ไปไหน)

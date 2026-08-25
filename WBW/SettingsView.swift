@@ -64,19 +64,16 @@ struct SettingsView: View {
                 sectionHeader("settings_notifications")
                 card {
                     VStack(spacing: 0) {
-                        // ตัวเดียวที่ต่อกับของจริง — คุมการลงทะเบียน device token (ดู PushManager)
+                        // **เหลือแต่สวิตช์ที่มีของจริงอยู่ปลายทาง** — "ใกล้ฐาน" กับ "สรุปรายวัน"
+                        // ถูกถอดออกเมื่อ 2026-08-25 เพราะเก็บค่าไว้เฉย ๆ ไม่มีใครอ่านต่อ
+                        // (Guideline 2.1 · ดู `AppSettings` กับ `SettingsTogglesTests`)
+                        // คุมการลงทะเบียน device token (ดู PushManager)
                         toggleRow("settings_noti_announcements", "settings_noti_announcements_desc",
                                   isOn: $settings.notiEnabled)
                         divider
-                        // สามตัวล่างเก็บค่าไว้เฉย ๆ ยังไม่มีหมวด push ฝั่ง backend ให้กั้น
-                        toggleRow("settings_noti_nearby", "settings_noti_nearby_desc",
-                                  isOn: $settings.notiNearby)
-                        divider
+                        // คุมแบนเนอร์ข้อความใหม่ที่ MainTabView วาดตอนแอปเปิดอยู่
                         toggleRow("settings_noti_chat", "settings_noti_chat_desc",
                                   isOn: $settings.notiChat)
-                        divider
-                        toggleRow("settings_noti_daily", "settings_noti_daily_desc",
-                                  isOn: $settings.notiDaily)
                     }
                 }
 

@@ -39,11 +39,15 @@ final class AppSettings: ObservableObject {
     }
     @Published var notiEnabled: Bool { didSet { d.set(notiEnabled, forKey: kNoti) } }
 
-    // แจ้งเตือนรายหมวดตามที่ Android มี · **สามตัวล่างยังไม่ได้ต่อกับอะไร** — backend ส่งเฉพาะ
-    // ประกาศอยู่ตอนนี้ เก็บค่าไว้ก่อนเพื่อให้หน้าตาตรงกับต้นทางและพร้อมตอนมีหมวดเพิ่ม
-    @Published var notiNearby: Bool { didSet { d.set(notiNearby, forKey: "wbw.noti.nearby") } }
+    // **เหลือสองสวิตช์ที่มีของจริงอยู่ปลายทางเท่านั้น** — ของเดิมมีสี่ แต่ "ใกล้ฐาน" กับ
+    // "สรุปรายวัน" เขียนค่าลง UserDefaults แล้วจบตรงนั้น ไม่มีใครอ่านต่อเลยสักที่ และ backend
+    // ก็ไม่มี push สองชนิดนั้นอยู่จริง · ปุ่มที่กดแล้วไม่มีอะไรเกิดขึ้นคือเหตุตีกลับ Guideline 2.1
+    // ที่ repo นี้เคยโดนมาแล้วจากข้อความ "Sign up" ที่หน้าล็อกอิน (ดู `FakeAffordanceTests`)
+    // ถอดออกเมื่อ 2026-08-25 · `SettingsTogglesTests` กันไม่ให้กลับมา
+    //
+    // ตัวนี้คุมแบนเนอร์ข้อความใหม่ที่ `MainTabView` วาดตอนแอปเปิดอยู่ — คุม push ที่ระบบขึ้นตอน
+    // แอปปิดไม่ได้ (payload ประกอบฝั่ง SUS) คำอธิบายใต้สวิตช์จึงพูดแค่ขอบเขตที่แอปทำได้จริง
     @Published var notiChat: Bool { didSet { d.set(notiChat, forKey: "wbw.noti.chat") } }
-    @Published var notiDaily: Bool { didSet { d.set(notiDaily, forKey: "wbw.noti.daily") } }
 
     private let d = UserDefaults.standard
 
@@ -82,9 +86,7 @@ final class AppSettings: ObservableObject {
         themeMode = Self.themeModePreference(d)
         language = Self.languagePreference(d)
         notiEnabled = d.object(forKey: PushManager.notiEnabledKey) == nil ? true : d.bool(forKey: PushManager.notiEnabledKey)
-        notiNearby = d.object(forKey: "wbw.noti.nearby") == nil ? true : d.bool(forKey: "wbw.noti.nearby")
         notiChat = d.object(forKey: "wbw.noti.chat") == nil ? true : d.bool(forKey: "wbw.noti.chat")
-        notiDaily = d.object(forKey: "wbw.noti.daily") == nil ? true : d.bool(forKey: "wbw.noti.daily")
         // ตั้งภาษาให้ `Loc` ตั้งแต่ก่อนจอแรกวาด ไม่งั้นข้อความนอก View รอบแรกจะเป็นภาษาเครื่อง
         Loc.use(language)
     }

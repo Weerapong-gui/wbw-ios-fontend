@@ -401,18 +401,30 @@ struct APIClient {
     /// ต้องรับ **ทุกรูปที่ backend ส่งจริง**: 403 มาทาง WriteError เป็น envelope ส่วน 409 มาทาง
     /// WriteJSON เป็นแถวความเห็นเดิม (ตรึงไว้ด้วยเทสฝั่ง Go — TestSubmitFeedbackForbiddenBodyIsErrorEnvelope
     /// และ TestSubmitFeedbackConflictBodyIsFeedbackRow)
-    func submitFeedback(token: String, draft: FeedbackDraft) async throws -> FeedbackSubmitOutcome {
-        if DemoMode.active { return .saved }
-        guard let url = URL(string: "\(Config.apiBase)/me/feedback") else {
-            throw AppError.message(Loc.t("error_bad_url"))
-        }
+    /// ก้อนที่ยิงขึ้น `/me/feedback` — แยกออกมาเป็น `static` ให้เทสตรวจได้โดยไม่ต้องมีเน็ต
+    ///
+    /// **คีย์ที่ผู้ใช้ไม่ได้ตอบต้องไม่อยู่ในก้อนเลย** ไม่ใช่ส่ง null — ก้อนที่เต็มไปด้วยคีย์ว่าง
+    /// คือของที่อ่านยากตอนไล่ log ในวันงาน
+    static func feedbackBody(draft: FeedbackDraft) -> [String: Any] {
         var body: [String: Any] = [
             "client_id": draft.clientId,
             "checkpoint_id": draft.checkpointId,
             "rating": draft.rating,
             "device_time": draft.deviceTime,
         ]
+        if let v = draft.ratingScenery { body["rating_scenery"] = v }
+        if let v = draft.ratingActivity { body["rating_activity"] = v }
+        if let v = draft.ratingStaff { body["rating_staff"] = v }
         if let c = draft.comment { body["comment"] = c }
+        return body
+    }
+
+    func submitFeedback(token: String, draft: FeedbackDraft) async throws -> FeedbackSubmitOutcome {
+        if DemoMode.active { return .saved }
+        guard let url = URL(string: "\(Config.apiBase)/me/feedback") else {
+            throw AppError.message(Loc.t("error_bad_url"))
+        }
+        let body = Self.feedbackBody(draft: draft)
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"

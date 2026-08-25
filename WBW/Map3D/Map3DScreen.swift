@@ -152,7 +152,8 @@ struct Map3DScreen: View {
                 Map2DView(selectedSequence: $tappedSequence,
                           userCoordinate: location.coordinate)
                 if let tappedSequence {
-                    MapBaseCard(sequence: tappedSequence, onClose: { self.tappedSequence = nil })
+                    MapBaseCard(sequence: tappedSequence, userLocation: location.coordinate,
+                                onClose: { self.tappedSequence = nil })
                 }
             } else if !shouldRender {
                 // ปิดสวิตช์อยู่ — ต้องเหลือของที่อ่านรู้เรื่อง ไม่ใช่จอว่าง
@@ -196,7 +197,8 @@ struct Map3DScreen: View {
                 focusScrim
                 compass
                 if let tappedSequence {
-                    MapBaseCard(sequence: tappedSequence, onClose: { endFocus() })
+                    MapBaseCard(sequence: tappedSequence, userLocation: location.coordinate,
+                                onClose: { endFocus() })
                 } else if showsHint {
                     hint
                 }

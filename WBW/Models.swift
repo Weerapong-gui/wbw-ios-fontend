@@ -323,6 +323,17 @@ struct Checkpoint: Codable, Equatable {
     let type: String
     let requiresCheckin: Bool
 
+    /// พิกัดของฐาน — ใช้บอกว่า "ห่างจากคุณเท่าไร" บนการ์ดฐาน (ยกมาจากฝั่ง Android `405c63d`)
+    ///
+    /// `var` ไม่ใช่ `let` เพื่อให้ memberwise init มีค่าเริ่มต้นเป็น nil — จุดเรียกเก่าที่สร้าง
+    /// `Checkpoint` เองในเทสจะได้ไม่พังทั้งชุดเพราะฟิลด์ที่เซิร์ฟเวอร์เพิ่งเริ่มส่ง
+    var lat: Double?
+    var lng: Double?
+
+    /// มีคนเช็คอินฐานนี้ไปแล้วกี่คน — **ไม่มีค่ามาแปลว่าศูนย์ ไม่ใช่ซ่อนบรรทัดทิ้ง**
+    /// (ตัดสินแบบเดียวกับฝั่ง Android ที่ `7211c6f` · ดู `Map3DPins.checkinCount`)
+    var checkinCount: Int?
+
     /// ชื่อที่โชว์ตามภาษาที่ผู้ใช้เลือก**ในแอป** ไม่ใช่ภาษาของเครื่อง
     var displayName: String { Self.pick(name, nameEn) }
     var displayActivity: String? {

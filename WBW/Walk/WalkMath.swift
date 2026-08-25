@@ -30,6 +30,26 @@ enum WalkMath {
     /// ทางคณิตแต่ไร้ความหมายกับคนอ่าน
     static let minPaceSpeedMps: Double = 0.35
 
+    /// ระยะรวมของรอบนี้ — **สองแหล่งวัดคนละช่วงเวลา จึงบวกกันตรง ๆ ได้**
+    ///
+    /// GPS ทำงานเฉพาะตอนแอปอยู่หน้าจอ (ไม่ขอ `UIBackgroundModes: location` ดูเหตุผลที่หัว
+    /// `WalkTracker`) ส่วนช่วงที่ผู้ใช้สลับออกไปแอปอื่นหรือปิดแอปทิ้ง ใช้ระยะที่ชิปนับก้าวประเมิน
+    /// ให้ย้อนหลัง · เอาสองแหล่งมาวัดช่วงเวลาเดียวกันเมื่อไหร่ ระยะจะเบิ้ลทันทีโดยไม่มีอะไรฟ้อง
+    static func totalDistance(foregroundGPS: Double, awayPedometer: Double) -> Double {
+        max(0, foregroundGPS) + max(0, awayPedometer)
+    }
+
+    /// ก้าวล่าสุด — **เขียนทับ ไม่บวก**
+    ///
+    /// ถามชิปทีเดียวตั้งแต่ `startedAt` ถึงตอนนี้เสมอ ค่าที่ได้จึงเป็นยอดรวมทั้งรอบอยู่แล้ว
+    /// บวกเข้าไปทุกครั้งที่สลับกลับเข้าแอปจะได้ก้าวเป็นสองสามเท่าของที่เดินจริง
+    ///
+    /// ถามไม่ได้ (เครื่องไม่มีชิป / ไม่ได้ให้สิทธิ์ Motion / simulator) คืนของเดิมไว้ —
+    /// ล้างเป็น nil ทิ้งคือเอาเลขที่นับมาแล้วหายไปต่อหน้า ส่วนตั้งเป็น 0 อ่านว่า "เดินแล้วไม่ได้อะไร"
+    static func mergedSteps(queried: Int?, previous: Int?) -> Int? {
+        queried ?? previous
+    }
+
     /// fix นี้เชื่อได้ไหม — `horizontalAccuracy` ติดลบแปลว่าพิกัดใช้ไม่ได้เลย
     static func isTrustworthy(_ location: CLLocation) -> Bool {
         location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= maxAccuracyMetres

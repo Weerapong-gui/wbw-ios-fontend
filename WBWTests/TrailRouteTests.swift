@@ -38,7 +38,7 @@ final class TrailRouteTests: XCTestCase {
                                   "ไม่เจอ route_wbw.json ใน bundle — แผนที่ 2D จะไม่มีเส้นทางเลย")
         XCTAssertGreaterThan(route.coordinates.count, 100,
                              "เส้นทางที่เหลือไม่กี่จุดแปลว่าถอดรหัสหลุดกลางทาง")
-        XCTAssertEqual(route.distanceMetres, 4995,
+        XCTAssertEqual(route.distanceMetres, 5126,
                        "ระยะทางในไฟล์เปลี่ยนไป — ถ้าอบเส้นทางใหม่จริงต้องแก้เลขนี้พร้อมกัน")
     }
 
@@ -59,16 +59,19 @@ final class TrailRouteTests: XCTestCase {
 
     /// **เส้นทางต้องจบที่ทางแยก ชร.3303 ไม่ใช่วิ่งต่อไปทางตะวันตก**
     ///
-    /// แทร็กเต็มของผู้จัดงานมี 750 จุดและไปจบหลัง มฟล. (20.04570, 99.89137) · ชุดที่ส่งไปกับแอป
-    /// ถูกตัดที่ทางแยกตามที่ Park ชี้บนแผนที่เมื่อ 2026-08-24 · เทสนี้คือตัวกันไม่ให้ใครเอาไฟล์เต็ม
-    /// จาก repo Android (ชื่อไฟล์เดียวกันเป๊ะ) มาทับแล้วหางกลับมาเงียบ ๆ — เทสจำนวนจุด "> 100"
-    /// ผ่านทั้งสองแบบ จับไม่ได้
+    /// แทร็กเต็มชุดเก่าของผู้จัดงานมี 750 จุดและไปจบหลัง มฟล. (20.04570, 99.89137) · ชุดที่ส่งไป
+    /// กับแอปจบที่ทางแยกตามที่ Park ชี้บนแผนที่เมื่อ 2026-08-24 · เทสนี้คือตัวกันไม่ให้ใครเอา
+    /// ไฟล์เส้นเต็มมาทับแล้วหางกลับมาเงียบ ๆ — เทสจำนวนจุด "> 100" ผ่านทั้งสองแบบ จับไม่ได้
+    ///
+    /// **อัปเดต 2026-08-25:** ยกไฟล์ชุดใหม่จาก branch `work` ของ Android (`newroute.gpx` ของ
+    /// ผู้จัดงาน คนละลิงก์ Google Maps กับ `route.gpx` เดิม) — หัวท้ายตรงกับชุดเดิมพอดี
+    /// ต่างกันที่ทางช่วงกลาง จึงเป็น 504 จุด 5,126 ม. · หมุดฐานทั้งแปดยังห่างจากเส้นเท่าเดิมทุกหมุด
     func testRouteEndsAtTheJunctionNotAtTheOldWesternTail() throws {
         let route = try XCTUnwrap(TrailRoute.bundled)
         XCTAssertEqual(route.end.latitude, 20.05671, accuracy: 1e-5)
         XCTAssertEqual(route.end.longitude, 99.90875, accuracy: 1e-5)
-        XCTAssertEqual(route.coordinates.count, 491,
-                       "จำนวนจุดเปลี่ยน — ถ้าตัดใหม่จริงต้องแก้เลขนี้กับ distanceMetres พร้อมกัน")
+        XCTAssertEqual(route.coordinates.count, 504,
+                       "จำนวนจุดเปลี่ยน — ถ้าอบเส้นใหม่จริงต้องแก้เลขนี้กับ distanceMetres พร้อมกัน")
     }
 
     /// จุดเริ่ม/จุดจบคือหัวกับท้ายของเส้น ไม่ใช่จุดที่ใครมาเลือกทีหลัง — หมุด START/FINISH

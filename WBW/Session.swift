@@ -102,6 +102,11 @@ final class Session: ObservableObject {
         UserDefaults.standard.set(try? JSONEncoder().encode(res.user), forKey: Self.userKey)
         // ผูก device token กับผู้ใช้ที่เพิ่ง login (ถ้ามี FCM token แล้ว)
         PushManager.shared.registerCurrent()
+        // ขอสิทธิ์แจ้งเตือน **ที่นี่ ไม่ใช่ตอนเปิดแอป** — ของเดิมขอใน `didFinishLaunching`
+        // กล่องจึงเด้งใส่คนที่ยังไม่ได้ล็อกอินบนจอ splash ที่ยังไม่มีบริบทอะไรเลย
+        // (Guideline 5.1.1 · ดู `PushManager.requestAuthorizationIfNeeded`)
+        // · ลำดับกับชีตอธิบายตำแหน่งคุมด้วย `PermissionSequence` ไม่ให้กล่องสองใบซ้อนกัน
+        PushManager.shared.requestAuthorizationIfNeeded()
         // **ตรงนี้เคยเรียก `SOSLocator.shared.requestPermission()` ตรง ๆ — ห้ามใส่กลับ**
         //
         // กล่องขอสิทธิ์ของระบบเด้งใส่คนที่เพิ่งเห็นหน้า Home เป็นครั้งแรกโดยไม่มีอะไรบนจอบอกว่า

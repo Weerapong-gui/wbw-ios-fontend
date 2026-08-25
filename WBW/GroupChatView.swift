@@ -12,6 +12,8 @@ struct GroupChatView: View {
     /// กลับไปแท็บ Home — `MainTabView` ส่ง `{ tab = 0 }` มาให้ (ผ่าน `GroupTabView`)
     var onBack: () -> Void = {}
     @State private var draft = ""
+    /// ร่างล่าสุดโดนตัวกรองคำหยาบกันไว้ — ล้างทันทีที่ผู้ใช้พิมพ์แก้ (ดู `inputBar`)
+    @State private var blockedByFilter = false
     @State private var members: [String: GroupMember] = [:]   // senderId → member (avatar)
     @State private var atBottom = true
     @State private var reveal: CGFloat = 0
@@ -100,6 +102,14 @@ struct GroupChatView: View {
             // ในสภาพแวดล้อมนี้ พิมพ์เองไม่ได้ (ทรงเดียวกับ -uitestMapPin ที่ Map3DScreen)
             if let prefill = UserDefaults.standard.string(forKey: "uitestChatDraft"), !prefill.isEmpty {
                 draft = prefill
+            }
+            // กดส่งแทนคน เพื่อถ่ายทรงคำเตือนของตัวกรองคำหยาบ (Guideline 1.2) — เรียก `send()`
+            // ตัวจริง ไม่ได้ตั้งธงเอง จึงเป็นภาพของเส้นทางจริงไม่ใช่ภาพที่จัดฉากไว้
+            if UserDefaults.standard.bool(forKey: "uitestChatSend") {
+                // หน่วงให้ `.onChange(of: draft)` ของบรรทัดบน (ตัวที่ล้างคำเตือน) ไหลจบก่อน
+                // ไม่งั้นมันจะมาล้างธงที่ `send()` เพิ่งตั้ง แล้วภาพที่ถ่ายได้จะไม่มีคำเตือน
+                try? await Task.sleep(for: .milliseconds(400))
+                send()
             }
             #endif
             await loadMembers()
@@ -259,6 +269,27 @@ struct GroupChatView: View {
     }
 
     private var inputBar: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // คำเตือนอยู่เหนือช่องพิมพ์ ไม่ใช่ toast — ผู้ใช้ต้องเห็นมันพร้อมกับข้อความที่ตัวเอง
+            // กำลังแก้อยู่ ไม่ใช่ป้ายที่หายไปก่อนจะอ่านจบ
+            if blockedByFilter {
+                Text("chat_blocked_by_filter")
+                    .font(.wbwBodySmall)
+                    .foregroundStyle(Color.wbwDanger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14)
+                    .accessibilityAddTraits(.isStaticText)
+            }
+            inputRow
+        }
+        .padding(.top, blockedByFilter ? 8 : 0)
+        // คอลัมน์เดียวกับบทสนทนา ไม่ใช่เต็มความกว้างจอ — ช่องพิมพ์ที่กว้างกว่าฟองข้อความ
+        // อ่านเป็นของคนละจอกับที่มันกำลังตอบอยู่
+        .contentColumn(.transcript)
+        .background(.ultraThinMaterial)
+    }
+
+    private var inputRow: some View {
         HStack(spacing: 10) {
             // สี่เหลี่ยมขอบมน ไม่ใช่ Capsule — ที่บรรทัดเดียวสองทรงนี้แยกกันแทบไม่ออก แต่พอ
             // lineLimit ขยายเป็น 4 บรรทัด แคปซูลกลายเป็นทรงยาปลายโค้งเกินจริง (เห็นจากสกรีนช็อต)
@@ -288,10 +319,7 @@ struct GroupChatView: View {
             .disabled(!ChatDraft.canSend(draft))
         }
         .padding(.horizontal, 14).padding(.vertical, 8)
-        // คอลัมน์เดียวกับบทสนทนา ไม่ใช่เต็มความกว้างจอ — ช่องพิมพ์ที่กว้างกว่าฟองข้อความ
-        // อ่านเป็นของคนละจอกับที่มันกำลังตอบอยู่
-        .contentColumn(.transcript)
-        .background(.ultraThinMaterial)
+        .onChange(of: draft) { _, _ in blockedByFilter = false }
     }
 
     /// ส่งร่างปัจจุบัน แล้วล้างช่องพิมพ์ให้เกลี้ยงจริง
@@ -320,6 +348,10 @@ struct GroupChatView: View {
     private func send() {
         let text = ChatDraft.trimmed(draft)
         guard ChatDraft.canSend(draft) else { return }
+        // ด่านของ Guideline 1.2 — **ไม่ล้างช่องพิมพ์** ให้ผู้ใช้แก้คำแล้วส่งต่อได้
+        // (ล้างทิ้งเท่ากับข้อความหายไปเฉย ๆ ซึ่งเป็นกับดักเดียวกับที่ `ChatDraft` บันทึกไว้)
+        guard ChatModeration.allowsSending(text) else { blockedByFilter = true; return }
+        blockedByFilter = false
         draft = ""
         store.send(text, senderName: profile.me?.displayName ?? Loc.t("chat_me"))
         sentTick += 1

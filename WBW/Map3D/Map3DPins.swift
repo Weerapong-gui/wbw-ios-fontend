@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 
 /// หมุดฐานบนโมเดลแผนที่ — `marker_1`…`marker_8` ที่มากับ Map2.0
@@ -39,6 +40,28 @@ enum Map3DPins {
             return match.name
         }
         return String(format: Loc.t("map_base_number"), sequence)
+    }
+
+    /// มีคนเช็คอินฐานนี้ไปแล้วกี่คน — ไม่รู้จัก/เซิร์ฟเวอร์ยังไม่ส่ง = **ศูนย์**
+    ///
+    /// ตัดสินแบบเดียวกับฝั่ง Android (`7211c6f`): บรรทัดที่หายไปกับบรรทัดที่บอกว่า "ยังไม่มีใคร"
+    /// อ่านต่างกันมากสำหรับคนที่กำลังเลือกว่าจะแวะฐานไหนก่อน
+    static func checkinCount(sequence: Int, checkpoints: [Checkpoint]) -> Int {
+        checkpoints.first { $0.sequence == sequence }?.checkinCount ?? 0
+    }
+
+    /// ระยะจากคนอ่านถึงฐานนี้ (เมตร) — **nil = ไม่รู้ อย่าโชว์บรรทัดนั้นเลย**
+    ///
+    /// ขาดได้สองทาง: เซิร์ฟเวอร์ยังไม่ส่งพิกัดฐาน หรือผู้ใช้ยังไม่ให้สิทธิ์ตำแหน่ง · ทั้งสองทาง
+    /// จบที่ "ไม่มีข้อมูล" เหมือนกัน และการโชว์ "ห่าง —" ค้างไว้อ่านเป็นแอปพัง ไม่ใช่ข้อมูลขาด
+    static func distanceFromMe(sequence: Int, checkpoints: [Checkpoint],
+                               me: CLLocationCoordinate2D?) -> Double? {
+        guard let me,
+              let base = checkpoints.first(where: { $0.sequence == sequence }),
+              let lat = base.lat, let lng = base.lng
+        else { return nil }
+        return CLLocation(latitude: me.latitude, longitude: me.longitude)
+            .distance(from: CLLocation(latitude: lat, longitude: lng))
     }
 
     /// ชื่อกิจกรรมของฐานนั้น — nil = ไม่มีข้อมูล (การ์ดซ่อนบรรทัดนั้นไปเลย)

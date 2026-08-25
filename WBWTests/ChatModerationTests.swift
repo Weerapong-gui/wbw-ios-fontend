@@ -126,4 +126,46 @@ final class ChatModerationTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - ตัวกรองก่อนส่ง (Guideline 1.2 ข้อแรก)
+
+    /// **Apple บังคับ "a method for filtering objectionable material from being posted"**
+    ///
+    /// สามข้อที่เหลือ (รายงาน · บล็อก · ช่องทางติดต่อ) มีมาตั้งแต่แรก แต่ข้อนี้ไม่เคยมีเลย
+    /// ทั้งฝั่งแอปและฝั่ง SUS — แชทกลุ่มรับข้อความอะไรก็ได้ · ขาดข้อเดียวก็นับว่าไม่ครบสี่
+    /// และเป็นเหตุตีกลับได้โดยไม่ต้องรอให้มีใครก่อกวนจริงก่อน
+    func testCleanMessagesGoThrough() {
+        for text in ["เจอกันที่ฐาน 3 นะ", "see you at base 3", "น้ำหมดแล้วครับ ใครมีเพิ่ม"] {
+            XCTAssertTrue(ChatModeration.allowsSending(text), "ข้อความปกติต้องส่งได้: \(text)")
+        }
+    }
+
+    func testThaiProfanityIsBlockedBeforeItIsPosted() {
+        for text in ["ไอ้เหี้ย", "พูดอะไรของมึงควย", "เย็ดแม่"] {
+            XCTAssertFalse(ChatModeration.allowsSending(text), "ต้องกันไว้ก่อนส่ง: \(text)")
+        }
+    }
+
+    func testEnglishProfanityIsBlockedBeforeItIsPosted() {
+        for text in ["what the fuck", "SHIT", "you bitch"] {
+            XCTAssertFalse(ChatModeration.allowsSending(text), "ต้องกันไว้ก่อนส่ง: \(text)")
+        }
+    }
+
+    /// **คำสะอาดที่มีคำหยาบซ่อนอยู่ข้างในต้องผ่าน** — กับดัก Scunthorpe ของจริง
+    ///
+    /// ฝั่งอังกฤษจึงเทียบขอบคำ ไม่ใช่ `contains` · ฝั่งไทยเทียบ `contains` ได้เพราะไม่มีช่องว่าง
+    /// ระหว่างคำ แต่แลกด้วยการที่ลิสต์ต้องมีแต่คำที่ยาวพอจะไม่ไปโผล่ในคำสุภาพ (เช่นไม่ใส่ "หี"
+    /// ซึ่งเป็นส่วนหนึ่งของ "หีบ")
+    func testWordsThatMerelyContainAProfanityAreNotBlocked() {
+        for text in ["Scunthorpe", "assassin", "classic analysis", "หีบสมบัติ", "ปลาหมึกสด"] {
+            XCTAssertTrue(ChatModeration.allowsSending(text), "คำสุภาพต้องไม่โดนกัน: \(text)")
+        }
+    }
+
+    /// ช่องว่างกับตัวพิมพ์ใหญ่-เล็กหลอกตัวกรองไม่ได้
+    func testFilterIgnoresCaseAndSurroundingPunctuation() {
+        XCTAssertFalse(ChatModeration.allowsSending("Fuck!"))
+        XCTAssertFalse(ChatModeration.allowsSending("(shit)"))
+    }
 }

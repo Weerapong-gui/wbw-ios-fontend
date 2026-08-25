@@ -225,6 +225,7 @@ final class StaffSOSTests: XCTestCase {
                      firstName: "สมชาย", lastName: "ใจดี", bib: 42, groupNumber: 3,
                      contactPhone: "0891234567",
                      emergencyContactName: "แม่", emergencyContactPhone: "0899876543",
-                     bloodType: nil, healthNotes: nil)
+                     bloodType: nil, healthNotes: nil,
+                     severity: nil, escalated: nil)
     }
 }

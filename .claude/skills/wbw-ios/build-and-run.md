@@ -95,6 +95,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestStaffSOSCase <แบบ>` | `fine` / `coarse` | ยัดเคส SOS ตัวอย่างหนึ่งใบเข้าแท็บ SOS ของเจ้าหน้าที่ (ปิด long-poll ไปด้วย) — `coarse` ให้พิกัด ±450 ม. ซึ่งเป็นแบบเดียวที่วาดวงความคลาดเคลื่อน | `-uitestStaffScreen` |
 | `-uitestCameraDenied` | flag | บังคับจอเจ้าหน้าที่ให้แสดงสถานะ "ไม่ได้รับสิทธิ์กล้อง" — `simctl privacy revoke` รีเซ็ตเป็น "ยังไม่เคยถาม" ไม่ใช่ "ปฏิเสธ" จึงตั้งจากภายนอกไม่ได้ | `-uitestToken <jwt>` + `-uitestRole staff` |
 | `-uitestSOSStatus` | flag | เปิดจอสถานะ SOS ตรง ๆ พร้อมเคสจำลองที่สถานะ `.received` — ทางเข้าจริงคือกดปุ่มค้าง 3 วินาที ซึ่งถ่ายรูปไม่ได้ที่นี่ | `-uitestTab 4` |
+| `-uitestSOSActive` | flag | ยัดเคส SOS จำลองเข้า store **โดยไม่เปิดจอสถานะ** — ใช้ถ่ายจอบัตรตอนขอบจอเรืองแดง ซึ่งเป็นสภาพจริงหลังกดปุ่มครบ 3 วิ | `-uitestTab 4` |
 | `-uitestLocationPrimer` | flag | เปิดจออธิบายก่อนกล่องขอสิทธิ์ตำแหน่ง (`LocationPrimerSheet`) — ทางเข้าจริงต้องล็อกอินบัญชีจริงบนเครื่องที่ยังไม่เคยตอบกล่องขอสิทธิ์ | `-uitestDemo` |
 | `-uitestNotiLoadFailed` | flag | บังคับหน้าประกาศให้แสดงสาขา "ยิงไม่ถึงเซิร์ฟเวอร์" (มีปุ่มลองใหม่) — ตัดเน็ตของซิมจากข้างนอกทำไม่ได้ | `-uitestNotifications` |
 | `-uitestCredits` | flag | เปิดหน้าเครดิต/สัญญาอนุญาตตรงๆ (จากหน้าตั้งค่า) — หน้านี้เป็นเงื่อนไขสัญญาอนุญาต ต้องถ่ายให้เห็นจริงได้ | `-uitestProfile` + `-uitestSettings` |
@@ -105,6 +106,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestMapMode 2d\|3d` | string | บังคับโหมดแผนที่สำหรับถ่ายภาพ — โหมดปกติจำค่าไว้ใน `UserDefaults` จึงต้องมีทางสั่งจากนอกแอป | `-uitestTab 1` |
 | `-uitestMapYaw <องศา>` | 0-359 | มุมกวาดรอบตัว ใช้ถ่ายเทียบว่าไม่มีทิศไหนเห็นขอบโมเดล | `-uitestTab 1` |
 | `-uitestChatDraft <ข้อความ>` | string | เติมข้อความในช่องพิมพ์ของจอแชท ใช้ถ่ายทรงช่องตอนหลายบรรทัด | `-uitestChat YES` |
+| `-uitestChatSend` | flag | กดปุ่มส่งแทนคนทันทีที่จอแชทเปิด — ใช้ถ่ายคำเตือนของตัวกรองคำหยาบ (Guideline 1.2) โดยเรียก `send()` ตัวจริง | `-uitestChat 1` + `-uitestChatDraft <ข้อความ>` |
 
 **ทำไมบางคีย์ต้องมาคู่กัน:** `-uitestMedical`/`-uitestSettings` ถูกอ่านใน `.task` ของ `TicketView`
 (`WBW/TicketView.swift:48-49`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน
