@@ -211,8 +211,26 @@ final class PushManager {
                                   notiEnabled: Self.notificationsEnabledPreference(),
                                   fcmToken: fcmToken, jwt: jwt),
               let fcm = fcmToken, let jwt
-        else { return }
-        Task { try? await APIClient.shared.registerDevice(token: jwt, fcmToken: fcm, platform: "ios") }
+        else {
+            // ตกด่านไหนต้องรู้ — สามเงื่อนไขนี้เงียบเท่ากันหมดจากภายนอก และผลลัพธ์คือ
+            // "ไม่ได้รับ push ทั้งงาน" เหมือนกันหมด
+            NSLog("[push] ยังไม่ลงทะเบียนเครื่อง — push=%@ สวิตช์=%@ fcm=%@ jwt=%@",
+                  enabled ? "พร้อม" : "ปิด",
+                  Self.notificationsEnabledPreference() ? "เปิด" : "ปิด",
+                  (fcmToken?.isEmpty == false) ? "มี" : "ยังไม่มี",
+                  (jwt?.isEmpty == false) ? "มี" : "ยังไม่ล็อกอิน")
+            return
+        }
+        // **ผลของการยิงต้องมีคนเห็น** — ของเดิมเป็น `try?` เปล่า ๆ ล้มเหลวแล้วเงียบสนิท
+        // ซึ่งคืออาการเดิมที่ไล่หามาสองรอบโดยเห็นแค่ device_token ค้างที่ 0 ในฐานข้อมูล
+        Task {
+            do {
+                try await APIClient.shared.registerDevice(token: jwt, fcmToken: fcm, platform: "ios")
+                NSLog("[push] ลงทะเบียนเครื่องกับเซิร์ฟเวอร์สำเร็จ")
+            } catch {
+                NSLog("[push] ลงทะเบียนเครื่องไม่สำเร็จ: %@", String(describing: error))
+            }
+        }
     }
 
     /// ถอน token (เรียกก่อนล้าง JWT ตอน logout)
