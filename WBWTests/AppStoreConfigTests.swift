@@ -115,6 +115,31 @@ final class AppStoreConfigTests: XCTestCase {
         }
     }
 
+    /// **iPad ต้องรองรับครบสี่ทิศ** — ไม่งั้นต้องประกาศ `UIRequiresFullScreen` ซึ่งตายไปแล้ว
+    ///
+    /// Xcode เตือนทุกครั้งที่ build ว่า *"All interface orientations must be supported unless the
+    /// app requires full screen"* · ทางออกที่เคยใช้กันคือใส่ `UIRequiresFullScreen` แต่คีย์นั้น
+    /// ถูกเมินบน iPadOS 26 (ดูเทสถัดไป) เหลือทางเดียวคือรองรับทิศให้ครบจริง ๆ
+    ///
+    /// **แยกคีย์ `~ipad` ออกจากคีย์กลางโดยตั้งใจ** — iPhone ยังล็อกแนวตั้งเหมือนเดิม (จอเดินป่า
+    /// ที่ถือมือเดียว หมุนเองกลางทางคือความรำคาญ) ส่วน iPad ที่วางบนโต๊ะ/ในเคสคีย์บอร์ดต้องหมุนได้
+    /// และต้องอยู่ใน Split View ได้ เพราะผู้ตรวจ App Review ใช้ iPad จริงมาสองรอบแล้ว
+    func testIPadSupportsEveryOrientationBecauseItHasToShareTheScreen() throws {
+        for path in ["WBW/Info.plist", "WBW/Info-Debug.plist"] {
+            let ipad = try plist(path)["UISupportedInterfaceOrientations~ipad"] as? [String] ?? []
+            XCTAssertEqual(Set(ipad), ["UIInterfaceOrientationPortrait",
+                                       "UIInterfaceOrientationPortraitUpsideDown",
+                                       "UIInterfaceOrientationLandscapeLeft",
+                                       "UIInterfaceOrientationLandscapeRight"], """
+                \(path): iPad ต้องรองรับครบสี่ทิศ ไม่งั้นต้องพึ่ง UIRequiresFullScreen ที่ตายไปแล้ว
+                """)
+
+            let phone = try plist(path)["UISupportedInterfaceOrientations"] as? [String] ?? []
+            XCTAssertEqual(phone, ["UIInterfaceOrientationPortrait"],
+                           "\(path): iPhone ยังต้องล็อกแนวตั้ง — คนละคีย์กับ ~ipad")
+        }
+    }
+
     /// `UIRequiresFullScreen` ต้องไม่มี
     ///
     /// ถูกเลิกใช้และถูกเมินบน iPadOS 26 (ทุกแอปย่อขยายหน้าต่างได้อยู่ดี) ใส่ไว้จึงไม่มีผล

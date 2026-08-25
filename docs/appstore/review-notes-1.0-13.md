@@ -46,6 +46,15 @@ decline and still use every feature, including the emergency button — staff th
 checkpoint you checked in at. The purpose string, that screen, and our published privacy policy
 describe the same three uses.
 
+**Step and distance counting**
+
+Starting a walk counts steps and distance from the device's motion coprocessor
+(`CMPedometer`). It keeps counting while the app is in the background or closed because the
+coprocessor records that data on its own; the app simply queries the elapsed window when it
+comes back. **The app declares no background modes at all** and never runs location updates
+outside the foreground. The numbers stay on the device: there is no endpoint on our server
+that receives them.
+
 **Emergency help (SOS) button**
 
 The button is on the participant pass screen and needs a deliberate three-second press. **It
