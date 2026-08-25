@@ -95,8 +95,9 @@ is deliberately not recorded in this repo (see `docs/forest-3d-off-verification.
 `taken_within_max` บน `wbw_capacity`, migration `000021`) ทางเดียวคือรีเซ็ตรหัสผ่านของแถวเดิม
 ผ่าน `POST /wbw/admin/participants/{id}/reset-password` ซึ่งต้องมี JWT ของ admin
 
-**ทางสำรองที่ไม่พึ่ง backend เลย:** ปุ่ม "ดูตัวอย่างแอป (Demo)" บนหน้าล็อกอิน (`WBW/Demo/`)
-คอมไพล์ติดใน Release และเดินดูได้ครบทุกจอโดยไม่ยิงเน็ตสักครั้ง
+**ทางสำรองที่ไม่พึ่ง backend เลย:** โหมดเดโม่ (`WBW/Demo/`) เดินดูได้ครบทุกจอโดยไม่ยิงเน็ต
+สักครั้ง · **ปุ่ม "ดูตัวอย่างแอป (Demo)" บนหน้าล็อกอินถูกถอดออกแล้ว 2026-08-25** ทางเข้าที่เหลือ
+คือ launch arg `-uitestDemo 1` ซึ่งเป็น `#if DEBUG` — บน build Release ไม่มีทางเข้าโหมดนี้แล้ว
 
 ### สมัครบัญชีใหม่ (local เท่านั้น — production ปิดรับแล้ว)
 

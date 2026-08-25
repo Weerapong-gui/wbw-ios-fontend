@@ -19,7 +19,7 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion]
 
 ## แผนที่โปรเจกต์
 
-SwiftUI · deployment target iOS 18.0 · Swift 5 · bundle `th.ac.mfu.su.clubfair` · team `NJL4K64JX5` ·
+SwiftUI · deployment target iOS 18.0 · Swift 5 · bundle `th.ac.mfu.wbwSwift` · team `NJL4K64JX5` ·
 dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน `project.yml`)
 
 - `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (49 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `SOS/` (11
@@ -52,10 +52,13 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
    ไม่ล้างจะได้ 200 พร้อมลิสต์ว่างตลอด ไม่มี error ให้เห็นเลย
 5. **Liquid Glass ใช้ของ native เท่านั้น (`glassSurface`/`.glassEffect` + guard iOS 26)** — ห้ามปลอมด้วย
    `.blur()` เอง ผลลัพธ์ไม่เนียนเท่าของจริง ทั้งที่ fallback ที่ถูกต้องมีอยู่แล้ว
-6. **โหมดเดโม่ต้องคอมไพล์ติดใน Release** — ปุ่ม "ดูตัวอย่างแอป (Demo)" ที่หน้าล็อกอินคือคำตอบของ
-   Guideline 2.1 (บัญชีเดโม่เดิมล็อกอินไม่ผ่าน และงานปิดรับสมัครที่ 2000/2000 ที่นั่งแล้ว สมัครใหม่
-   ไม่ได้อีก) ห้ามย้ายเข้า `#if DEBUG` เหมือน `-uitest*` · cache ของโหมดนี้ต้องต่อ `CacheScope.suffix`
-   ท้ายคีย์เสมอ (ดู `backend-and-config.md`)
+6. **ทางเข้าของผู้ตรวจเหลือทางเดียวคือบัญชีรีวิว — ปุ่ม "ดูตัวอย่างแอป (Demo)" ถูกถอดออกแล้ว
+   2026-08-25** (เจ้าของงานสั่ง · ถอดได้เพราะบัญชี `6939999999` ยิง production ได้ HTTP 200 จริง
+   ตอนถอด) · ปุ่มนี้เคยเป็นคำตอบของ Guideline **2.1** ที่ตีกลับ 1.0 (7) **บัญชีรีวิวล้มเมื่อไหร่
+   2.1 กลับมาทันที** เพราะไม่เหลือทางให้ผู้ตรวจเข้าแอปเลย — ทางแก้เร็วสุดคือเอาปุ่มกลับ
+   (`WBW/LoginView.swift` มีย่อหน้าอธิบายไว้ตรงที่ปุ่มเคยอยู่) · ตัวโหมดเดโม่ยังอยู่ครบและยัง
+   คอมไพล์ติดใน Release เหลือทางเข้าเดียวคือแฟลก `-uitestDemo` (`#if DEBUG`) ที่ใช้ถ่ายสกรีนช็อต
+   · cache ของโหมดนี้ต้องต่อ `CacheScope.suffix` ท้ายคีย์เสมอ (ดู `backend-and-config.md`)
 7. **ห้าม `git add -A` / `git add .`** — repo นี้มักมีงานอื่นที่ยัง untracked วางอยู่ข้าง ๆ ใช้ `-A` แล้วจะ
    ดึงเข้ามาด้วยโดยไม่ตั้งใจ
 8. **ห้ามเคลมว่างานเสร็จ/จอถูกโดยไม่ได้รันจริง** — ต้อง build ผ่านจริง test ผ่านจริง งานที่แตะ UI ต้องมี
@@ -104,7 +107,7 @@ APP=$(xcodebuild -scheme WBW -configuration Debug \
   -destination 'platform=iOS Simulator,name=iPhone 17' -showBuildSettings 2>/dev/null \
   | awk -F'= ' '/ BUILT_PRODUCTS_DIR/{print $2}' | head -1)/WBW.app
 xcrun simctl install booted "$APP"
-xcrun simctl launch booted th.ac.mfu.su.clubfair
+xcrun simctl launch booted th.ac.mfu.wbwSwift
 xcrun simctl io booted screenshot /tmp/wbw.png
 ```
 

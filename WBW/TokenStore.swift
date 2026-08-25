@@ -18,11 +18,6 @@ struct KeychainTokenStorage: TokenStorage {
     let account: String
 
     /// `account` แยกได้เพื่อให้เทสไม่ไปเตะ session ที่ค้างอยู่บนซิมของคนรัน
-    /// **สตริงนี้ต้องไม่เท่ากับ bundle id ของแอป** ตั้งแต่ 2026-08-25 ที่แอปย้ายไปใช้ bundle
-    /// `th.ac.mfu.su.clubfair` — ของเดิมที่เคยอยู่ใน Keychain ใต้ service ชื่อเดียวกับ bundle นั้น
-    /// คือ JWT ของแอป Club Fair ซึ่งเป็นคนละระบบผู้ใช้กัน (คนละ route prefix บน SUS)
-    /// ใช้ชื่อเดียวกันแล้วแอปจะหยิบ token ของแอปเก่ามายิง ได้ 401 แล้วเด้งออกทันทีที่เปิดครั้งแรก
-    /// · คงชื่อเดิมไว้ = ชนกันไม่ได้เลย และผู้ใช้ที่อัปเดตมาจะเจอหน้าล็อกอินตามที่ควรเป็น
     init(service: String = "th.ac.mfu.wbwSwift", account: String = "jwt") {
         self.service = service
         self.account = account

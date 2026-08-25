@@ -468,13 +468,16 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $showSOSStatus) {
             SOSStatusView(store: sos, token: session.token ?? "")
         }
-        // จออธิบายก่อนกล่องขอสิทธิ์ตำแหน่ง · เป็น `.sheet` ไม่ใช่ `.fullScreenCover` โดยตั้งใจ —
-        // ปัดทิ้งได้ เพราะนี่ไม่ใช่จอฉุกเฉินและการบังคับให้ตอบคือสิ่งที่ทำให้คนกด "ไม่อนุญาต"
+        // จออธิบายก่อนกล่องขอสิทธิ์ตำแหน่ง · **ปัดทิ้งไม่ได้แล้ว** (ตัวจอเป็นคนปิดเองด้วย
+        // `interactiveDismissDisabled` ดูเหตุผลเต็มที่ `LocationPrimerSheet`) — เดิมตั้งใจให้
+        // ปัดทิ้งได้เพราะการบังคับตอบทำให้คนกด "ไม่อนุญาต" แต่ Guideline 5.1.1(iv) ตีกลับ
+        // 1.0 (12) ตรง ๆ ว่าเปิดจออธิบายแล้วต้องพาไปถึงกล่องของระบบเสมอ
+        // · detent เดียวคือ `.large` — `.medium` แปลว่าลากย่อจอลงไปซ่อนปุ่มเดียวที่เหลือได้
         // · หน่วง 1 วิให้จอ Home วาดเสร็จก่อน ไม่งั้นชีตขึ้นทับจอที่ยังว่างอยู่ ซึ่งไม่มีบริบทอะไร
         // ให้อ่านเลย = แย่พอ ๆ กับกล่องของระบบที่เพิ่งย้ายออกไป
         .sheet(isPresented: $showLocationPrimer) {
             LocationPrimerSheet()
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
         }
         .task {
             #if DEBUG

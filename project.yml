@@ -19,16 +19,17 @@ targets:
         product: FirebaseMessaging
     settings:
       base:
-        # **bundle ของ Club Fair ไม่ใช่ของ WBW** — record บน App Store ผูกกับ bundle id
-        # ไม่ใช่กับโปรเจกต์ Xcode · build ที่มี id นี้จะถูก ASC รับเข้า record
-        # `th.ac.mfu.su.clubfair` (Apple ID 6802118399) ซึ่งผ่านรีวิวไปแล้วที่ 1.0
-        PRODUCT_BUNDLE_IDENTIFIER: th.ac.mfu.su.clubfair
+        # **record บน App Store ผูกกับ bundle id ไม่ใช่กับโปรเจกต์ Xcode** — build ที่มี id นี้
+        # ถูก ASC รับเข้า record `th.ac.mfu.wbwSwift` ซึ่งเป็นรายการของ WBW เอง
+        # · เคยสลับไป `th.ac.mfu.su.clubfair` (record ของ SU Club Fair) เมื่อ 2026-08-25
+        # แล้ว **กลับมาที่รายการเดิมวันเดียวกัน** — ใบตีกลับ 5.1.1(iv) ของ 1.0 (12) ค้างอยู่ที่
+        # รายการนี้ ต้องอัป build ใหม่เข้ารายการเดียวกันก่อนถึงจะตอบ Resolution Center ได้
+        PRODUCT_BUNDLE_IDENTIFIER: th.ac.mfu.wbwSwift
         PRODUCT_NAME: WBW
-        MARKETING_VERSION: "1.1"
-        # **เริ่มที่ 7 ไม่ใช่ 14** — เลข build ต้องไม่ซ้ำกับที่เคยอัปขึ้น record นี้
-        # Club Fair อัปไปแล้ว 6 build ส่วนเลข 13 เป็นของ record `th.ac.mfu.wbwSwift`
-        # ซึ่งเป็นคนละรายการกันคนละเลข
-        CURRENT_PROJECT_VERSION: "7"
+        MARKETING_VERSION: "1.0"
+        # **13 คือเลขถัดไปของรายการนี้** — 12 อัปขึ้น ASC ไปแล้ว (ตัวที่โดนตีกลับ) ส่งซ้ำไม่ได้
+        # · เลข 7 ที่เคยตั้งไว้เป็นของสายรายการ Club Fair ซึ่งนับแยกกันคนละสาย
+        CURRENT_PROJECT_VERSION: "13"
         GENERATE_INFOPLIST_FILE: NO
         # 1,2 = iPhone + iPad · เปิด iPad จริงเมื่อ 2026-08-25 (เดิมเป็น "1")
         # จอทุกใบต้องหนีบความกว้างด้วย `.contentColumn()` และเว้นก้นจอด้วย
@@ -59,7 +60,7 @@ targets:
       - target: WBW
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: th.ac.mfu.su.clubfairTests
+        PRODUCT_BUNDLE_IDENTIFIER: th.ac.mfu.wbwSwiftTests
         GENERATE_INFOPLIST_FILE: YES
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
         SWIFT_VERSION: "5.0"

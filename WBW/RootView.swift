@@ -251,7 +251,7 @@ private struct StaffHomeView: View {
         // ทรงเดียวกับที่ MainTabView ทำทุกประการ (ดูคอมเมนต์ที่นั่น)
         .sheet(isPresented: $showStaffLocationPrimer) {
             LocationPrimerSheet()
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
         }
         .task {
             guard LocationPrimer.shouldShowNow else { return }

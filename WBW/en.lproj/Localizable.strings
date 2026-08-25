@@ -258,8 +258,6 @@
 
 
 /* หน้าที่เหลือ: ล็อกอิน · ประกาศ · เดิน · สแกน · แผนที่ · ความเห็น */
-"login_demo_title" = "Try the app (Demo)";
-"login_demo_desc" = "Walk through every screen with sample data. No account needed";
 "login_missing_fields" = "Enter your student ID and password";
 "notifications_empty_desc" = "Announcements from the trail team will appear here";
 "action_done" = "Done";
@@ -370,7 +368,6 @@
 "location_primer_title" = "Use your location";
 "location_primer_body" = "Your location is used only while the app is open, for three things: placing you on the event map, measuring the distance you walk once you start a walk, and sending your position to staff when you press the emergency help button.";
 "location_primer_why_now" = "We ask now because there is no time to answer this during a real emergency. You can say no and still use SOS, but staff will only see the last base you checked in at.";
-"location_primer_later" = "Not now";
 
 /* VoiceOver labels for icon-only buttons */
 "login_show_password" = "Show password";

@@ -74,33 +74,23 @@ struct LoginView: View {
                 .frame(maxWidth: .infinity)
                 .disabled(busy)
 
-                // ปุ่มโหมดตัวอย่าง — **ห้ามย้ายเข้า `#if DEBUG` และห้ามถอดออก**
+                // **ตรงนี้เคยมีปุ่ม "ดูตัวอย่างแอป (Demo)" — ถอดออกเมื่อ 2026-08-25 ตามที่
+                // เจ้าของงานสั่ง · จะใส่กลับต้องอ่านย่อหน้านี้ก่อน**
                 //
-                // build 1.0 (7) โดน App Review ตีกลับด้วย Guideline 2.1 เพราะบัญชีเดโม่ที่ส่งให้
-                // ล็อกอินไม่ผ่าน (prod ตอบ 401 ยืนยันด้วยการยิงจริงแล้ว) และงานปิดรับสมัครไปแล้วที่
-                // 2000/2000 ที่นั่ง — สมัครบัญชีใหม่ไม่ได้อีก · ใบตีกลับของ Apple เขียนเองว่ารับ
-                // "a demonstration mode that shows all of the features and functionality" แทนได้
+                // ปุ่มนี้เกิดจาก build 1.0 (7) ที่โดน Guideline 2.1 เพราะบัญชีรีวิวที่ส่งให้ Apple
+                // ล็อกอินไม่ผ่าน (prod ตอบ 401) และงานปิดรับสมัครที่ 2000/2000 ที่นั่งแล้ว สมัครใหม่
+                // ไม่ได้ · ใบตีกลับของ Apple เขียนเองว่ารับ "a demonstration mode that shows all of
+                // the features and functionality" แทนบัญชีได้ ปุ่มจึงถูกใส่มาเป็นทางออกนั้น
                 //
-                // ต่างจาก `-uitest*` ทั้ง 14 ตัวตรงที่ปุ่มนี้ต้องกดได้จริงบน build ที่ส่งขึ้น store
-                Button {
-                    session.startDemo()
-                } label: {
-                    Text("login_demo_title")
-                        .font(.wbwText(14, weight: .semibold, relativeTo: .subheadline))
-                        .foregroundStyle(.white)
-                        .frame(width: 200, height: Config.Tap.minTarget)
-                        .glassSurface(Capsule(), interactive: true)
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 12)
-                .disabled(busy)
-
-                Text("login_demo_desc")
-                    .font(.wbwText(11, relativeTo: .caption2))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 6)
+                // **เงื่อนไขที่ทำให้ถอดออกได้ตอนนี้: บัญชีรีวิวใช้งานได้จริงแล้ว** — `6939999999`
+                // ยิง `POST /wbw/auth/login` บน production ได้ HTTP 200 คืน role participant
+                // (ยิงยืนยันอีกครั้ง 2026-08-25 ก่อนถอดปุ่ม) · **บัญชีนี้ล้มเมื่อไหร่ Guideline 2.1
+                // กลับมาทันที** เพราะไม่เหลือทางให้ผู้ตรวจเข้าแอปเลยสักทาง — ทางแก้เร็วที่สุดคือ
+                // เอาปุ่มนี้กลับมา (ดู git history ของไฟล์นี้)
+                //
+                // ตัวโหมดเดโม่เองยังอยู่ครบทั้ง `Session.startDemo()` และ `WBW/Demo/` — ที่หายไป
+                // คือ *ทางเข้าที่ผู้ใช้กดได้* เท่านั้น · ทางเข้าที่เหลือคือแฟลก `-uitestDemo` ซึ่ง
+                // เป็น `#if DEBUG` และเป็นตัวที่ใช้ถ่ายสกรีนช็อตทั้ง 10 ใบของ App Store
 
                 // ตรงนี้เคยมี "Don't have an account? Sign up" — ถอดออกโดยตั้งใจ ห้ามใส่กลับ
                 // โดยไม่อ่านเหตุผลก่อน

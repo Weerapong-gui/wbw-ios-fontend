@@ -73,4 +73,38 @@ final class PermissionCopyTests: XCTestCase {
             }
         }
     }
+
+    /// **จออธิบายต้องไม่มีทางออกอื่นนอกจากปุ่มที่พาไปสู่กล่องของระบบ**
+    ///
+    /// Guideline 5.1.1(iv) — App Review ตีกลับ **1.0 (12)** เมื่อ 2026-08-25 ด้วยข้อความว่า:
+    /// *"A custom message appears before the permission request, and the user can close the
+    /// message and delay the permission request with the Not now button. The user should
+    /// always proceed to the permission request after the message."*
+    ///
+    /// รอบก่อน (1.0 (11)) โดนข้อเดียวกันเรื่อง **คำบนปุ่ม** จอนี้จึงโดนสองรอบติดกัน — รอบนี้
+    /// เป็นตัวปุ่มที่สองเอง ไม่ใช่คำ · คีย์ต้องหายจากชุดคีย์ด้วย ไม่ใช่แค่เลิกใช้ ด้วยเหตุผล
+    /// เดียวกับ `sos_status_loc_allow` ข้างบน
+    func testThePrimerHasNoOptOutButton() throws {
+        let code = try source("WBW/SOS/LocationPrimerSheet.swift")
+        XCTAssertFalse(code.contains("location_primer_later"),
+                       "จออธิบายยังมีปุ่มเลื่อนไปทีหลัง — ตรงกับที่ 5.1.1(iv) ตีกลับ 1.0 (12)")
+        for language in ["th", "en"] {
+            XCTAssertNil(try table(language)["location_primer_later"],
+                         "\(language) ยังมีคีย์ปุ่ม 'ไว้ทีหลัง' ค้างอยู่ในชุดคีย์")
+        }
+    }
+
+    /// **ปัดชีตทิ้งก็คือ "ไว้ทีหลัง" อีกทาง** — ถอดแต่ปุ่มไม่พอ
+    ///
+    /// ใบตีกลับเขียนว่า *"the user can **close the message** and delay"* ซึ่งกินความถึงการปัด
+    /// ด้วย · รอบนี้ผู้ตรวจใช้ **iPad Air 11-inch (M3)** ด้วย ซึ่ง `.sheet` เป็นกรอบลอยกลางจอ
+    /// ที่ **แตะนอกกรอบแล้วปิดได้** — `interactiveDismissDisabled` ปิดทั้งสองทางพร้อมกัน
+    /// ส่วนแถบลากคือคำเชิญให้ปัด ที่ยังค้างอยู่บนสกรีนช็อตในใบตีกลับ
+    func testThePrimerCannotBeClosedByGesture() throws {
+        let code = try source("WBW/SOS/LocationPrimerSheet.swift")
+        XCTAssertTrue(code.contains("interactiveDismissDisabled(true)"),
+                      "จออธิบายยังปัดทิ้ง/แตะนอกกรอบปิดได้ — ทางออกที่ 5.1.1(iv) ห้ามไว้")
+        XCTAssertTrue(code.contains("presentationDragIndicator(.hidden)"),
+                      "ยังมีแถบลากชวนให้ปัดทิ้ง ทั้งที่ปัดไม่ได้แล้ว")
+    }
 }

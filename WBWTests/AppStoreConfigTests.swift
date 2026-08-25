@@ -56,31 +56,18 @@ final class AppStoreConfigTests: XCTestCase {
 
     /// **bundle id ตัดสินว่า build ไปลง record ไหนบน App Store** — ไม่ใช่ชื่อโปรเจกต์ ไม่ใช่ scheme
     ///
-    /// ตั้งแต่ 2026-08-25 แอปนี้ส่งขึ้น record `th.ac.mfu.su.clubfair` (Apple ID 6802118399)
-    /// ซึ่งเป็นรายการที่ผ่านรีวิวไปแล้วที่ 1.0 · ค่าเดิม `th.ac.mfu.wbwSwift` เป็นอีก record หนึ่ง
+    /// รายการปลายทางคือ `th.ac.mfu.wbwSwift` ซึ่งเป็น record ของ WBW เอง และเป็นที่ที่ใบตีกลับ
+    /// 5.1.1(iv) ของ 1.0 (12) ค้างอยู่ · เคยสลับไป `th.ac.mfu.su.clubfair` (record ของ
+    /// SU Club Fair) เมื่อ 2026-08-25 แล้วกลับมาวันเดียวกัน — ตอบ Resolution Center ของรายการ
+    /// ไหนก็ต้องอัป build เข้ารายการนั้น จะข้ามไปรายการอื่นไม่ได้
     ///
     /// พลาดตรงนี้แล้ว **ไม่มีอะไรฟ้องตอน build เลย** — จะรู้ตอนอัปขึ้น ASC แล้ว build ไปโผล่ผิด
     /// รายการ (หรือถูกปฏิเสธเพราะเลข build ซ้ำกับของรายการนั้น) ซึ่งเสียรอบไปแล้ว
     func testTheBundleIdentifierPointsAtTheIntendedAppStoreRecord() throws {
         let yml = try String(
             contentsOf: Self.repoRoot.appendingPathComponent("project.yml"), encoding: .utf8)
-        XCTAssertTrue(yml.contains("PRODUCT_BUNDLE_IDENTIFIER: th.ac.mfu.su.clubfair\n"),
+        XCTAssertTrue(yml.contains("PRODUCT_BUNDLE_IDENTIFIER: th.ac.mfu.wbwSwift\n"),
                       "bundle id ของ app target ไม่ใช่ของ record ที่ตั้งใจส่ง")
-    }
-
-    /// Keychain service **ต้องไม่เท่ากับ bundle id**
-    ///
-    /// ของที่นอนอยู่ใน Keychain ใต้ service ชื่อเดียวกับ bundle นั้นคือ JWT ของแอป Club Fair
-    /// ซึ่งเป็นคนละระบบผู้ใช้กัน (คนละ route prefix บน SUS) · ใช้ชื่อเดียวกันแล้วแอปจะหยิบ token
-    /// ของแอปเก่ามายิง ได้ 401 แล้วเด้งผู้ใช้ออกทันทีที่เปิดครั้งแรกหลังอัปเดต
-    func testTheKeychainServiceCannotCollideWithTheAppItReplaces() throws {
-        let source = try String(
-            contentsOf: Self.repoRoot.appendingPathComponent("WBW/TokenStore.swift"), encoding: .utf8)
-        let code = source.components(separatedBy: .newlines)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
-            .joined(separator: "\n")
-        XCTAssertFalse(code.contains(#"service: String = "th.ac.mfu.su.clubfair""#),
-                       "Keychain service ชนกับของแอปเดิมที่ bundle นี้เคยเป็น")
     }
 
     // MARK: - รองรับ iPad
