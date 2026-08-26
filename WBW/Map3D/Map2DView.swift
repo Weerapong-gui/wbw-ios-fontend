@@ -131,7 +131,7 @@ struct Map2DView: View {
             }
         } label: {
             Image(systemName: userCoordinate == nil ? "arrow.up.left.and.arrow.down.right" : "location.fill")
-                .font(.title3)
+                .font(.system(.title3))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
                 .glassSurface(Circle(), interactive: true)

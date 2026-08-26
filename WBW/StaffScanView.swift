@@ -241,7 +241,7 @@ struct StaffScanView: View {
             power = next
         } label: {
             Image(systemName: power.isOn ? "video.fill" : "video.slash.fill")
-                .font(.footnote.weight(.semibold))
+                .font(.system(.footnote).weight(.semibold))
                 .foregroundStyle(.white)
                 .frame(width: Config.Tap.minTarget, height: Config.Tap.minTarget)
                 .glassSurface(Circle(), interactive: true)

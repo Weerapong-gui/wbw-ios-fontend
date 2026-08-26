@@ -153,7 +153,7 @@ struct SOSStatusView: View {
         // ไม่ใช่หน่วยกู้ชีพ · ผู้ตรวจ App Review อ่านการอ้างความสามารถทางการแพทย์/ฉุกเฉิน
         // ละเอียดที่สุด และผู้ใช้จริงบนดอยก็ต้องรู้ว่ายังต้องโทร 1669 เอง
         Text("sos_not_emergency_service")
-            .font(.footnote)
+            .font(.wbwBodySmall)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
@@ -181,7 +181,7 @@ struct SOSStatusView: View {
                     .buttonStyle(.bordered)
                     .sosTapTarget()
                 Text("sos_status_minimize_hint")
-                    .font(.caption)
+                    .font(.wbwText(11, relativeTo: .caption))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -306,10 +306,10 @@ struct SOSStatusView: View {
                 switch noteDelivered {
                 case .some(true):
                     Label("sos_status_note_delivered", systemImage: "checkmark.circle")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.wbwText(11, relativeTo: .caption)).foregroundStyle(.secondary)
                 case .some(false):
                     Label("sos_status_note_failed", systemImage: "exclamationmark.circle")
-                        .font(.caption).foregroundStyle(.orange)
+                        .font(.wbwText(11, relativeTo: .caption)).foregroundStyle(.orange)
                 case nil:
                     EmptyView()
                 }
@@ -341,7 +341,7 @@ struct SOSStatusView: View {
     @ViewBuilder private var forOtherRow: some View {
         if isForOther {
             Label("sos_status_for_other_done", systemImage: "person.2.fill")
-                .font(.callout).foregroundStyle(.orange)
+                .font(.wbwBodyMedium).foregroundStyle(.orange)
         } else if store.status?.isActive == true {
             VStack(spacing: 6) {
                 Button {
@@ -364,7 +364,7 @@ struct SOSStatusView: View {
 
                 if forOtherFailed {
                     Label("sos_status_for_other_failed", systemImage: "exclamationmark.circle")
-                        .font(.caption).foregroundStyle(.orange)
+                        .font(.wbwText(11, relativeTo: .caption)).foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

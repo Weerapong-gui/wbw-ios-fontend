@@ -42,7 +42,7 @@ struct GroupChatView: View {
                 Button { onBack() } label: {
                     // ระบุสีเอง — ไม่ระบุแล้วมันตกทอด `.tint(Color.wbwGold)` จาก `MainTabView`
                     // ซึ่งเป็นสีเข้มในโหมดสว่าง = ลูกศรจมหายไปกับภาพพื้นหลัง
-                    Image(systemName: "chevron.left").font(.body.weight(.semibold))
+                    Image(systemName: "chevron.left").font(.system(.body).weight(.semibold))
                         .foregroundStyle(Color.wbwOnBackdrop)
                 }
                 .accessibilityLabel("action_back")
@@ -58,9 +58,9 @@ struct GroupChatView: View {
                     VStack(spacing: 1) {
                         HStack(spacing: 4) {
                             Text(String(format: Loc.t("group_number_str"), profile.me?.groupNumber.map(String.init) ?? ""))
-                                .font(.headline).foregroundStyle(Color.wbwOnBackdrop)
+                                .font(.wbwTitleMedium).foregroundStyle(Color.wbwOnBackdrop)
                             Image(systemName: "chevron.right")
-                                .font(.caption2.weight(.semibold))
+                                .font(.system(.caption2).weight(.semibold))
                                 .foregroundStyle(Color.wbwOnBackdropMuted)
                         }
                         // ยังไม่รู้จำนวน = ไม่โชว์ ไม่ใช่โชว์ "0 คน" — memberCount มาจากผลลัพธ์
@@ -69,7 +69,7 @@ struct GroupChatView: View {
                         // ในห้องที่มีคนคุยกันอยู่อ่านว่าแอปพัง (กติกาเดียวกับ TrailConditionsRow)
                         if store.memberCount > 0 {
                             Text(String(format: Loc.t("chat_members_count"), store.memberCount))
-                                .font(.caption).foregroundStyle(Color.wbwOnBackdropMuted)
+                                .font(.wbwText(11, relativeTo: .caption)).foregroundStyle(Color.wbwOnBackdropMuted)
                         }
                     }
                 }
@@ -136,7 +136,7 @@ struct GroupChatView: View {
 
     private var offlineBanner: some View {
         Text("chat_offline_queued")
-            .font(.footnote).foregroundStyle(.white)
+            .font(.wbwBodySmall).foregroundStyle(.white)
             .frame(maxWidth: .infinity).padding(.vertical, 6)
             .background(Color.gray)
     }
@@ -265,7 +265,7 @@ struct GroupChatView: View {
         if !atBottom && newBelow > 0 {
             Button { scrollToBottom(proxy) } label: {
                 Label(String(format: Loc.t("chat_new_messages_count"), newBelow), systemImage: "arrow.down")
-                    .font(.footnote.weight(.semibold))
+                    .font(.wbwText(11.5, weight: .semibold, relativeTo: .footnote))
                     .foregroundStyle(Color.wbwOnGreen)
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(Color.wbwGreen, in: Capsule())
@@ -307,7 +307,7 @@ struct GroupChatView: View {
             // อ่านเหมือนป้ายกำกับฟิลด์ในฟอร์ม บนจอที่ไม่มีป้ายอะไรอยู่ข้าง ๆ เลย คำชวนพิมพ์
             // ทำงานกว่า · คีย์นี้มีอยู่ทั้งสองภาษามาตลอดแต่ไม่เคยถูกเรียก
             TextField("chat_composer_hint", text: $draft, axis: .vertical)
-                .font(.body)
+                .font(.wbwBodyLarge)
                 .lineLimit(1...4)
                 .padding(.horizontal, 16).padding(.vertical, 10)
                 .background(Color.wbwSurface,
@@ -320,7 +320,7 @@ struct GroupChatView: View {
                 // (ดูคอมเมนต์หัว `ChatDraft`)
                 let empty = !ChatDraft.canSend(draft)
                 Image(systemName: "paperplane.fill")
-                    .font(.body.weight(.semibold))
+                    .font(.system(.body).weight(.semibold))
                     .foregroundStyle(Color.wbwOnGreen.opacity(empty ? 0.5 : 1))
                     .frame(width: 44, height: 44)
                     .background(Color.wbwGreen.opacity(empty ? 0.35 : 1), in: Circle())

@@ -114,7 +114,7 @@ struct GroupHomeView: View {
                 }
 
                 if let error {
-                    Text(error).font(.footnote).foregroundStyle(Color.wbwOnBackdropDanger)
+                    Text(error).font(.wbwBodySmall).foregroundStyle(Color.wbwOnBackdropDanger)
                         .multilineTextAlignment(.center)
                 }
             }
@@ -131,7 +131,7 @@ struct GroupHomeView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text(String(format: Loc.t("group_number"), groupNo))
-                    .font(.headline)
+                    .font(.wbwTitleMedium)
                     .foregroundStyle(Color.wbwOnBackdrop)
             }
         }

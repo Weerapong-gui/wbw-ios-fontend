@@ -301,7 +301,7 @@ struct Map3DScreen: View {
                     Spacer()
                     Button { resetAngle() } label: {
                         Image(systemName: "location.north.line.fill")
-                            .font(.title3)
+                            .font(.system(.title3))
                             .foregroundStyle(.white)
                             // หมุนตามมุมกวาดจริง — เข็มที่ไม่หมุนตามคือของประดับ ไม่ใช่เข็มทิศ
                             .rotationEffect(.radians(Double(-yaw)))
@@ -337,7 +337,7 @@ struct Map3DScreen: View {
                     withAnimation(.easeInOut(duration: 0.25)) { mode = next }
                 } label: {
                     Image(systemName: current.toggleSystemImage)
-                        .font(.title3)
+                        .font(.system(.title3))
                         .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
                         .glassSurface(Circle(), interactive: true)
@@ -365,7 +365,7 @@ struct Map3DScreen: View {
                     let running = walk.stats.active
                     HStack(spacing: 9) {
                         Image(systemName: running ? "stop.fill" : "play.fill")
-                            .font(.footnote.weight(.semibold))
+                            .font(.system(.footnote).weight(.semibold))
                             .foregroundStyle(running ? Color.wbwGreen : .white)
                         Text(Loc.t(running ? "walk_stop" : "walk_start").uppercased())
                             .font(.wbwLabelMedium)
@@ -410,7 +410,7 @@ struct Map3DScreen: View {
         VStack {
             Spacer()
             Text("map_tap_pin_hint")
-                .font(.subheadline)
+                .font(.wbwText(13, relativeTo: .subheadline))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)

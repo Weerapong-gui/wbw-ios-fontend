@@ -127,7 +127,7 @@ struct SOSButton: View {
                 .stroke(.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: 58, height: 58)
-            Text("SOS").font(.headline.bold()).foregroundStyle(.white)
+            Text("SOS").font(.wbwTitleMedium).foregroundStyle(.white)
         }
     }
 
@@ -147,7 +147,7 @@ struct SOSButton: View {
                     .frame(width: geo.size.width * CGFloat(model.progress))
             }
             HStack(spacing: 8) {
-                Image(systemName: "sos").font(.title3.bold())
+                Image(systemName: "sos").font(.system(.title3).weight(.bold))
                 Text(caseIsActive ? "sos_pass_active" : "sos_pass_title")
                     .font(.wbwText(16, weight: .semibold, relativeTo: .callout))
                     .lineLimit(1)

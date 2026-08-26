@@ -16,17 +16,17 @@ struct SOSFriendView: View {
             VStack(alignment: .leading, spacing: 16) {
                 if let c = sosCase {
                     Text(c.forOther ? "sos_friend_title_other" : "sos_friend_title_self")
-                        .font(.title2.bold())
+                        .font(.wbwHeadlineSmall)
                     Text(c.checkpointName.map { Loc.t("sos_friend_near", $0) }
                          ?? Loc.t("sos_friend_location_unknown"))
                     if let a = c.accuracyM {
-                        Text(Loc.t("sos_accuracy_meters", Int(a))).font(.caption)
+                        Text(Loc.t("sos_accuracy_meters", Int(a))).font(.wbwText(11, relativeTo: .caption))
                     }
 
                     // บรรทัดที่สำคัญที่สุดบนจอ — นี่คือสิ่งที่กันคน 50 คนวิ่งเข้าไปพร้อมกัน
                     // ไม่ใช่การซ่อนพิกัด
                     Text("sos_friend_advice")
-                        .font(.headline)
+                        .font(.wbwTitleMedium)
                         .padding()
                         .frame(maxWidth: .infinity)
                         .background(.red.opacity(0.12))

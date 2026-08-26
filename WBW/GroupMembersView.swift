@@ -46,7 +46,7 @@ struct GroupMembersView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text(String(format: Loc.t("group_number"), groupNumber))
-                    .font(.headline)
+                    .font(.wbwTitleMedium)
                     .foregroundStyle(Color.wbwOnBackdrop)
             }
         }

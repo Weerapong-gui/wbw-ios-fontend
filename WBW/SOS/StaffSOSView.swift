@@ -275,7 +275,7 @@ struct StaffSOSCard: View {
                 Label("sos_staff_for_other", systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
             }
-            Text(c.fullName).font(.title3.bold())
+            Text(c.fullName).font(.wbwText(19, weight: .bold, relativeTo: .title3))
             Text(String(format: Loc.t("sos_staff_bib_group"),
                         c.bib.map(String.init) ?? "-", c.groupNumber.map(String.init) ?? "-"))
                 .foregroundStyle(Color.wbwForestVoid.opacity(0.65))
@@ -283,11 +283,11 @@ struct StaffSOSCard: View {
             Text(c.checkpointName.map { String(format: Loc.t("sos_staff_near_base"), $0) }
                     ?? Loc.t("sos_staff_base_unknown"))
             Text("\(c.positionLabel) · \(c.accuracyLabel)")
-                .font(.caption)
+                .font(.wbwText(11, relativeTo: .caption))
                 .foregroundStyle(c.isCoarse ? Color.orange : Color.wbwForestVoid.opacity(0.65))
             if c.isCoarse {
                 Text("sos_staff_coarse_location")
-                    .font(.caption).foregroundStyle(.orange)
+                    .font(.wbwText(11, relativeTo: .caption)).foregroundStyle(.orange)
             }
 
             // แผนที่ในการ์ดเลย — เดิมมีแค่ตัวเลขพิกัดกับลิงก์ที่เด้งออกไปนอกแอป คนที่กำลังจะ
@@ -299,16 +299,16 @@ struct StaffSOSCard: View {
             }
 
             if let notes = c.healthNotes, !notes.isEmpty {
-                Text(notes).font(.callout).padding(8)
+                Text(notes).font(.wbwBodyMedium).padding(8)
                     .background(.red.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 8))
             }
-            if let blood = c.bloodType { Text(Loc.t("sos_staff_blood_type", blood)).font(.callout) }
+            if let blood = c.bloodType { Text(Loc.t("sos_staff_blood_type", blood)).font(.wbwBodyMedium) }
 
             // **เคสชั้นแรกยังไม่มีใครนอกกลุ่มเห็น** — บอกให้เจ้าหน้าที่ที่ถือเคสอยู่รู้ตัว
             // ไม่งั้นจะยืนรอกำลังเสริมที่ยังไม่มีใครเรียก (ดู `SOSOutcome.showsStageOneBadge`)
             if SOSOutcome.showsStageOneBadge(escalated: c.isEscalated, resolved: c.resolved) {
                 Label("sos_staff_stage_one", systemImage: "eye.slash")
-                    .font(.caption)
+                    .font(.wbwText(11, relativeTo: .caption))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -377,7 +377,7 @@ struct StaffSOSCard: View {
             // เทียบ error ของเคสหนึ่งจะไปโผล่ใต้เคสอื่นทุกใบ (และในจอทับเต็มจอของเคสที่ไม่เกี่ยวกัน)
             if let err = store.actionError, err.caseId == c.id {
                 Label(err.message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption).foregroundStyle(.red)
+                    .font(.wbwText(11, relativeTo: .caption)).foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -509,7 +509,7 @@ struct StaffSOSAlertView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Label("sos_staff_new_case", systemImage: "sos")
-                        .font(.title2.bold())
+                        .font(.wbwHeadlineSmall)
                         .foregroundStyle(.red)
                     Spacer()
                     Button { dismiss() } label: {

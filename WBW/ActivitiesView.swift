@@ -69,7 +69,7 @@ private struct EventCard: View {
                         .font(.wbwKicker)
                         .kerning(1.6)
                 } icon: {
-                    Image(systemName: systemImage).font(.footnote)
+                    Image(systemName: systemImage).font(.system(.footnote))
                 }
                 .foregroundStyle(Color.wbwOnBackdropMuted)
                 .padding(.top, 9)
@@ -87,7 +87,7 @@ private struct EventCard: View {
                         .font(.wbwLabelSmall)
                         .kerning(1.2)
                 } icon: {
-                    Image(systemName: "calendar").font(.caption)
+                    Image(systemName: "calendar").font(.system(.caption))
                 }
                 .foregroundStyle(Color.wbwOnBackdrop)
                 .padding(.top, 14)

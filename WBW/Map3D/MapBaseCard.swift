@@ -30,38 +30,38 @@ struct MapBaseCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(Map3DPins.label(sequence: sequence, checkedIn: checkedIn,
                                          checkpoints: known))
-                        .font(.headline)
+                        .font(.wbwTitleMedium)
                         .foregroundStyle(.white)
                     if let activity = Map3DPins.activity(sequence: sequence, checkedIn: checkedIn,
                                                          checkpoints: known) {
                         Text(activity)
-                            .font(.subheadline)
+                            .font(.wbwText(13, relativeTo: .subheadline))
                             .foregroundStyle(.white.opacity(0.75))
                     }
                     Label(visited == nil ? "map_not_checked_in" : "profile_checked_in",
                           systemImage: visited == nil ? "circle.dashed" : "checkmark.circle.fill")
-                        .font(.footnote)
+                        .font(.wbwBodySmall)
                         .foregroundStyle(visited == nil ? .white.opacity(0.7) : Color.wbwGold)
 
                     // สองบรรทัดที่ยกมาจากฝั่ง Android — "คิวยาวแค่ไหน" กับ "จะเดินไปตอนนี้ดีไหม"
                     // คือคำถามที่คนยืนดูแผนที่ถามจริง ๆ และการ์ดเดิมตอบไม่ได้ทั้งสองข้อ
                     Text(Loc.t("map_checkpoint_checked_in",
                                Map3DPins.checkinCount(sequence: sequence, checkpoints: known)))
-                        .font(.footnote)
+                        .font(.wbwBodySmall)
                         .foregroundStyle(.white.opacity(0.7))
 
                     if let metres = Map3DPins.distanceFromMe(sequence: sequence,
                                                              checkpoints: known,
                                                              me: userLocation) {
                         Text(Loc.t("map_checkpoint_from_me", WalkMath.distanceText(metres)))
-                            .font(.footnote)
+                            .font(.wbwBodySmall)
                             .foregroundStyle(.white.opacity(0.7))
                     }
                 }
                 Spacer(minLength: 0)
                 Button { onClose() } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
+                        .font(.system(.title2))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.white.opacity(0.8))
                         // ไอคอน 22pt ลอยอยู่บนแผนที่ที่ลากได้ — พลาดแล้วกลายเป็นการลากแผนที่แทน

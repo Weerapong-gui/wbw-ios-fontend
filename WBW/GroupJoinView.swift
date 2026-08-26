@@ -40,7 +40,7 @@ struct GroupJoinView: View {
                 }
             }
             if let error {
-                Text(error).font(.footnote).foregroundStyle(.white)
+                Text(error).font(.wbwBodySmall).foregroundStyle(.white)
                     .padding(12).background(.red.opacity(0.9), in: Capsule())
                     .padding(.bottom, 30).frame(maxHeight: .infinity, alignment: .bottom)
             }

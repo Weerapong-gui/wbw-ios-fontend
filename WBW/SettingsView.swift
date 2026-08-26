@@ -121,7 +121,7 @@ struct SettingsView: View {
                         Button { showLogoutConfirm = true } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    .font(.body)
+                                    .font(.system(.body))
                                 Text("settings_logout")
                                     .font(.wbwBodyLarge)
                                 Spacer()
@@ -149,7 +149,7 @@ struct SettingsView: View {
             if drawsOwnBackButton {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: {
-                        Image(systemName: "arrow.left").font(.body.weight(.semibold))
+                        Image(systemName: "arrow.left").font(.system(.body).weight(.semibold))
                     }
                     .accessibilityLabel("action_back")
                 }
@@ -256,7 +256,7 @@ struct SettingsView: View {
         let selected = settings.themeMode == mode
         return Button { settings.themeMode = mode } label: {
             VStack(spacing: 8) {
-                Image(systemName: systemImage).font(.title3)
+                Image(systemName: systemImage).font(.system(.title3))
                 Text(titleKey).font(.wbwLabelMedium)
             }
             .foregroundStyle(Color.wbwOnBackdrop)
@@ -303,11 +303,11 @@ struct SettingsView: View {
                         systemImage: String,
                         trailingSystemImage: String = "chevron.right") -> some View {
         HStack(spacing: 12) {
-            Image(systemName: systemImage).font(.body)
+            Image(systemName: systemImage).font(.system(.body))
             Text(titleKey).font(.wbwBodyLarge)
             Spacer()
             Image(systemName: trailingSystemImage)
-                .font(.footnote)
+                .font(.system(.footnote))
                 .foregroundStyle(Color.wbwOnBackdropMuted)
         }
         .foregroundStyle(Color.wbwOnBackdrop)

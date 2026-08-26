@@ -46,7 +46,7 @@ struct LoginView: View {
 
                 if let error {
                     Text(error)
-                        .font(.footnote)
+                        .font(.wbwBodySmall)
                         .foregroundStyle(.white)
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)

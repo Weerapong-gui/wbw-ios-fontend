@@ -48,7 +48,7 @@ struct ChatDayPill: View {
     let day: Date
     var body: some View {
         Text(ChatFormat.dayLabel(for: day))
-            .font(.caption.weight(.semibold))
+            .font(.wbwLabelMedium)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 12).padding(.vertical, 5)
             // wbwSurface ไม่ใช่ black.opacity(0.05) — ค่าเดิมมองไม่เห็นเลยในโหมดมืด (ดำบนดำ)
@@ -66,7 +66,7 @@ struct ChatUnreadDivider: View {
             // แดงของระบบบนภาพพื้นหลังได้แค่ 2.2:1 — เส้นนี้ไม่มีพื้นของตัวเอง วางบนภาพตรง ๆ
             Rectangle().fill(Color.wbwOnBackdropDanger.opacity(0.25)).frame(height: 1)
             Text("chat_new_messages")
-                .font(.caption2.weight(.semibold))
+                .font(.wbwLabelSmall)
                 .foregroundStyle(Color.wbwOnBackdropDanger.opacity(0.7))
             Rectangle().fill(Color.wbwOnBackdropDanger.opacity(0.25)).frame(height: 1)
         }
@@ -108,7 +108,7 @@ struct ChatBubble: View {
                     // นอกฟอง = วางบนภาพพื้นหลังตรง ๆ ใช้ `.secondary` ไม่ได้ (มันพลิกตามธีม
                     // แต่ภาพไม่พลิก โหมดสว่างจะได้ชื่อสีเข้มบนภาพมืด = หายไป)
                     Text(message.senderName)
-                        .font(.caption).foregroundStyle(Color.wbwOnBackdropMuted)
+                        .font(.wbwText(11, relativeTo: .caption)).foregroundStyle(Color.wbwOnBackdropMuted)
                         .padding(.leading, 4)
                 }
                 HStack(alignment: .bottom, spacing: 4) {
@@ -120,7 +120,7 @@ struct ChatBubble: View {
                 // สลับกันตามความยาวข้อความแบบ ViewThatFits ที่เคยใช้
                 if layout.showTime {
                     Text(ChatFormat.time(message.displayTime))
-                        .font(.caption2)
+                        .font(.wbwText(10, relativeTo: .caption2))
                         .foregroundStyle(Color.wbwOnBackdropMuted)   // นอกฟอง — วางบนภาพพื้นหลังตรง ๆ เหมือนชื่อผู้ส่ง
                         .padding(isMine ? .trailing : .leading, 4)
                 }
@@ -133,7 +133,7 @@ struct ChatBubble: View {
             // ฟองที่โชว์เวลาอยู่แล้ว (ฟองท้ายชุด) ไม่ต้องซ้ำ — เผยเฉพาะฟองที่ปกติไม่มีเวลา
             if revealOffset > 1 && !layout.showTime {
                 Text(ChatFormat.time(message.displayTime))
-                    .font(.caption2)
+                    .font(.wbwText(10, relativeTo: .caption2))
                     .foregroundStyle(Color.wbwOnBackdropMuted)   // นอกฟอง
                     .frame(width: 48)
                     .offset(x: 56 - revealOffset)
@@ -158,19 +158,19 @@ struct ChatBubble: View {
 
     private var messageText: some View {
         Text(message.body)
-            .font(.body)
+            .font(.wbwBodyLarge)
             .foregroundStyle(isMine ? Color.wbwOnGreen : Color.wbwInk)
     }
 
     @ViewBuilder private var stateIcon: some View {
         switch message.state {
-        case .pending: Image(systemName: "clock").font(.caption2)
+        case .pending: Image(systemName: "clock").font(.system(.caption2))
                            .foregroundStyle(Color.wbwOnBackdropMuted)   // นอกฟอง
         case .sent:    EmptyView()      // สถานะ "ส่งแล้ว/อ่านแล้ว" ย้ายไปบรรทัดสรุปใต้ข้อความล่าสุด
         // ปุ่มเดียวที่กู้ข้อความที่ส่งไม่ออกได้ และเป็นปุ่มที่เล็กที่สุดในแท็บแชท (~13pt)
         case .failed:  Button(action: onRetry) {
                            Image(systemName: "exclamationmark.circle.fill")
-                               .font(.footnote).foregroundStyle(.red)
+                               .font(.system(.footnote)).foregroundStyle(.red)
                                .frame(width: Config.Tap.minTarget,
                                       height: Config.Tap.minTarget)
                                .contentShape(Rectangle())
@@ -193,7 +193,7 @@ struct ChatReadStatusLine: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(.caption2)
+            .font(.wbwText(10, relativeTo: .caption2))
             .foregroundStyle(Color.wbwOnBackdropMuted)   // วางบนภาพพื้นหลังตรง ๆ ไม่มีพื้นของตัวเอง
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.trailing, 4).padding(.top, 2).padding(.bottom, 6)

@@ -201,25 +201,25 @@ private struct NotiRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.subheadline.weight(.semibold))
+                .font(.system(.subheadline).weight(.semibold))
                 .foregroundStyle(accent)
                 .frame(width: 34, height: 34)
                 .background(accent.opacity(0.15), in: Circle())
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
-                    .font(.headline)
+                    .font(.wbwTitleMedium)
                     .foregroundStyle(Color.wbwInk)
                 if let b = item.body, !b.isEmpty {
                     Text(b)
-                        .font(.subheadline)
+                        .font(.wbwText(13, relativeTo: .subheadline))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 let time = NotificationGrouping.rowTime(item, now: now)
                 if !time.isEmpty {
                     Text(time)
-                        .font(.caption)
+                        .font(.wbwText(11, relativeTo: .caption))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -231,7 +231,7 @@ private struct NotiRow: View {
             }
             if showsChevron {
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .font(.system(.caption).weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .padding(.top, 10)
             }
