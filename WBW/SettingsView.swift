@@ -160,8 +160,13 @@ struct SettingsView: View {
                     .foregroundStyle(Color.wbwOnBackdrop)
             }
         }
-        .confirmationDialog("settings_logout_confirm", isPresented: $showLogoutConfirm,
-                            titleVisibility: .visible) {
+        // **`.alert` ไม่ใช่ `.confirmationDialog`** — ตัวเดิมกลายร่างเป็น popover ได้ (บน iPad ที่เปิด
+        // ตั้งแต่ 2026-08-25 size class เป็น regular · action sheet ของ iOS 26 ก็ยึดกับ source view
+        // แบบเมนู) แล้วสองอย่างพังพร้อมกัน: หัวลูกศรยึดกับ `ScrollView` ทั้งจอเลยไปโผล่กลางจอทับแถวอื่น
+        // และ **ระบบตัดปุ่มยกเลิกทิ้งทั้งปุ่ม** เหลือปุ่มแดงลอยเดี่ยว ๆ ซึ่งอ่านเหมือนแอปพัง
+        // · `.alert` แสดงกลางจอเหมือนกันทุกเครื่องและเก็บทางถอยไว้เสมอ — ปุ่มออกจากระบบที่ไม่มี
+        // ทางถอยคือปุ่มที่กดพลาดแล้วต้องล็อกอินใหม่กลางดอย (ท่าเดียวกับกล่องเข้ากลุ่มที่ `GroupJoinView`)
+        .alert("settings_logout_confirm", isPresented: $showLogoutConfirm) {
             Button("settings_logout", role: .destructive) { session.logout() }
             Button("settings_logout_cancel", role: .cancel) {}
         }
@@ -172,6 +177,9 @@ struct SettingsView: View {
         .task {
             #if DEBUG
             if UserDefaults.standard.bool(forKey: "uitestCredits") { showCredits = true }
+            // เปิดกล่องยืนยันออกจากระบบค้างไว้ให้ถ่ายรูป — ทางเข้าจริงคือแตะปุ่มท้ายจอ ซึ่งกดไม่ได้
+            // ที่นี่ (ไม่มีตัวกดจอ) ทรงเดียวกับ `-uitestLeaveConfirm` ของกล่องออกจากกลุ่ม
+            if UserDefaults.standard.bool(forKey: "uitestLogoutConfirm") { showLogoutConfirm = true }
             #endif
         }
         // ต่อสวิตช์ประกาศกับการลงทะเบียนจริง — ปิดแล้วต้องปิดจริง ไม่ใช่แค่จำค่าไว้

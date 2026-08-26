@@ -662,7 +662,7 @@ struct MainTabView: View {
             // โดยไม่มีการยืนยันจากผู้ใช้เลย ถ้าล้างตรงนี้แบบไม่มีเงื่อนไข คนที่มีเคสฉุกเฉินเปิดอยู่จะ
             // ถูกเด้งไปหน้า login พร้อมเคสหายไปเงียบๆ กลางเหตุฉุกเฉิน) ส่ง session.lastLogoutWasAutomatic
             // ให้ SOSStore.handleLogout(automatic:) ตัดสินใจเอง — ล็อกเอาต์ที่ผู้ใช้กดเองผ่าน
-            // SettingsView (ซึ่งมี .alert("ออกจากระบบใช่หรือไม่") ถามยืนยันก่อนเรียก session.logout()
+            // SettingsView (ซึ่งมี .alert คีย์ `settings_logout_confirm` ถามยืนยันก่อนเรียก session.logout()
             // เสมออยู่แล้ว) ยังล้างเหมือนเดิมทุกอย่าง ดูคอมเมนต์ยาวที่ handleLogout(automatic:) สำหรับ
             // เหตุผลเต็มและความเสี่ยงที่เหลืออยู่
             sos.handleLogout(automatic: session.lastLogoutWasAutomatic)
