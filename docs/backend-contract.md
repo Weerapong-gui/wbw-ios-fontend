@@ -59,8 +59,9 @@ otherwise the admin's display name.
 | 9 | GET | `/wbw/staff/checkpoints` | staff/admin | — | `[{id,name,sequence}]` | `staffRoutes.js:9` |
 | 10 | POST | `/wbw/staff/checkin` | staff/admin | `{checkpoint_id, qr_token?, bib?}` | `{first_name,last_name,bib,has_medical_flag,already_checked_in}`; 4xx `{error}` | `staffRoutes.js:31` |
 | 13 | GET | `/wbw/checkpoints` | participant | — | `[{id,sequence,name,name_en,activity_name,activity_name_en,type,requires_checkin}]` เรียง `sequence` แล้วตามด้วย `id` · จุดบริการมี `sequence: null` · **ไม่มี `lat`/`lng`** | `wbw_checkpoint_handler.go` (SUS) |
-| 14 | GET | `/wbw/me/progress` | participant | — | `{total, checked_in:[{checkpoint_id,name,activity_name,sequence,at,answered,rating,comment}], emergency_phone}` · **ไม่มีฟิลด์ `_en`** | `wbw_progress_handler.go` (SUS) |
+| 14 | GET | `/wbw/me/progress` | participant | — | `{total, checked_in:[{checkpoint_id,name,activity_name,sequence,at,answered,rating,comment}], emergency_phone, event_feedback_answered}` · **ไม่มีฟิลด์ `_en`** · `event_feedback_answered` เป็นฟิลด์ใหม่ (bool) ดูหมายเหตุ 2026-08-26 | `wbw_progress_handler.go` (SUS) |
 | 15 | POST | `/wbw/me/feedback` | participant | `{client_id, checkpoint_id, rating, comment?, device_time}` | `201` แถวใหม่ · `200` ยิงซ้ำด้วย `client_id` เดิม · `409` แถวเดิมของฐานนี้ · `403 {error}` ยังไม่เช็คอิน · `400 {error}` rating นอกช่วง | `wbw_feedback_handler.go` (SUS) |
+| 16 | POST | `/wbw/me/event-feedback` | participant | `{client_id, rating, rating_activity?, comment?, device_time}` | `201` แถวใหม่ · `200` ยิงซ้ำด้วย `client_id` เดิม · `409` ตอบแล้ว | — ยังไม่มีใน SUS ดูหมายเหตุ 2026-08-26 |
 | 11 | POST | `/wbw/devices/register` | participant | `{token, platform}` | `200`/`204` | `deviceRoutes.js:8` |
 | 12 | POST | `/wbw/devices/unregister` | participant | `{token}` | `200`/`204` | `deviceRoutes.js:21` |
 
@@ -68,6 +69,17 @@ otherwise the admin's display name.
 > 14 กับ 15 แอปเรียกมาตั้งแต่รอบ check-in feedback แล้วแต่ไม่เคยถูกจดไว้ที่นี่เลย ทั้งที่เอกสารนี้
 > เป็นที่เดียวที่รวมสัญญาไว้ (ยืนยันด้วย curl ที่ `docs/checkin-feedback-verification.md`) ·
 > 13 เป็นของใหม่: ก่อนมีมัน แอปรู้ชื่อฐานเฉพาะฐานที่เช็คอินไปแล้ว เพราะ 14 คืนแค่ `checked_in`
+
+> **16 เพิ่ม 2026-08-26 (ยังไม่มีใน SUS)** — แถว 16 คือ endpoint ที่ SUS **ยังไม่ได้ทำ** ตอนเขียนบรรทัด
+> นี้ แอปทั้ง iOS และ Android ส่งล่วงหน้าไปแล้ว (ทรงเดียวกับแถว 15) เพื่อให้วันที่ SUS ship endpoint จริง
+> เครื่องที่อัปเดตแล้วทุกเครื่องเริ่มส่งได้ทันทีโดยไม่ต้องรอออกแอปใหม่ · ฝั่งแอปตีความ `404` เป็นความ
+> ล้มเหลว (ไม่ใช่ "ตอบแล้ว") ซึ่งเปิดปุ่ม "ข้ามไปก่อน" ให้ผู้เข้าร่วมกดผ่านได้ (ดู `submitEventFeedback`
+> ใน `APIClient.swift`) · ฝั่งแอปยังไม่ตรวจ body ของ `409` ว่ามาจาก origin จริงหรือเปล่าเหมือนที่แถว 15
+> ทำ (`isOriginFeedbackRow`) เพราะยังไม่มี response shape จริงจาก SUS ให้ pin ไว้ — ตอนนี้เชื่อ status
+> เดี่ยว ๆ ไปก่อน วันที่ SUS ship endpoint นี้จริงแล้วมี response shape ยืนยันแล้ว ฝั่งแอปควรเพิ่ม
+> origin-body check สำหรับ `409` ตามแบบแถว 15 · แถว 14 ก็ต้องเพิ่ม `event_feedback_answered` (bool)
+> ให้ตรงกันด้วย — ถ้า SUS ยังไม่ส่งฟิลด์นี้ แอปทั้งสองฝั่ง (iOS/Android) default เป็น `false` เมื่อขาด
+> ไม่ทำให้ decode พัง
 
 `Message` shape (endpoints 7 & 8):
 `{id, group_id, sender_id, client_id, body, device_time, created_at, first_name, last_name}`.

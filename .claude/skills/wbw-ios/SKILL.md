@@ -25,7 +25,7 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
 - `WBW/` — จอเดี่ยว ๆ วางแบนที่ราก (51 ไฟล์ `.swift`) + โฟลเดอร์ฟีเจอร์เมื่อเกิน ~3 ไฟล์: `SOS/` (13
   ไฟล์ — ปุ่มขอความช่วยเหลือฉุกเฉิน จอสถานะ จอเจ้าหน้าที่ และ `LocationPrimer` ที่คั่นก่อนกล่อง
   ขอสิทธิ์ตำแหน่ง), `Map3D/` (14
-  ไฟล์ — แผนที่ 3 มิติจากโมเดล `map.usdz` **กับแผนที่ 2 มิติบน MapKit** ที่สลับกันด้วยปุ่ม), `Chat/` (8 ไฟล์ — รวม `ChatWordFilter` ตัวกรองคำหยาบก่อนส่งตาม Guideline 1.2), `Walk/` (5 ไฟล์ — นับก้าว/ระยะ/เพซ ที่แท็บแผนที่), `Conditions/` (4 ไฟล์ — อุณหภูมิ/AQI จาก Open-Meteo), `Feedback/` (4 ไฟล์),
+  ไฟล์ — แผนที่ 3 มิติจากโมเดล `map.usdz` **กับแผนที่ 2 มิติบน MapKit** ที่สลับกันด้วยปุ่ม), `Chat/` (8 ไฟล์ — รวม `ChatWordFilter` ตัวกรองคำหยาบก่อนส่งตาม Guideline 1.2), `Walk/` (5 ไฟล์ — นับก้าว/ระยะ/เพซ ที่แท็บแผนที่), `Conditions/` (4 ไฟล์ — อุณหภูมิ/AQI จาก Open-Meteo), `Feedback/` (7 ไฟล์ — รวม gate ให้คะแนนที่ยึดจอหลังเช็คอิน กับความเห็นทั้งงานตอนจบ),
   `Bloom/` (3 ไฟล์ — ดอกไม้ halftone หน้า Home),
   `Demo/` (3 ไฟล์ — โหมดเดโม่สำหรับ App Review), `Scene3D/` (7 ไฟล์ — ฉากป่า ปิดอยู่ตอนนี้แต่ไม่ได้ลบ),
   `Resources/` (asset 3D `.usdz`/`.glb` +
@@ -34,7 +34,7 @@ dependency เดียวคือ `FirebaseMessaging` (package Firebase ใน
 - `WBW/en.lproj/`, `WBW/th.lproj/` — `Localizable.strings` ชุดคีย์ชื่อเดียวกับ `strings.xml` ของ Android
   ทั้งสองฝั่ง · `Font.wbw*` ใน `Typography.swift` คือสเกลตัวอักษรของแอป (ยกจาก `Type.kt`)
   · **ข้อความนอก View ใช้ `Loc.t("key")` ไม่ใช่ `String(localized:)`** (ดูกติกาข้อ 10)
-- `WBWTests/` — XCTest ล้วน 105 ไฟล์ วางแบนที่ราก
+- `WBWTests/` — XCTest ล้วน 109 ไฟล์ วางแบนที่ราก
 - `docs/` — เอกสารเสริม (spec/plan อยู่ `docs/superpowers/`)
 - `scripts/` — สคริปต์ Blender ทำ asset (`.usdz`) ไม่ใช่ขั้นตอน build ของแอป · กับ
   `check-skill-refs.sh` ที่ตรวจว่าไฟล์ skill 5 ใบนี้ยังตรงกับ repo ไหม (ดู `workflow.md`)

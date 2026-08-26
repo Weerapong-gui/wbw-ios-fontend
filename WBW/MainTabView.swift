@@ -53,7 +53,7 @@ struct MainTabView: View {
     }
     // ฐานที่กำลังเปิดหน้าให้ความเห็นอยู่ (nil = ไม่มีจอเปิด) — จุดบรรจบของทั้ง 4 ทางเข้า: แตะ push ตอน
     // แอปปิด (PendingPush → .openCheckinFeedback), push ตอนแอปเปิด, แตะการ์ดในหน้าแจ้งเตือน,
-    // และ toast จาก poll 60 วิ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว ไม่มีทางลัดอื่นไป FeedbackView
+    // และ toast จาก poll 20 วิ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว ไม่มีทางลัดอื่นไป FeedbackView
     @State private var feedbackCheckpoint: FeedbackTarget?
     /// ข้ามฟอร์มทั้งงานเฉพาะรันนี้ — **จงใจไม่เขียนดิสก์**: มันคือทางหนีจากการส่งที่ล้มเหลว
     /// ไม่ใช่บันทึกว่าตอบแล้ว (server เป็นคนถือคำตอบผ่าน `eventFeedbackAnswered`) เปิดแอปใหม่แล้ว
@@ -65,7 +65,7 @@ struct MainTabView: View {
     #endif
     // ฐานที่ toast "ยึดไว้" ให้เด้ง (ว่าง = ไม่มี) — คัดลอกมาจาก progress.newlyPending ตอนมันเปลี่ยน
     // แทนที่จะให้ view อ่าน newlyPending ตรงๆ เพราะ newlyPending ค้างค่าเดิมไว้จนกว่า load รอบถัดไป
-    // จะทับ (นานสุด 60 วิ) ถ้าอ่านตรงๆ toast จะค้างคาจอเป็นนาทีแทนที่จะเป็น 3.5 วิ
+    // จะทับ (นานสุด 20 วิ) ถ้าอ่านตรงๆ toast จะค้างคาจอเป็นนาทีแทนที่จะเป็น 3.5 วิ
     //
     // การยึดไว้แบบนี้แลกมาด้วยความเสี่ยงว่าของที่ยึดจะ "เก่า" — ยึดตอน toast โผล่ไม่ได้ (เงื่อนไขอาจปิด
     // อยู่ ดู canShowCheckinToast) ระหว่างนั้นผู้ใช้อาจไปตอบฐานนั้นจากหน้าแจ้งเตือนเรียบร้อยแล้ว จึงต้อง
@@ -302,14 +302,17 @@ struct MainTabView: View {
             }
             .task {
                 // poll สำรอง — push เป็นทางหลัก แต่ build ที่ไม่มี GoogleService-Info.plist
-                // ปิด push ทั้งอัน และผู้ใช้ปฏิเสธสิทธิ์ก็มี · 60 วิคือจุดที่คนยืนอยู่ที่ฐาน
-                // รอไม่นานเกินไป และผู้เข้าร่วม 2,000 คนคิดเป็น ~33 req/s ซึ่งรับไหว
+                // ปิด push ทั้งอัน และผู้ใช้ปฏิเสธสิทธิ์ก็มี · 20 วิคือจุดที่คนยืนหน้า staff
+                // ที่เพิ่งสแกน QR เสร็จ — เงียบเป็นนาทีแบบ 60 วิเดิมอ่านผิดว่าสแกนไม่ติด
+                // ส่วนภาระเซิร์ฟเวอร์ไม่ใช่ของใหม่: ผู้เข้าร่วม 2,000 คนคิดเป็น ~100 req/s
+                // ซึ่งเท่ากับที่ฝูง Android จ่ายให้ SUS อยู่แล้ว (FeedbackGateViewModel ฝั่งนั้น
+                // poll ทุก 20 วิเหมือนกัน)
                 //
                 // ไม่ต้องเก็บ handle มายกเลิกเอง — SwiftUI ยกเลิก .task ให้ตอน view หาย (ล็อกเอาต์) ·
                 // ไม่หยุดตอนแอปลงหลัง แต่ timer ของแอปที่ถูก suspend ไม่เดินอยู่แล้ว และ
                 // .onChange(of: scenePhase) ด้านล่างโหลดใหม่ให้ตอนกลับมา .active
                 while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(60))
+                    try? await Task.sleep(for: .seconds(20))
                     guard !Task.isCancelled else { break }
                     await progress.load(token: session.token ?? "")
                 }
@@ -342,7 +345,7 @@ struct MainTabView: View {
                 PendingPush.clear()   // รับสดแล้ว — เคลียร์กัน mount ถัดไปดึงไปเล่นซ้ำ (ดู PendingPush.clear())
             }
             // push ขอความเห็นมาถึงตอนแอปเปิดอยู่ — willPresent กดของระบบทิ้งไปแล้ว ต้องมีของแทนจริงๆ
-            // ให้เห็น ไม่ใช่เงียบไปจนกว่า poll รอบถัดไป (นานสุด 60 วิ) · progress ใหม่พา toast เช็คอินมา
+            // ให้เห็น ไม่ใช่เงียบไปจนกว่า poll รอบถัดไป (นานสุด 20 วิ) · progress ใหม่พา toast เช็คอินมา
             // ผ่าน newlyPending ส่วนรายการแจ้งเตือนใหม่พา badge กระดิ่งมา (ดู AppDelegate.willPresent)
             .onReceive(NotificationCenter.default.publisher(for: .checkinFeedbackArrived)) { _ in
                 Task {

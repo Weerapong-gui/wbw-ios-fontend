@@ -85,6 +85,9 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestChatCloseAfter <วินาที>` | double | ปิดแชทเองหลัง N วิ (แอปยัง foreground) | — |
 | `-uitestNotifications` | flag | เปิดหน้าแจ้งเตือนตรงๆ | — |
 | `-uitestFeedback <checkpointId>` | int > 0 | เปิดฟอร์มให้ความเห็นของฐานนั้นตรงๆ (id จริงเริ่มที่ 1) | — |
+| `-uitestGateBase <checkpointId>` | int > 0 | บังคับ gate ให้คะแนน (fullScreenCover ยึดจอ ไม่มีปุ่มปิด) ขึ้นตรงๆ ด้วยฐานจำลอง — ของจำลองใส่แค่ `checkpointId` ให้ครบชนิด ชื่อฐาน/ยอดคะแนนอ่านจาก progress จริงที่โหลดมา ทางเข้าจริงต้องให้ staff สแกนฐานจริงก่อนซึ่งสร้างจากที่นี่ไม่ได้เลย | `-uitestDemo` |
+| `-uitestGateEvent` | flag | บังคับ gate ขึ้นเป็นฟอร์มความเห็นทั้งงาน (event) ตรงๆ — ทางเข้าจริงต้องเดินครบทุกฐานก่อน | `-uitestDemo` |
+| `-uitestGateEventFailed` | flag | บังคับฟอร์มความเห็นทั้งงานให้อยู่ในสาขา "ส่งไม่สำเร็จ" (โผล่ปุ่ม "ข้ามไปก่อน") — สาขานี้เกิดจากผลของเน็ตเท่านั้น และในโหมดเดโม่ (ทางเดียวที่ถ่ายรูปได้) `submitEventFeedback` คืน `.saved` เสมอ จึงไม่มีทางเห็นสาขานี้ด้วยวิธีอื่นเลย (ท่าเดียวกับ `-uitestNotiLoadFailed`) | `-uitestGateEvent` |
 | `-uitestProgress <n>` | int | บังคับขั้นต้นไม้หน้า Home เป็น n/8 | — |
 | `-uitestProfile` | flag | เปิดหน้าโปรไฟล์ตรงๆ (จาก Home) | แท็บ Home ต้องขึ้นก่อน (index 0 — ค่าเริ่มต้นของ `-uitestTab` อยู่แล้วถ้าไม่ส่งอย่างอื่นมาทับ) |
 | `-uitestMedical` | flag | เปิดหน้าข้อมูลการแพทย์ตรงๆ (จาก Ticket) | `-uitestProfile` |
@@ -96,6 +99,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestCameraDenied` | flag | บังคับจอเจ้าหน้าที่ให้แสดงสถานะ "ไม่ได้รับสิทธิ์กล้อง" — `simctl privacy revoke` รีเซ็ตเป็น "ยังไม่เคยถาม" ไม่ใช่ "ปฏิเสธ" จึงตั้งจากภายนอกไม่ได้ | `-uitestToken <jwt>` + `-uitestRole staff` |
 | `-uitestSOSStatus` | flag | เปิดจอสถานะ SOS ตรง ๆ พร้อมเคสจำลองที่สถานะ `.received` — ทางเข้าจริงคือกดปุ่มค้าง 3 วินาที ซึ่งถ่ายรูปไม่ได้ที่นี่ | `-uitestTab 4` |
 | `-uitestSOSActive` | flag | ยัดเคส SOS จำลองเข้า store **โดยไม่เปิดจอสถานะ** — ใช้ถ่ายจอบัตรตอนขอบจอเรืองแดง ซึ่งเป็นสภาพจริงหลังกดปุ่มครบ 3 วิ | `-uitestTab 4` |
+| `-uitestSOSStatusDelay <วิ>` | double | เปิดจอสถานะ SOS **หลัง**จอแรก mount เสร็จไปแล้ว N วิ ต่างจาก `-uitestSOSStatus` ที่เปิดพร้อม mount — ใช้พิสูจน์ว่าจอสถานะ SOS ซ้อน fullScreenCover ขึ้นเหนือ gate ให้คะแนนได้จริง (SwiftUI ทำได้เฉพาะเมื่อผูก cover ไว้กับ view ที่อยู่ใน cover ชั้นแรกอยู่แล้ว ตั้งธงพร้อมกันตอน mount พิสูจน์เรื่องนี้ไม่ได้) | `-uitestGateBase <id>` หรือ `-uitestGateEvent` |
 | `-uitestLocationPrimer` | flag | เปิดจออธิบายก่อนกล่องขอสิทธิ์ตำแหน่ง (`LocationPrimerSheet`) — ทางเข้าจริงต้องล็อกอินบัญชีจริงบนเครื่องที่ยังไม่เคยตอบกล่องขอสิทธิ์ | `-uitestDemo` |
 | `-uitestNotiLoadFailed` | flag | บังคับหน้าประกาศให้แสดงสาขา "ยิงไม่ถึงเซิร์ฟเวอร์" (มีปุ่มลองใหม่) — ตัดเน็ตของซิมจากข้างนอกทำไม่ได้ | `-uitestNotifications` |
 | `-uitestCredits` | flag | เปิดหน้าเครดิต/สัญญาอนุญาตตรงๆ (จากหน้าตั้งค่า) — หน้านี้เป็นเงื่อนไขสัญญาอนุญาต ต้องถ่ายให้เห็นจริงได้ | `-uitestProfile` + `-uitestSettings` |
