@@ -112,6 +112,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestMapYaw <องศา>` | 0-359 | มุมกวาดรอบตัว ใช้ถ่ายเทียบว่าไม่มีทิศไหนเห็นขอบโมเดล | `-uitestTab 1` |
 | `-uitestChatDraft <ข้อความ>` | string | เติมข้อความในช่องพิมพ์ของจอแชท ใช้ถ่ายทรงช่องตอนหลายบรรทัด | `-uitestChat YES` |
 | `-uitestChatSend` | flag | กดปุ่มส่งแทนคนทันทีที่จอแชทเปิด — ใช้ถ่ายคำเตือนของตัวกรองคำหยาบ (Guideline 1.2) โดยเรียก `send()` ตัวจริง | `-uitestChat 1` + `-uitestChatDraft <ข้อความ>` |
+| `-uitestChatDoubleSend` | flag | จำลอง "นิ้วเด้ง" — เรียก `send()` สองครั้งติดกันในเฟรมเดียว ใช้ถ่ายพิสูจน์ว่าได้ฟองเดียว (กดปุ่มจริงสองครั้งเร็ว ๆ ทำไม่ได้ที่นี่) | `-uitestChat 1` |
 
 **ทำไมบางคีย์ต้องมาคู่กัน:** `-uitestMedical`/`-uitestSettings` ถูกอ่านใน `.task` ของ `TicketView`
 (`WBW/TicketView.swift:48-49`) แต่ `TicketView` มีทางเดียวที่จะขึ้นจอคือผ่าน

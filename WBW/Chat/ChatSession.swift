@@ -189,9 +189,42 @@ final class ChatSession: ObservableObject {
 
     /// ตัดสินว่า "ส่งได้ไหม" ผ่าน `ChatDraft` ตัวเดียวกับที่ปุ่มส่งใช้ ห้าม trimming เองที่นี่
     /// — สองที่ตัดคนละชุดคือที่มาของบั๊กข้อความหายเงียบ (ดูคอมเมนต์หัว `ChatDraft`)
-    func send(_ text: String, senderName: String) {
+    /// การกดปุ่มส่งซ้ำของเจตนาเดียว — ข้อความเดิมของ **ตัวเอง** ที่เพิ่งสร้างไปหมาด ๆ
+    ///
+    /// **ทำไมด่านต้องอยู่ที่นี่ ไม่ใช่ที่ปุ่ม** ปุ่มส่งกันการกดซ้ำด้วย `.disabled` ที่อ่านว่า
+    /// ช่องพิมพ์ว่างหรือยัง ซึ่งพึ่งสองอย่างที่พึ่งไม่ได้: ช่องถูกล้างจริง (UITextView เขียน
+    /// ข้อความเก่ากลับเข้า binding ได้ — ดูคอมเมนต์ยาวที่ `GroupChatView.send()`) และ SwiftUI
+    /// re-render ทันก่อนนิ้วที่สองลง (`SOSButton.firedThisHold` เขียนบทเรียนไว้แล้วว่าการ์ดที่
+    /// พึ่งจังหวะ re-render ไม่ใช่การ์ด) · ที่นี่เป็นทางผ่านเดียวของการส่งทุกทาง และเป็นชั้นเดียว
+    /// ที่เขียนเทสพิสูจน์ได้ (จอแชทไม่มี tap tooling)
+    ///
+    /// **ราคาของการปล่อยผ่านสูงกว่าที่คิด** — การกดครั้งที่สองมินต์ `clientId` ใหม่ ซึ่ง server
+    /// มองเป็นคนละข้อความ (idempotent เฉพาะ client_id เดิม ดู docs/backend-contract.md §8)
+    /// ทั้งกลุ่มจึงเห็นข้อความซ้ำ ไม่ใช่แค่คนส่ง
+    ///
+    /// 1 วินาที: การกดสองครั้งของคนที่ตั้งใจกดครั้งเดียวห่างกันราว 100-500 มิลลิวินาที เผื่อ
+    /// จังหวะที่เธรดหลักค้างเพราะ SwiftData save · ยาวกว่านี้จะเริ่มไปขวางคนที่ตั้งใจส่งข้อความ
+    /// สั้นซ้ำจริง ("555" สองที) ซึ่งเป็นเจตนาที่ต้องเคารพ
+    ///
+    /// nonisolated: ฟังก์ชันบริสุทธิ์ ไม่แตะ state ของ actor — ให้เทสเรียกตรง ๆ ได้
+    nonisolated static func isRepeatSend(_ text: String, of latestMine: ChatMessage?,
+                                         myId: String, now: Date,
+                                         window: TimeInterval = 1) -> Bool {
+        guard let latestMine, latestMine.senderId == myId else { return false }
+        guard latestMine.body == ChatDraft.trimmed(text) else { return false }
+        let gap = now.timeIntervalSince(latestMine.deviceTime)
+        return gap >= 0 && gap <= window
+    }
+
+    /// คืน `false` เมื่อการกดถูกกลืนเพราะเป็นการกดซ้ำ — จอใช้ค่านี้ตัดสินใจว่าจะสั่น haptic
+    /// "ส่งแล้ว" ไหม (สั่นทั้งที่ไม่มีอะไรถูกส่ง = สอนผู้ใช้ผิดว่ากดติดสองครั้ง)
+    @discardableResult
+    func send(_ text: String, senderName: String) -> Bool {
         let t = ChatDraft.trimmed(text)
-        guard ChatDraft.canSend(text), let gid = groupId, let context else { return }
+        guard ChatDraft.canSend(text), let gid = groupId, let context else { return false }
+        // เทียบกับข้อความล่าสุด **ของเราเอง** เท่านั้น — คนอื่นเพิ่งพิมพ์คำเดียวกันต้องไม่ปิดปากเรา
+        guard !Self.isRepeatSend(t, of: messages.last(where: { $0.senderId == myId }),
+                                 myId: myId, now: Date()) else { return false }
         let msg = ChatMessage(clientId: UUID().uuidString, serverId: nil, groupId: gid,
                               senderId: myId, body: t, deviceTime: Date(), createdAt: nil,
                               senderName: senderName, state: .pending)
@@ -199,6 +232,7 @@ final class ChatSession: ObservableObject {
         try? context.save()
         messages = Self.sorted(messages + [msg])
         Task { await flushOutbox() }
+        return true
     }
 
     func retry(_ m: ChatMessage) {

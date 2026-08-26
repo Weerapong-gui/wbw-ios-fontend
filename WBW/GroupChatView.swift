@@ -111,6 +111,15 @@ struct GroupChatView: View {
                 try? await Task.sleep(for: .milliseconds(400))
                 send()
             }
+            // จำลอง "นิ้วเด้ง" — เรียก `send()` สองครั้งติดกันในเฟรมเดียว เพื่อถ่ายรูปพิสูจน์ว่า
+            // ได้ฟองเดียว ไม่ใช่สอง · เส้นทางจริงคือกดปุ่มสองครั้งเร็ว ๆ ซึ่งกดไม่ได้ที่นี่
+            // (ไม่มี tap tooling) · เรียกทางเดียวกับผู้ใช้จริงทุกประการ ไม่ได้ลัดไปเรียก store
+            if UserDefaults.standard.bool(forKey: "uitestChatDoubleSend") {
+                try? await Task.sleep(for: .milliseconds(400))
+                draft = "ถึงฐาน 5 แล้ว"
+                send()
+                send()
+            }
             #endif
             await loadMembers()
         }
@@ -363,8 +372,12 @@ struct GroupChatView: View {
         guard ChatModeration.allowsSending(text) else { blockedByFilter = true; return }
         blockedByFilter = false
         draft = ""
-        store.send(text, senderName: profile.me?.displayName ?? Loc.t("chat_me"))
-        sentTick += 1
+        // store กลืนการกดซ้ำของเจตนาเดียว (ดู `ChatSession.isRepeatSend`) — สั่น haptic ต่อเมื่อ
+        // มีข้อความถูกสร้างจริง ไม่งั้นการกดครั้งที่สองได้ความรู้สึก "ส่งแล้ว" ทั้งที่ไม่มีอะไรออกไป
+        // ซึ่งสอนผู้ใช้ผิดว่ากดติดสองครั้ง แล้วเขาจะเชื่อว่าข้อความหายไปหนึ่งอัน
+        if store.send(text, senderName: profile.me?.displayName ?? Loc.t("chat_me")) {
+            sentTick += 1
+        }
         DispatchQueue.main.async { draft = "" }
     }
 }

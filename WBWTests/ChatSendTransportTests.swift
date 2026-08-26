@@ -208,6 +208,23 @@ final class ChatSendTransportTests: XCTestCase {
         XCTAssertTrue(bodies[1].contains("สอง"))
     }
 
+    /// **กดส่งเร็วสองครั้ง = POST ครั้งเดียว** — ครึ่งที่สองของด่านกันซ้ำ (อีกครึ่งอยู่ที่
+    /// `ChatDoubleSendTests` ซึ่งดูว่าฟองบนจอมีกี่อัน) · ที่ต้องมีทั้งสองครึ่งเพราะราคาจริงของ
+    /// บั๊กนี้ไม่ได้อยู่บนจอคนส่ง: การกดครั้งที่สองมินต์ clientId ใหม่ ซึ่ง server มองเป็นคนละ
+    /// ข้อความ (idempotent เฉพาะ client_id เดิม) แล้วทั้งกลุ่มเห็นซ้ำ
+    @MainActor
+    func testTappingSendTwiceQuicklyPostsOnlyOnce() async {
+        let s = session()
+        s.send("ถึงฐาน 5 แล้ว", senderName: "ฉัน")
+        s.send("ถึงฐาน 5 แล้ว", senderName: "ฉัน")
+
+        await s.testFlushOutbox()
+
+        XCTAssertEqual(StubURLProtocol.requestCount, 1,
+                       "ยิงสองครั้ง = สองแถวที่ server เพราะ client_id คนละตัว")
+        XCTAssertEqual(s.messages.count, 1)
+    }
+
     /// **เน็ตล่มกลางคิว = หยุดทันทีและทุกอย่างคง .pending** — ตัวถัดไปห้ามถูกยิงซ้ำเติม
     /// (ต่างจาก .failed: ไม่มีอะไรผิดที่ตัวข้อความ รอเน็ตกลับมาแล้ว flush รอบหน้าเก็บเอง)
     @MainActor
