@@ -19,6 +19,13 @@ final class ChatSession: ObservableObject {
     @Published private(set) var unreadLineSnapshot: Int64 = .max
     /// ข้อความล่าสุดที่เพิ่งเข้ามาตอนไม่ได้เปิดจอแชท — ใช้เด้ง toast
     @Published var incoming: ChatMessage?
+    /// คนนี้ถูกบล็อกอยู่ไหม — MainTabView ผูกให้ตอน configure (อ่านจาก BlockedUsers สดทุกครั้ง
+    /// เพราะรายการบล็อกแก้จากจอแชทซึ่งถือ instance คนละตัว)
+    ///
+    /// ใช้กรองเฉพาะ `incoming` เท่านั้น — บล็อกแล้วข้อความหายจากจอแชทจริงแต่แบนเนอร์ยังเด้ง
+    /// คือบั๊กที่ hook นี้เกิดมาแก้ · ส่วน unreadCount/badge **ตั้งใจนับต่อ** ตามหลักของ
+    /// ChatModeration.visible: บล็อก = ซ่อนตอนแสดงผลเท่านั้น ตัวเลขที่คนอื่นเห็นต้องตรง server
+    var isBlocked: (String) -> Bool = { _ in false }
     /// โดนเอาออกจากกลุ่มระหว่าง sync (403) — MainTabView ฟังค่านี้เพื่อปิดจอแชท + โหลดโปรไฟล์ใหม่
     @Published var kickedOut = false
 
@@ -282,7 +289,9 @@ final class ChatSession: ObservableObject {
         cursors = r.cursors
         let fresh = merge(r.messages, groupId: requestGroupId)
         recomputeUnread()
-        if !screenVisible, let last = fresh.last(where: { $0.senderId != myId }) {
+        // กรองคนถูกบล็อกออกด้วย ไม่ใช่แค่ข้อความตัวเอง — และถอยไปหาตัวก่อนหน้าที่มองเห็นได้
+        // ไม่ใช่เงียบทั้ง batch เพียงเพราะตัวท้ายสุดเป็นของคนถูกบล็อก
+        if !screenVisible, let last = fresh.last(where: { $0.senderId != myId && !isBlocked($0.senderId) }) {
             incoming = last            // ให้ MainTabView เด้ง toast
         }
         if screenVisible { markRead() }

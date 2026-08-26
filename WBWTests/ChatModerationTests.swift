@@ -15,12 +15,18 @@ final class ChatModerationTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        // ปักว่าไม่ได้อยู่ในโหมดเดโม่ **ก่อน** อ่าน storageKey — คีย์ต่อ CacheScope.suffix
+        // ซึ่งเปลี่ยนตามสถานะเดโม่ที่ค้างใน UserDefaults จากรอบรันแอปก่อนหน้า ไม่ปักไว้
+        // คลาสนี้จะเขียนคีย์หนึ่งแล้วไปลบอีกคีย์ (อาการ "คลาสที่แกว่งเอง" ตัวเดียวกับที่
+        // ChatSessionPersistenceTests บันทึกไว้)
+        DemoMode.forcedActive = false
         savedBlocklist = UserDefaults.standard.object(forKey: BlockedUsers.storageKey)
         UserDefaults.standard.removeObject(forKey: BlockedUsers.storageKey)
     }
 
     override func tearDown() {
         UserDefaults.standard.set(savedBlocklist, forKey: BlockedUsers.storageKey)
+        DemoMode.forcedActive = nil
         super.tearDown()
     }
 
@@ -46,6 +52,24 @@ final class ChatModerationTests: XCTestCase {
     func testNothingIsHiddenWhenNobodyIsBlocked() {
         let messages = [message(id: "a", sender: "u1", name: "หนึ่ง")]
         XCTAssertEqual(ChatModeration.visible(messages, blocked: []).count, 1)
+    }
+
+    /// จุดยึดของ scroll-to-bottom กับ pill "ข้อความใหม่" ต้องเป็นข้อความที่**มองเห็นได้**ตัวท้ายสุด
+    ///
+    /// มีเพราะเจอบั๊กจริง: จอแชทเล็ง `store.messages.last` ตรง ๆ ซึ่งอาจเป็นข้อความของคน
+    /// ถูกบล็อกที่ไม่อยู่ใน `ForEach` เลย — `proxy.scrollTo` id ที่ไม่มีอยู่คือ no-op เงียบ ๆ
+    /// กดปุ่มเลื่อนลงแล้วจอไม่ขยับ และ pill นับข้อความที่เลื่อนลงไปก็ไม่เจอ
+    func testLastVisibleSkipsBlockedTail() {
+        let messages = [
+            message(id: "a", sender: "friend", name: "เพื่อน"),
+            message(id: "b", sender: "bad", name: "ก่อกวน"),
+        ]
+        XCTAssertEqual(ChatModeration.lastVisible(messages, blocked: ["bad"])?.clientId, "a")
+    }
+
+    func testLastVisibleIsNilWhenEveryoneVisibleIsGone() {
+        let messages = [message(id: "a", sender: "bad", name: "ก่อกวน")]
+        XCTAssertNil(ChatModeration.lastVisible(messages, blocked: ["bad"]))
     }
 
     func testBlocklistSurvivesRestartAndCanBeUndone() {
@@ -160,6 +184,29 @@ final class ChatModerationTests: XCTestCase {
     func testWordsThatMerelyContainAProfanityAreNotBlocked() {
         for text in ["Scunthorpe", "assassin", "classic analysis", "หีบสมบัติ", "ปลาหมึกสด"] {
             XCTAssertTrue(ChatModeration.allowsSending(text), "คำสุภาพต้องไม่โดนกัน: \(text)")
+        }
+    }
+
+    /// "สัสดี" เป็นคำสุภาพ (ตำแหน่งราชการ) ที่มี "สัส" ซ้อนอยู่ข้างใน — กับดัก Scunthorpe
+    /// ฝั่งไทยตัวเดียวที่หลุดจากหลัก "ลิสต์ต้องมีแต่คำที่ไม่ไปโผล่ในคำสุภาพ" ของไฟล์กรอง
+    func testPoliteWordContainingBannedSubstringPasses() {
+        for text in ["เดี๋ยวไปหาจ่าสัสดี", "สัสดีจังหวัด"] {
+            XCTAssertTrue(ChatModeration.allowsSending(text), "คำสุภาพต้องไม่โดนกัน: \(text)")
+        }
+        // คำหยาบเดี่ยว ๆ ยังต้องโดนกันเหมือนเดิม — ข้อยกเว้นห้ามเจาะรูให้ของจริงเล็ดลอด
+        XCTAssertFalse(ChatModeration.allowsSending("ไอ้สัส"))
+        XCTAssertFalse(ChatModeration.allowsSending("สัส"))
+    }
+
+    /// **ทุกคำในลิสต์ต้องโดนกันจริงทั้งลิสต์** — จับเคสแก้ลิสต์แล้วคำหลุดโดยไม่รู้ตัว
+    /// (เช่นลบ "fucking" ทิ้งเพราะคิดว่า "fuck" ครอบให้ — จริง ๆ `\bfuck\b` แมตช์ข้างในไม่ถึง)
+    /// เทสเดิมสุ่มมาแค่ 3 คำต่อภาษา ที่เหลือไม่มีอะไรค้ำเลย
+    func testEveryListedWordIsActuallyBlocked() {
+        for word in ChatWordFilter.thai {
+            XCTAssertFalse(ChatModeration.allowsSending(word), "หลุดจากลิสต์ไทย: \(word)")
+        }
+        for word in ChatWordFilter.english {
+            XCTAssertFalse(ChatModeration.allowsSending(word), "หลุดจากลิสต์อังกฤษ: \(word)")
         }
     }
 

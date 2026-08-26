@@ -21,13 +21,24 @@ enum ChatWordFilter {
     /// ฝั่งไทย — เทียบตรง ๆ ว่ามีอยู่ในข้อความไหม
     static let thai = ["ควย", "เย็ด", "เหี้ย", "สัส", "แตด", "อีดอก", "ระยำ", "แม่ง", "ไอ้เวร"]
 
+    /// คำสุภาพที่มีคำต้องห้ามซ้อนอยู่ข้างใน — ตัดทิ้งก่อนเทียบ substring ฝั่งไทย
+    /// ("สัสดี" เป็นตำแหน่งราชการ มี "สัส" อยู่ข้างใน — Scunthorpe ฉบับไทยที่หลุดจากหลัก
+    /// "ลิสต์ต้องมีแต่คำที่ไม่โผล่ในคำสุภาพ" เพราะตัดคำหยาบออกจากลิสต์ไม่ได้ มันหยาบจริง)
+    static let thaiAllowed = ["สัสดี"]
+
     /// ฝั่งอังกฤษ — เทียบทั้งคำเท่านั้น
     static let english = ["fuck", "fucking", "shit", "bitch", "cunt", "asshole",
                           "whore", "slut", "bastard", "dickhead", "motherfucker"]
 
     static func isObjectionable(_ text: String) -> Bool {
         let lowered = text.lowercased()
-        if thai.contains(where: lowered.contains) { return true }
+        // แทนด้วยช่องว่าง ไม่ใช่ลบทิ้ง — ลบแล้วตัวอักษรสองฝั่งเลื่อนมาชนกัน อาจประกอบเป็น
+        // คำต้องห้ามใหม่ที่ไม่เคยอยู่ในข้อความจริง
+        var thaiScan = lowered
+        for allowed in thaiAllowed {
+            thaiScan = thaiScan.replacingOccurrences(of: allowed, with: " ")
+        }
+        if thai.contains(where: thaiScan.contains) { return true }
         return english.contains { word in
             lowered.range(of: "\\b\(word)\\b", options: [.regularExpression]) != nil
         }

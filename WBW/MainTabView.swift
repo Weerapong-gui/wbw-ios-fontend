@@ -198,6 +198,9 @@ struct MainTabView: View {
                 await progress.load(token: session.token ?? "")
                 // ชื่อฐานเปลี่ยนตอนแอดมินแก้ ซึ่งนาน ๆ ครั้ง — โหลดคู่กับ progress ที่จุดนี้พอ ไม่ต้องมีลูป poll ของตัวเอง
                 await checkpoints.load(token: session.token ?? "")
+                // อ่านรายการบล็อกสดจากดิสก์ทุกครั้ง ไม่ถือ instance ค้าง — จอแชทถือ BlockedUsers
+                // คนละตัว บล็อกเพิ่มจากที่นั่นแล้วตัวที่ถือไว้ตรงนี้จะไม่รู้เรื่องเลย
+                chat.isBlocked = { BlockedUsers().isBlocked($0) }
                 chat.configure(groupId: profile.me?.groupId, token: session.token ?? "",
                                myId: profile.me?.userId ?? "", context: context)
                 // เรียกเองครั้งแรกตอน mount ด้วย — .onChange(of: chatVisible) ด้านล่างไม่ยิงให้ตอน mount

@@ -26,6 +26,14 @@ enum ChatModeration {
         blocked.isEmpty ? messages : messages.filter { !blocked.contains($0.senderId) }
     }
 
+    /// ข้อความที่**มองเห็นได้**ตัวท้ายสุด — จุดยึดของ scroll-to-bottom กับ pill "ข้อความใหม่"
+    ///
+    /// จอแชทห้ามเล็ง `messages.last` ตรง ๆ: ตัวท้ายอาจเป็นของคนถูกบล็อกซึ่งไม่อยู่ใน `ForEach`
+    /// เลย แล้ว `proxy.scrollTo` id ที่ไม่มีอยู่คือ no-op เงียบ ๆ — กดปุ่มเลื่อนลงแล้วจอไม่ขยับ
+    static func lastVisible(_ messages: [ChatMessage], blocked: Set<String>) -> ChatMessage? {
+        blocked.isEmpty ? messages.last : messages.last { !blocked.contains($0.senderId) }
+    }
+
     /// อีเมลรายงานข้อความ — เปิดแอปเมลของเครื่องพร้อมเนื้อหาที่กรอกไว้ให้แล้ว
     ///
     /// ใส่ id ของข้อความ ผู้ส่ง และผู้รายงานมาด้วยเสมอ ไม่งั้นทีมงานได้อีเมลที่บอกแค่ว่า

@@ -143,8 +143,12 @@ struct GroupChatView: View {
 
     /// กรองคนที่ถูกบล็อกออก**ตอนแสดงผล** ไม่ใช่ตอน sync — cache กับเลขอ่านแล้วยังต้อง
     /// ตรงกับเซิร์ฟเวอร์ ปลดบล็อกแล้วข้อความเก่าจะได้กลับมาครบ (ดู `ChatModeration.visible`)
+    private var visibleMessages: [ChatMessage] {
+        ChatModeration.visible(store.messages, blocked: blocked.ids)
+    }
+
     private var rows: [ChatRow] {
-        ChatRowBuilder.build(ChatModeration.visible(store.messages, blocked: blocked.ids),
+        ChatRowBuilder.build(visibleMessages,
                              myLastReadId: store.unreadLineSnapshot,
                              myId: profile.me?.userId ?? "")
     }
@@ -229,8 +233,11 @@ struct GroupChatView: View {
                     }
             )
             .overlay(alignment: .bottom) { newMessagePill(proxy) }
-            .onChange(of: store.messages.count) { old, new in
-                guard let last = store.messages.last else { return }
+            // นับจากลิสต์ที่**มองเห็นได้** ไม่ใช่ store.messages ตรง ๆ — ข้อความของคนถูกบล็อก
+            // เข้ามาแล้วห้ามเด้ง pill บอกว่ามีของใหม่ ทั้งที่เลื่อนลงไปก็ไม่เจออะไร
+            .onChange(of: visibleMessages.count) { old, new in
+                guard let last = ChatModeration.lastVisible(store.messages, blocked: blocked.ids)
+                else { return }
                 // ข้อความที่เราเพิ่งส่งเอง ตามลงไปเสมอ ไม่งั้นพิมพ์เสร็จแล้วไม่เห็นของตัวเอง
                 // อยู่ล่างสุดอยู่แล้วก็ตามลงไป — กำลังเลื่อนอ่านย้อนหลังห้ามกระชาก นับใส่ pill แทน
                 if store.isMine(last) || atBottom {
@@ -243,7 +250,10 @@ struct GroupChatView: View {
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        guard let last = store.messages.last else { return }
+        // จุดยึดต้องอยู่ใน ForEach จริง — `store.messages.last` อาจเป็นของคนถูกบล็อก
+        // แล้ว scrollTo id ที่ไม่มีอยู่คือ no-op เงียบ ๆ (ดู ChatModeration.lastVisible)
+        guard let last = ChatModeration.lastVisible(store.messages, blocked: blocked.ids)
+        else { return }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             proxy.scrollTo(last.clientId, anchor: .bottom)
         }
