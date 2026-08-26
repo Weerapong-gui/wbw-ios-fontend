@@ -408,9 +408,29 @@ extension CheckinProgressItem {
 struct CheckinProgress: Codable, Equatable {
     let total: Int
     let checkedIn: [CheckinProgressItem]
+    /// ตอบความเห็นทั้งงานไปแล้วหรือยัง — server เป็นคนจำ (หลักเดียวกับ answered ต่อฐาน:
+    /// เครื่องไม่จำเอง กันลบแอป/เครื่องที่สองแล้วถามคนที่ตอบแล้วซ้ำ) · SUS ยังไม่ส่งฟิลด์นี้
+    /// = false ไปก่อน ฟอร์มถามซ้ำได้แต่แอปห้ามเปิดไม่ขึ้น
+    let eventFeedbackAnswered: Bool
+
+    init(total: Int, checkedIn: [CheckinProgressItem], eventFeedbackAnswered: Bool = false) {
+        self.total = total
+        self.checkedIn = checkedIn
+        self.eventFeedbackAnswered = eventFeedbackAnswered
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        total = try c.decode(Int.self, forKey: .total)
+        checkedIn = try c.decode([CheckinProgressItem].self, forKey: .checkedIn)
+        eventFeedbackAnswered = try c.decodeIfPresent(Bool.self, forKey: .eventFeedbackAnswered) ?? false
+    }
 
     /// ขั้นของต้นไม้ = จำนวนฐานที่เช็คอินแล้ว
     var stage: Int { checkedIn.count }
+
+    /// ครบทุกฐานแล้วจริง — สูตรเดียวกับ Android (ProgressDto.complete)
+    var complete: Bool { total > 0 && checkedIn.count >= total }
 
     /// ฐานที่เช็คอินแล้วแต่ยังไม่ได้ให้ความเห็น · ใหม่สุดก่อน (toast เด้งของฐานล่าสุด)
     ///
