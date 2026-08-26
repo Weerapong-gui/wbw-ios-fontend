@@ -126,6 +126,16 @@ final class ChatSession: ObservableObject {
 
     /// สำหรับเทสหน่วยเท่านั้น — รอ flush ให้จบจริง · `send()` ปล่อย `Task` ลอยไว้ซึ่งเทสรอไม่ได้
     func testFlushOutbox() async { await flushOutbox() }
+
+    /// สำหรับเทสหน่วยเท่านั้น — วางข้อความที่ค้างอยู่ลงใน state ตรง ๆ
+    ///
+    /// มีไว้สร้างสภาพที่ `send()` สร้างให้ไม่ได้ เช่น **ข้อความค้างสองอันที่เนื้อความเหมือนกัน**
+    /// (ด่านกันกดซ้ำเตะตัวที่สองทิ้งถ้าห่างกันไม่ถึงวินาที และเทสหน่วงเวลาจริงไม่ได้)
+    func testInsert(_ m: ChatMessage) {
+        context?.insert(m)
+        try? context?.save()
+        messages = Self.sorted(messages + [m])
+    }
     #endif
 
     func start() {
@@ -214,6 +224,34 @@ final class ChatSession: ObservableObject {
         guard latestMine.body == ChatDraft.trimmed(text) else { return false }
         let gap = now.timeIntervalSince(latestMine.deviceTime)
         return gap >= 0 && gap <= window
+    }
+
+    /// ข้อความของเราเองที่ "ส่งไปแล้วแต่ไม่รู้ผล" ซึ่ง echo ตัวนี้กำลังพูดถึงอยู่ — หรือ nil
+    ///
+    /// **เส้นทางที่พังถ้าไม่มีตัวนี้**: POST ถึง server แล้ว server สร้างแถวเรียบร้อย แต่คำตอบ
+    /// หายกลางทาง (เน็ตหลุด/timeout → `.offline`/`.retryable`) ข้อความในเครื่องจึงค้าง `.pending`
+    /// โดยไม่มี `serverId` · พอ long-poll ส่งแถวนั้นกลับมา **โดยไม่มี `client_id`** คีย์จึงกลายเป็น
+    /// `srv-<id>` → `merge` หาไม่เจอทั้งทาง clientId และ serverId → แทรกฟองใหม่ ขณะที่ฟองเดิม
+    /// ยังค้าง = สองฟองจากการส่งครั้งเดียว และตัวที่ค้างจะถูก POST ซ้ำรอบหน้าเป็นแถวที่สาม
+    ///
+    /// **จับคู่ด้วย `device_time` ไม่ใช่เดาจากเนื้อความอย่างเดียว** — ค่านี้แอปเป็นคนสร้างแล้วส่ง
+    /// ไปกับ POST เอง (`APIClient.sendMessage`) server จึง echo ค่าเดิมกลับมา คู่ที่ถูกต้องจะห่างกัน
+    /// แทบเป็นศูนย์ · เผื่อไว้ 1 วินาทีสำหรับการปัดเศษของฟอร์แมตเวลาเท่านั้น ไม่ใช่เผื่อให้จับคู่หลวม
+    ///
+    /// เงื่อนไขครบทุกข้อถึงจะถือว่าใช่: server ไม่ได้ส่ง client_id มา · เป็นข้อความของเราเอง ·
+    /// ยังค้างไม่มี serverId · เนื้อความตรงกัน · เวลาใกล้ที่สุดและอยู่ในกรอบ
+    ///
+    /// nonisolated: ฟังก์ชันบริสุทธิ์ ไม่แตะ state ของ actor — ให้เทสเรียกตรง ๆ ได้
+    nonisolated static func lostEchoMatch(_ dto: MessageDTO, deviceTime: Date?,
+                                          in messages: [ChatMessage], myId: String,
+                                          tolerance: TimeInterval = 1) -> ChatMessage? {
+        guard dto.clientIdWasAssignedLocally, dto.senderId == myId, let echoedAt = deviceTime
+        else { return nil }
+        return messages
+            .filter { $0.senderId == myId && $0.serverId == nil && $0.body == dto.body }
+            .filter { abs($0.deviceTime.timeIntervalSince(echoedAt)) <= tolerance }
+            .min { abs($0.deviceTime.timeIntervalSince(echoedAt))
+                 < abs($1.deviceTime.timeIntervalSince(echoedAt)) }
     }
 
     /// คืน `false` เมื่อการกดถูกกลืนเพราะเป็นการกดซ้ำ — จอใช้ค่านี้ตัดสินใจว่าจะสั่น haptic
@@ -397,6 +435,13 @@ final class ChatSession: ObservableObject {
                     existing.createdAt = parseISO(dto.createdAt)
                     existing.state = .sent
                 }
+            } else if let stuck = Self.lostEchoMatch(dto, deviceTime: parseISO(dto.deviceTime),
+                                                     in: messages, myId: myId) {
+                // ข้อความของเราเองที่ POST ถึง server แล้วแต่คำตอบหายกลางทาง แล้ว server ยัง
+                // echo กลับมาโดยไม่มี client_id — ถ้าไม่กู้ตรงนี้จะได้ฟองที่สองทับซ้อนของเดิม
+                stuck.serverId = sid
+                stuck.createdAt = parseISO(dto.createdAt)
+                stuck.state = .sent
             } else if !messages.contains(where: { $0.serverId == sid }) {
                 let m = ChatMessage(clientId: dto.clientId, serverId: sid, groupId: gid,
                                     senderId: dto.senderId, body: dto.body,

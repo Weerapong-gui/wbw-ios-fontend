@@ -268,9 +268,20 @@ struct MessageDTO: Codable {
         if let raw, !raw.isEmpty {
             clientId = raw
         } else {
-            clientId = "srv-\(serverId.wrappedValue)"
+            clientId = "\(Self.serverAssignedPrefix)\(serverId.wrappedValue)"
         }
     }
+
+    /// ต้นคีย์ของค่าที่ **แอปตั้งแทนให้** ตอน server ไม่ได้ส่ง `client_id` มา (ดู init ด้านบน)
+    static let serverAssignedPrefix = "srv-"
+
+    /// แถวนี้กลับมาโดยไม่มี `client_id` ของจริงใช่ไหม
+    ///
+    /// สำคัญกว่าที่ชื่อบอก: คีย์แทนแปลว่า **จับคู่กับข้อความในเครื่องด้วย clientId ไม่ได้เลย**
+    /// ถ้าแถวนี้ดันเป็นข้อความของเราเองที่ POST ไปแล้วแต่คำตอบหายกลางทาง (ยังค้าง `.pending`
+    /// ไม่มี serverId) `merge` จะหาไม่เจอทั้งสองทาง แล้วแทรกฟองใหม่ทับซ้อนของเดิม —
+    /// `ChatSession.lostEchoMatch` มีไว้กู้เคสนั้นโดยเฉพาะ
+    var clientIdWasAssignedLocally: Bool { clientId.hasPrefix(Self.serverAssignedPrefix) }
 
     var senderName: String {
         [firstName, lastName].compactMap { $0?.trimmingCharacters(in: .whitespaces) }
