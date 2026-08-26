@@ -1,6 +1,6 @@
 # Feedback gate + event feedback — ยกจาก Android
 
-**สถานะ:** ร่าง รอเจ้าของงานอนุมัติ
+**สถานะ:** อนุมัติแล้ว 2026-08-26 · ลงมือครบตามแผน `docs/superpowers/plans/2026-08-26-feedback-gate-and-event.md` (จบที่ commit `255c588`)
 
 ## ทำไม
 
