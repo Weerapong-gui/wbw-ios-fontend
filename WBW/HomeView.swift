@@ -106,8 +106,10 @@ struct HomeView: View {
             // สองบรรทัด: จำนวน แล้วดอกไม้เกี่ยวอะไรกับมัน
             // ตอนพรีวิวทั้งคู่เปลี่ยน — ขั้นที่กำลังดู กับคำเตือนว่านั่นไม่ใช่ที่ที่คุณอยู่จริง
             // จอจึงไม่มีทางโชว์ดอกไม้ที่มันอธิบายไม่ได้
+            // ผ่าน `CheckinProgressLabel` ไม่ประกอบสตริงเอง — ตัวนั้นคุมไม่ให้ตัวเศษเกินตัวส่วน
+            // (คนที่ถูกสแกนที่จุดบริการซึ่งไม่ถูกนับใน total จะมีแถวเกินมา ดูคอมเมนต์ที่นั่น)
             Text(previewStage == nil
-                 ? String(format: Loc.t("home_checked_in"), stage, total)
+                 ? (CheckinProgressLabel.text(stage: stage, total: total) ?? "")
                  : BloomStages.label(bloomStage))
                 .font(.wbwTitleMedium)
                 .kerning(0.4)

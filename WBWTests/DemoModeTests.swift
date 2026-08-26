@@ -26,7 +26,7 @@ final class DemoModeTests: XCTestCase {
     }
 
     func testProgressFixtureSitsMidBloom() {
-        XCTAssertEqual(DemoData.progress.total, 12)
+        XCTAssertEqual(DemoData.progress.total, 8)
         XCTAssertEqual(DemoData.progress.stage, 5)
         let stage = BloomStages.stage(checkedIn: DemoData.progress.stage, total: DemoData.progress.total)
         XCTAssertTrue((1...4).contains(stage),
@@ -128,8 +128,14 @@ final class DemoModeTests: XCTestCase {
         }
     }
 
-    /// จำนวนแถวต้องตรงกับ `total` ที่ progress บอก ไม่งั้นแถบความคืบหน้ากับแผนที่เล่าคนละเรื่อง
-    func testDemoCheckpointCountMatchesTheProgressTotal() {
-        XCTAssertEqual(DemoData.checkpoints.count, DemoData.progress.total)
+    /// **นับเฉพาะแถวที่ต้องสแกน ไม่ใช่ทุกแถว** — เดิมเทียบ `checkpoints.count` ทั้งก้อนกับ
+    /// `total` ซึ่งตรึงความหมายที่ผิดไว้: server นับ `total` จากแถวที่ `requires_checkin` เท่านั้น
+    /// (ยืนยันกับ production 2026-08-27 — จุดบริการอย่างเส้นชัยไม่ถูกนับ) · ชุดเดโม่มี 12 แถว
+    /// แต่เป็นฐานจริง 8 ที่เหลือเป็นห้องน้ำ/จุดสวัสดิการที่เดินผ่านเฉย ๆ
+    ///
+    /// ที่ยังต้องมีเทสนี้: สองเลขนี้เล่าคนละเรื่องเมื่อไหร่ แถบความคืบหน้ากับแผนที่จะไม่ตรงกัน
+    func testDemoProgressTotalCountsOnlyCheckpointsThatNeedAScan() {
+        XCTAssertEqual(DemoData.checkpoints.filter(\.requiresCheckin).count,
+                       DemoData.progress.total)
     }
 }

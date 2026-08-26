@@ -4,8 +4,13 @@ import Foundation
 /// (Config.forest3D) เปิดฉากกลับเมื่อไหร่ ต้นไม้ทำหน้าที่นี้แทน แล้วข้อความนี้ซ่อนตัวเอง
 enum CheckinProgressLabel {
     /// nil = ยังไม่มีข้อมูล (total 0) → ไม่ต้องโชว์อะไรเลย
+    ///
+    /// **ตัวเศษไม่มีวันเกินตัวส่วน** — เช็คอินมากกว่าจำนวนฐานเกิดได้จริง: จุดบริการที่เจ้าหน้าที่
+    /// ยังสแกนได้อยู่ไม่ถูกนับใน `total` (ของจริงคือ `ฐาน Zero Waste` ที่ถูกตัดออกจากการนับ
+    /// 2026-08-27) คนที่ถูกสแกนตรงนั้นจะมีแถวเช็คอินเกินมาหนึ่ง · "เช็คอินแล้ว 9 / 8 ฐาน"
+    /// อ่านว่าแอปพัง ทั้งที่ความจริงคือเขาเดินครบแล้ว — โชว์ 8 / 8 ตรงกับสิ่งที่เขาทำสำเร็จ
     static func text(stage: Int, total: Int) -> String? {
         guard total > 0 else { return nil }
-        return String(format: Loc.t("home_checked_in"), stage, total)
+        return String(format: Loc.t("home_checked_in"), min(stage, total), total)
     }
 }

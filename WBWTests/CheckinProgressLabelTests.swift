@@ -23,4 +23,14 @@ final class CheckinProgressLabelTests: XCTestCase {
     func testHidesWhenBothZero() {
         XCTAssertNil(CheckinProgressLabel.text(stage: 0, total: 0))
     }
+
+    /// **ตัวเศษห้ามเกินตัวส่วน** — เช็คอินเกินจำนวนฐานเกิดได้จริงเมื่อเจ้าหน้าที่สแกนที่จุดบริการ
+    /// ซึ่งไม่ถูกนับใน `total` (ของจริง: `ฐาน Zero Waste` ถูกตัดออกจากการนับ 2026-08-27)
+    /// · "เช็คอินแล้ว 9 / 8 ฐาน" อ่านว่าแอปพัง ทั้งที่ความจริงคือเขาเดินครบแล้ว
+    func testTheNumeratorNeverExceedsTheDenominator() {
+        let text = CheckinProgressLabel.text(stage: 9, total: 8)
+        XCTAssertNotNil(text)
+        XCTAssertFalse(text!.contains("9"), "โชว์ 9 / 8 ไม่ได้ — ต้องหยุดที่ 8 / 8: \(text!)")
+        XCTAssertEqual(text, CheckinProgressLabel.text(stage: 8, total: 8))
+    }
 }
