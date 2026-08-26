@@ -221,7 +221,12 @@ struct MainTabView: View {
                 // อยู่ท้ายสุดของลำดับ await ตั้งใจ: คิวมีได้ถึง ~8 ชิ้น = POST เรียงกันสูงสุด 8 รอบ
                 // ถ้าวางไว้ก่อน chat.configure แชทจะเริ่มช้าตามไปด้วยทั้งที่ไม่เกี่ยวกันเลย (บนเน็ตแย่ๆ
                 // ซึ่งเป็นสภาพเดียวกับที่ทำให้มีของค้างตั้งแต่แรก ยิ่งชัด)
-                await feedback.flush(token: session.token ?? "")
+                // โหลด progress ซ้ำเฉพาะตอนมีของหลุดจากคิวจริง — คิวคือสิ่งที่กัน gate ไว้แทน
+                // `answered` ระหว่างที่ server ยังไม่รู้คำตอบ ปล่อยให้คิวว่างลงโดย progress ยังเป็น
+                // ของเก่าคือช่องว่างที่ gate เด้งฟอร์มที่ผู้ใช้เพิ่งตอบไปแล้ว (ดู FeedbackStore.flush)
+                if await feedback.flush(token: session.token ?? "") {
+                    await progress.load(token: session.token ?? "")
+                }
                 #if DEBUG
                 if UserDefaults.standard.bool(forKey: "uitestChat") { tab = 2 }
                 // เปิดหน้าแจ้งเตือนตรงๆ โดยไม่ต้องพึ่งปุ่มกระดิ่งจริง — ทรงเดียวกับ uitestChat ด้านบน
@@ -402,7 +407,12 @@ struct MainTabView: View {
                     Task {
                         await progress.load(token: session.token ?? "")
                         await noti.load(token: session.token ?? "")
-                        await feedback.flush(token: session.token ?? "")
+                        // โหลด progress อีกรอบเฉพาะตอนคิวว่างลงจริง — ตัวที่โหลดไปข้างบนเกิด
+                        // *ก่อน* ของค้างจะถึง server จึงยังบอกว่า answered = false อยู่ ปล่อยไว้
+                        // gate จะยกฟอร์มที่ผู้ใช้ตอบไปแล้วขึ้นมาซ้ำ (ดู FeedbackStore.flush)
+                        if await feedback.flush(token: session.token ?? "") {
+                            await progress.load(token: session.token ?? "")
+                        }
                     }
                 }
                 else if phase == .background { chat.stop() }
@@ -540,7 +550,31 @@ struct MainTabView: View {
         // false ตรงๆ ซึ่งเกิดได้จาก (1) ปุ่ม "ปิดหน้านี้"/dismiss() ข้างในตอนเคส closed หรือ (2)
         // .onChange(of: store.status) ข้างในตอนยกเลิกแบบยังไม่ถึงเซิร์ฟเวอร์ (status กลายเป็น nil ทันที)
         // — ไม่มีทางถูกปัดหลุดมือขณะเคสยังเปิดอยู่ (queued/received/onTheWay) เลย
-        .fullScreenCover(isPresented: $showSOSStatus) {
+        //
+        // **เงื่อนไข `feedbackGate == nil` — ธงใบเดียวกันถูกใช้โดย cover สองตัว**
+        //
+        // ตอน gate ยึดจออยู่ จอสถานะถูกเปิดโดย cover *ข้างใน* `FeedbackGateScreen` (ตัวนี้ present
+        // ไม่ได้ ถูก gate ทับอยู่) แต่ทั้งคู่อ่าน `showSOSStatus` ใบเดียวกัน · ผูกตรง ๆ กับธงแปลว่า
+        // ตอน gate ปิดตัวเอง (ข้อมูลรอบใหม่) cover ข้างในหายไปพร้อม gate โดยที่ธงยังเป็น true อยู่
+        // ตลอด — ตัวนี้จึงไม่เคยเห็น transition false→true เลย ที่มันยัง present ให้ได้อยู่คือ
+        // SwiftUI reconcile เอง (รันจริงบน iOS 26 แล้ว: จอสถานะยังอยู่ต่อหลัง gate ปิดจริง) ซึ่ง
+        // **ไม่ใช่พฤติกรรมที่มีสัญญาไว้** เหตุผลเดียวกับที่ `.id(...)` ข้างล่างมีอยู่
+        //
+        // ราคาของการเดาผิดคือแพงผิดปกติ: ถ้าเวอร์ชันไหน SwiftUI ไม่ present ให้ ธงจะค้าง true ทั้งที่
+        // ไม่มีอะไรบนจอ แล้วการ "แตะปุ่ม SOS ซ้ำเพื่อกลับไปดูสถานะ" ก็ตั้ง true ทับ true (ไม่ใช่
+        // transition อีก) — คนที่มีเคสฉุกเฉินเปิดอยู่จะเปิดจอสถานะไม่ได้อีกเลยตลอดรัน
+        // เงื่อนไขนี้ทำให้จังหวะ gate ปิดเป็น false→true จริงที่ SwiftUI ต้องลงมือทำ ไม่ใช่หวังเอา
+        //
+        // ทางกลับกัน (gate ขึ้นมาระหว่างจอสถานะเปิดอยู่) ก็รันจริงแล้วเหมือนกัน: getter กลายเป็น
+        // false แต่ SwiftUI ไม่เขียน false กลับใส่ธง จอสถานะจึงถูก cover ข้างในของ gate รับช่วง
+        // ต่อทันที ผู้ใช้ไม่เห็นอะไรหาย
+        //
+        // จอสถานะที่ถูก present ใหม่ได้ `@State` ชุดใหม่ทั้งชุด (secondsSinceRaise เริ่มนับใหม่
+        // หน้าต่างกดยกเลิกจึงเปิดอีกรอบ) — ยอมรับได้และปลอดภัยกว่าทางตรงข้าม: ข้อมูลเคสจริงมาจาก
+        // `sos` store ที่อยู่ยาวข้ามการ present ทุกครั้ง ส่วนปุ่มยกเลิกที่กดได้อีกครั้งคือปุ่มที่
+        // ผู้ใช้เป็นคนเลือกกดเอง ไม่ใช่อะไรที่เกิดเอง
+        .fullScreenCover(isPresented: Binding(get: { showSOSStatus && feedbackGate == nil },
+                                              set: { showSOSStatus = $0 })) {
             SOSStatusView(store: sos, token: session.token ?? "")
         }
         // **gate ให้คะแนน — จอที่ยึดหน้าจอไว้จนกว่าจะตอบ** (สเปก 2026-08-26, ยกจาก Android)
@@ -557,6 +591,15 @@ struct MainTabView: View {
             FeedbackGateScreen(item: item, sos: sos, token: session.token ?? "",
                                showSOSStatus: $showSOSStatus,
                                onEventDone: { eventFeedbackDismissed = true })
+                // .id(item.id) ด้วยเหตุผลเดียวกับ `.sheet(item: $feedbackCheckpoint)` ข้างบน และ
+                // จำเป็นกว่าที่นั่นด้วยซ้ำ: gate สลับจากฐาน A ไปฐาน B **โดย cover ไม่ได้ปิดคั่นเลย**
+                // (ตอบ A เสร็จ progress รอบใหม่ยก B ขึ้นมาแทนในเฟรมเดียว) ถ้า identity ไม่เปลี่ยน
+                // SwiftUI ถือว่าเป็น view เดิม — `onDisappear`/`onAppear` ไม่ยิง `FeedbackStore`
+                // จึงยังปักหมุด `editingCheckpoint` ไว้ที่ฐาน A ผลคือ flush รอบถัดไปส่ง draft ที่
+                // ค้างคิวของฐาน B ขึ้นไปลับหลังผู้ใช้ ทั้งที่ฟอร์มของ B กำลังเปิดอยู่ตรงหน้า
+                // · `FeedbackGateItem.id` มีไว้เพื่อการนี้ แต่ลำพัง `item:` ไม่ผูก identity ให้
+                // เอง (เป็นพฤติกรรมที่ SwiftUI ไม่เคยสัญญาไว้และต่างกันตามเวอร์ชัน)
+                .id(item.id)
                 .interactiveDismissDisabled()
                 .environmentObject(session)
                 .environmentObject(progress)
@@ -689,7 +732,12 @@ struct MainTabView: View {
         // เป็นทางแก้ที่ตั้งไว้เผื่อบัญชีรีวิวล่ม) ผู้ตรวจจะเข้าแอปมาเจอฟอร์มที่ปิดไม่ได้ทันที
         // = ตีกลับแน่นอน · **ไม่ได้กันด้วย `#if DEBUG`** ด้วยเหตุผลข้อหลังนี้
         if DemoMode.active { return nil }
+        // `feedback.queued` = ฐานที่คำตอบยังค้างอยู่ในคิว ต้องนับว่าตอบแล้ว ไม่งั้นคนที่ตอบตอน
+        // ไม่มีสัญญาณจะติดอยู่ในฟอร์มที่ปิดไม่ได้ตลอดกาล (เหตุผลเต็มที่ `FeedbackGateState.decide`)
+        // · เป็น @Published บน @StateObject จอจึงคำนวณใหม่เองทันทีที่คิวขยับ เหมือนที่มันทำ
+        // ตอน progress ขยับ
         return FeedbackGateItem(state: FeedbackGateState.decide(progress: progress.progress,
+                                                                queuedCheckpoints: feedback.queued,
                                                                 eventDismissed: eventFeedbackDismissed))
     }
 

@@ -81,6 +81,22 @@ final class SOSEmergencyBackdropTests: XCTestCase {
                       "จอบัตรไม่ได้อ่านค่า Reduce Motion — พื้นหลังจะเต้นใส่คนที่ปิดไว้")
     }
 
+    /// **จอ gate ให้คะแนนก็ต้องเรืองแดงด้วย** — ตั้งแต่ 2026-08-25 การกดปุ่ม SOS ครบ 3 วิ
+    /// **ไม่เปิดจอสถานะให้แล้ว** (ดูคอมเมนต์ "ห้ามใส่กลับ" ที่ `SOSButton.tick`) สิ่งที่บอกว่า
+    /// "ส่งไปแล้ว" เหลือสามอย่าง: haptic · ขอบจอเรืองแดง · ข้อความบนปุ่มที่เปลี่ยนเป็น
+    /// `sos_pass_active` — แต่บน gate ปุ่มเป็นทรงวงกลมซึ่งไม่มีข้อความ และ haptic ก็หายไปกับ
+    /// นิ้วที่ยกขึ้น เหลือขอบจอเรืองแดงเป็นสัญญาณ **เดียว** ที่ยังอยู่ให้เห็น · ไม่มีมันแปลว่า
+    /// กดค้างครบ 3 วินาทีบนจอที่ยึดหน้าจออยู่แล้วไม่มีอะไรเปลี่ยนบนจอเลยสักอย่าง
+    func testTheFeedbackGateGlowsWhileACaseIsOpen() throws {
+        let source = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("WBW/Feedback/FeedbackGateScreen.swift"),
+            encoding: .utf8)
+        XCTAssertTrue(source.contains("SOSEmergencyBackdrop"),
+                      "จอ gate ยังไม่มีขอบจอเรืองแดง = กดปุ่ม SOS ครบแล้วไม่มีอะไรยืนยันเลย")
+        XCTAssertTrue(source.contains("accessibilityReduceMotion"),
+                      "จอ gate ไม่ได้อ่านค่า Reduce Motion — พื้นหลังจะเต้นใส่คนที่ปิดไว้")
+    }
+
     /// **ความทึบต้องคิดจากนาฬิกา ไม่ใช่จาก state ที่สลับครั้งเดียว** — ของเดิมใช้ `@State`
     /// สลับตอน `onAppear` แล้วปล่อย `.repeatForever` วิ่ง ซึ่งพังเงียบบนจอบัตร: วิวถูกสร้าง
     /// ตั้งแต่ยังไม่มีเคส พอเคสเปิดทีหลังตัวแปรไม่ได้เปลี่ยนอีก การเต้นจึงไม่เคยเริ่มเลย

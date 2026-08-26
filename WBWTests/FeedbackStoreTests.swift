@@ -224,6 +224,76 @@ final class FeedbackStoreTests: XCTestCase {
                        "ทั้งคู่ต้องยังอยู่ในคิว รอรอบหน้าที่เน็ตกลับมา")
     }
 
+    // MARK: - queued — ฐานที่มีคำตอบรออยู่ในคิว (gate อ่านตัวนี้)
+
+    /// **คิวคือสิ่งเดียวที่กัน gate ไว้ตอนเน็ตหลุด** จึงต้องรู้ตั้งแต่ยังไม่ได้ยิงอะไรเลย:
+    /// ตอบตอนไม่มีสัญญาณ → ปิดแอป → เปิดใหม่ยังไม่มีสัญญาณ · ถ้า `queued` เริ่มจากศูนย์
+    /// gate จะยกฐานที่ตอบไปแล้วขึ้นมาใหม่และปิดไม่ได้อีกเลย (progress ก็โหลดไม่ได้เหมือนกัน)
+    @MainActor
+    func testQueuedReadsTheOutboxAtInit() {
+        outboxUnderTest().add(draft("a", checkpoint: 5))
+        outboxUnderTest().add(draft("b", checkpoint: 2))
+
+        let store = FeedbackStore(submitCall: FakeSubmitter().call)
+
+        XCTAssertEqual(store.queued, [5, 2], "ของค้างจากรันก่อนต้องนับตั้งแต่วินาทีแรกที่แอปเปิด")
+    }
+
+    /// ส่งตอนเน็ตหลุด = คำตอบเข้าคิว → ฐานนั้นต้องถูกนับทันที ไม่ต้องรอ progress รอบใหม่
+    /// (ซึ่งตอนเน็ตหลุดก็ไม่มีวันมาถึงอยู่แล้ว)
+    @MainActor
+    func testSubmitOfflineMarksTheCheckpointQueued() async {
+        let fake = FakeSubmitter()
+        fake.defaultResult = .failure(AppError.offline)
+        let store = FeedbackStore(submitCall: fake.call)
+
+        _ = await store.submit(draft("a", checkpoint: 5), token: "t")
+
+        XCTAssertEqual(store.queued, [5])
+    }
+
+    /// ส่งสำเร็จ = คำตอบถึง server แล้ว ไม่ต้องให้คิวกัน gate ไว้อีก (server ตอบ answered เอง)
+    @MainActor
+    func testSuccessfulSubmitLeavesNothingQueued() async {
+        let store = FeedbackStore(submitCall: FakeSubmitter().call)
+        outboxUnderTest().add(draft("old", checkpoint: 5))
+
+        _ = await store.submit(draft("new", checkpoint: 5), token: "t")
+
+        XCTAssertTrue(store.queued.isEmpty)
+    }
+
+    /// flush ต้องอัปเดตคิวด้วย ไม่ใช่แค่ submit — ของที่ส่งสำเร็จหลุดออก ของที่ 5xx ยังอยู่
+    /// (ตัวที่ยังอยู่คือตัวที่ยังต้องกัน gate ไว้ เพราะ server ยังไม่รู้คำตอบของมัน)
+    @MainActor
+    func testFlushUpdatesQueuedForWhatActuallyLeftTheOutbox() async {
+        let fake = FakeSubmitter()
+        fake.resultsByClientId["busy"] = .failure(AppError.retryable("503"))
+        let store = FeedbackStore(submitCall: fake.call)
+        outboxUnderTest().add(draft("busy", checkpoint: 1))
+        outboxUnderTest().add(draft("good", checkpoint: 2))
+
+        await store.flush(token: "t")
+
+        XCTAssertEqual(store.queued, [1], "ฐาน 2 ถึง server แล้ว · ฐาน 1 ยังต้องถูกนับต่อ")
+    }
+
+    /// **flush ที่ล้างคิวสำเร็จต้องบอกผู้เรียกให้ไปโหลด progress ใหม่** — ไม่งั้นมีช่องว่างที่
+    /// gate เด้งฟอร์มที่ผู้ใช้เพิ่งตอบไปแล้ว: ตอบฐาน 3 ตอนไม่มีสัญญาณ → กลับมามีสัญญาณ →
+    /// `scenePhase .active` โหลด progress (ยัง answered = false) แล้วค่อย flush → คิวว่างลง
+    /// แต่ progress ยังเป็นของเก่า → gate ยกฟอร์มฐาน 3 ขึ้นมาให้ตอบซ้ำ
+    @MainActor
+    func testFlushReportsWhetherTheQueueActuallyShrank() async {
+        let store = FeedbackStore(submitCall: FakeSubmitter().call)
+        outboxUnderTest().add(draft("a", checkpoint: 1))
+
+        let sent = await store.flush(token: "t")
+        XCTAssertTrue(sent, "มีของหลุดจากคิวจริง ผู้เรียกต้องรู้เพื่อไปโหลด progress ใหม่")
+
+        let again = await store.flush(token: "t")
+        XCTAssertFalse(again, "คิวว่างอยู่แล้ว ห้ามสั่งโหลด progress ซ้ำฟรี ๆ ทุกครั้งที่แอปกลับมา")
+    }
+
     // MARK: - คิวเก่าต้องไม่ทับเจตนาใหม่ของผู้ใช้
 
     /// ตอบฐานเดิมสดๆ ต้องล้างของค้างของฐานนั้นให้หมด ไม่ใช่แค่ clientId ของรอบนี้ — ฟอร์มสร้าง

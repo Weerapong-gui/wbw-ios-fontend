@@ -41,7 +41,8 @@ final class FeedbackGateStateTests: XCTestCase {
     // ===== decide =====
 
     func testNoProgressMeansNoGate() {
-        XCTAssertNil(FeedbackGateState.decide(progress: nil, eventDismissed: false))
+        XCTAssertNil(FeedbackGateState.decide(progress: nil, queuedCheckpoints: [],
+                                              eventDismissed: false))
     }
 
     /// ทีละฐาน เรียงตามลำดับที่เดินถึง — โดนสแกนสามฐานตอนมือถืออยู่ในกระเป๋า
@@ -52,38 +53,100 @@ final class FeedbackGateStateTests: XCTestCase {
             item(1, answered: false, at: "2026-08-29T09:00:00Z"),
             item(2, answered: true,  at: "2026-08-29T10:00:00Z"),
         ])
-        XCTAssertEqual(FeedbackGateState.decide(progress: p, eventDismissed: false),
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, queuedCheckpoints: [],
+                                                eventDismissed: false),
                        .base(p.checkedIn[1]), "ฐานที่ถึงก่อนต้องถูกถามก่อน")
     }
 
     func testAllAnsweredButRouteUnfinishedMeansNoGate() {
         let p = CheckinProgress(total: 5, checkedIn: [item(1, answered: true, at: "a")])
-        XCTAssertNil(FeedbackGateState.decide(progress: p, eventDismissed: false))
+        XCTAssertNil(FeedbackGateState.decide(progress: p, queuedCheckpoints: [],
+                                              eventDismissed: false))
     }
 
     /// ครบทุกฐาน + ตอบครบ + ยังไม่เคยตอบทั้งงาน = ถึงคิว event form
     func testEventDueWhenRouteCompleteAndEverythingAnswered() {
         let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: true, at: "a")])
-        XCTAssertEqual(FeedbackGateState.decide(progress: p, eventDismissed: false), .event)
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, queuedCheckpoints: [],
+                                                eventDismissed: false), .event)
     }
 
     /// ฐานค้างตอบมาก่อน event เสมอ — แม้เส้นทางจะครบแล้ว
     func testPendingBaseBeatsEventEvenWhenComplete() {
         let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: false, at: "a")])
-        XCTAssertEqual(FeedbackGateState.decide(progress: p, eventDismissed: false),
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, queuedCheckpoints: [],
+                                                eventDismissed: false),
                        .base(p.checkedIn[0]))
     }
 
     func testEventAnsweredOnServerMeansNoGate() {
         let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: true, at: "a")],
                                 eventFeedbackAnswered: true)
-        XCTAssertNil(FeedbackGateState.decide(progress: p, eventDismissed: false))
+        XCTAssertNil(FeedbackGateState.decide(progress: p, queuedCheckpoints: [],
+                                              eventDismissed: false))
     }
 
     /// ข้ามไปก่อน (ส่งไม่สำเร็จ) = เงียบแค่รันนี้ — decide เคารพ flag ที่ caller ถือ
     func testEventDismissedThisRunMeansNoGate() {
         let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: true, at: "a")])
-        XCTAssertNil(FeedbackGateState.decide(progress: p, eventDismissed: true))
+        XCTAssertNil(FeedbackGateState.decide(progress: p, queuedCheckpoints: [],
+                                              eventDismissed: true))
+    }
+
+    // ===== queuedCheckpoints — คำตอบที่ยังค้างอยู่ใน outbox =====
+
+    /// **นี่คือทางที่ผู้ใช้ออกไม่ได้เลยถ้า gate ไม่นับคิว**: ตอบฐานตอนไม่มีสัญญาณ →
+    /// `FeedbackStore.submit` จับ `AppError.offline` เก็บเข้า outbox แล้วคืน `.saved` → ฟอร์ม
+    /// ตั้ง `sent = true` (ปุ่มส่งหายไป กลายเป็นอ่านอย่างเดียว) → `progress.load` ที่ตามมาล้มเหลว
+    /// เงียบ ๆ เพราะเน็ตหลุดเหมือนกัน (`guard let fresh = try? ... else { return }`) → `answered`
+    /// ยังเป็น false → gate ยกฐานเดิมขึ้นซ้ำ · gate ไม่มีปุ่มปิด และ cache ของ progress ยกฐานเดิม
+    /// กลับมาหลังปิดแอปด้วย เหลือของที่กดได้บนจอชิ้นเดียวคือปุ่ม SOS
+    ///
+    /// คำตอบที่อยู่ในคิวคือคำตอบที่ผู้ใช้ให้ไปแล้วจริง ๆ — gate จึงต้องนับว่า "ตอบแล้ว" ความเข้มของ
+    /// gate ไม่ได้ลดลง (ยังต้องให้คะแนนและกดส่งเหมือนเดิม) แค่เลิกให้ "จอปิดได้ไหม" ขึ้นกับเน็ต
+    func testQueuedBaseDoesNotGateAndTheNextUnqueuedOneDoes() {
+        let p = CheckinProgress(total: 5, checkedIn: [
+            item(1, answered: false, at: "2026-08-29T09:00:00Z"),
+            item(2, answered: false, at: "2026-08-29T10:00:00Z"),
+        ])
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, queuedCheckpoints: [1],
+                                                eventDismissed: false),
+                       .base(p.checkedIn[1]),
+                       "ฐาน 1 ตอบไปแล้ว (รออยู่ในคิว) ต้องข้ามไปถามฐาน 2 ไม่ใช่วนถามฐาน 1 ซ้ำ")
+    }
+
+    /// ตอบครบทุกฐานตอนเน็ตหลุด แล้วเส้นทางยังไม่ครบ = ไม่มี gate เลย ผู้ใช้กลับไปเดินต่อได้
+    func testAllPendingBasesQueuedMeansNoGate() {
+        let p = CheckinProgress(total: 5, checkedIn: [
+            item(1, answered: false, at: "2026-08-29T09:00:00Z"),
+            item(2, answered: false, at: "2026-08-29T10:00:00Z"),
+        ])
+        XCTAssertNil(FeedbackGateState.decide(progress: p, queuedCheckpoints: [1, 2],
+                                              eventDismissed: false),
+                     "ทุกฐานที่ค้างมีคำตอบรออยู่ในคิวแล้ว ไม่เหลืออะไรให้ถาม")
+    }
+
+    /// เดินครบทุกฐานแล้วตอบฐานสุดท้ายตอนเน็ตหลุด — ฐานถือว่าตอบแล้ว คิวจึงส่งต่อให้ event form
+    /// ตามกติกาเดิมทุกประการ (ไม่ใช่ "ไม่มี gate อะไรเลยเพราะมีของค้างคิว")
+    func testQueuedBaseStillLetsTheEventFormThrough() {
+        let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: false, at: "a")])
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, queuedCheckpoints: [1],
+                                                eventDismissed: false), .event)
+    }
+
+    /// คิวว่าง = พฤติกรรมเดิมเป๊ะ ๆ — ของใหม่ต้องไม่ไปเปลี่ยนเส้นทางปกติที่เทสด้านบนค้ำไว้
+    func testEmptyQueueBehavesExactlyAsBefore() {
+        let p = CheckinProgress(total: 5, checkedIn: [
+            item(3, answered: false, at: "2026-08-29T10:30:00Z"),
+            item(1, answered: false, at: "2026-08-29T09:00:00Z"),
+        ])
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, queuedCheckpoints: [],
+                                                eventDismissed: false),
+                       .base(p.checkedIn[1]))
+        // ฐานที่ไม่เกี่ยวข้องอยู่ในคิวก็ต้องไม่ทำให้ลำดับเพี้ยน
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, queuedCheckpoints: [7, 8],
+                                                eventDismissed: false),
+                       .base(p.checkedIn[1]))
     }
 
     // ===== FeedbackGateItem — ตัวห่อให้ .fullScreenCover(item:) =====

@@ -9,6 +9,14 @@ final class FeedbackStore: ObservableObject {
     /// checkpointId ที่กำลังส่งอยู่ — ปุ่มส่งของฐานนั้นกดซ้ำไม่ได้
     @Published private(set) var submitting: Set<Int> = []
 
+    /// ฐานที่มีคำตอบค้างอยู่ในคิวตอนนี้ — **gate ให้คะแนนอ่านตัวนี้แล้วนับว่า "ตอบแล้ว"**
+    /// (ดูเหตุผลเต็มที่ `FeedbackGateState.decide`: ไม่นับ = จอที่ปิดไม่ได้เลยตอนไม่มีสัญญาณ)
+    ///
+    /// เริ่มจาก `outbox.all()` ตั้งแต่ init ไม่ใช่เซ็ตว่าง — เคสจริงคือตอบตอนเน็ตหลุด ปิดแอป
+    /// แล้วเปิดใหม่ตอนยังไม่มีสัญญาณ ถ้าเริ่มจากศูนย์ gate จะยกฐานที่ตอบไปแล้วขึ้นมาใหม่ทันที
+    /// ตั้งแต่วินาทีแรก
+    @Published private(set) var queued: Set<Int> = []
+
     private var outbox: FeedbackOutbox { FeedbackOutbox() }
 
     /// ฐานที่ฟอร์มกำลังเปิดค้างอยู่ตอนนี้ (nil = ไม่มีฟอร์มเปิด) — flush ข้ามคิวของฐานนี้ไป
@@ -36,6 +44,15 @@ final class FeedbackStore: ObservableObject {
     init(submitCall: @escaping (String, FeedbackDraft) async throws -> APIClient.FeedbackSubmitOutcome
          = APIClient.shared.submitFeedback) {
         self.submitCall = submitCall
+        refreshQueued()
+    }
+
+    /// อ่านคิวใหม่ทั้งชุดจาก outbox แทนที่จะ insert/remove เอาเองตามแต่ละสาขา — outbox เป็นเจ้าของ
+    /// ความจริง และมันมีกติกาของตัวเองที่เดาจากข้างนอกไม่ได้ (`add` แทนที่ของฐานเดิม,
+    /// `remove(checkpointId:)` ล้างทั้งฐานไม่ใช่ draft เดียว) เดาเองเมื่อไหร่ก็มีวันที่ธงค้างไม่ตรง
+    /// กับคิวจริง แล้ว gate จะปิดค้างทั้งที่ยังไม่มีคำตอบอยู่ที่ไหนเลย
+    private func refreshQueued() {
+        queued = Set(outbox.all().map(\.checkpointId))
     }
 
     /// ส่งหนึ่งอัน · แยกตาม "ส่งซ้ำด้วย draft เดิมมีโอกาสสำเร็จไหม" ไม่ใช่ตาม "มี error ไหม":
@@ -66,12 +83,15 @@ final class FeedbackStore: ObservableObject {
             // constraint, 403 ยังไม่เช็คอิน draft ไหนของฐานนี้ก็ส่งไม่ผ่านเหมือนกัน) แค่เสีย POST เปล่าตอน
             // flush รอบหน้าไปยิงของที่ตายอยู่แล้ว
             outbox.remove(checkpointId: draft.checkpointId)
+            refreshQueued()
             return outcome
         } catch AppError.offline {
             outbox.add(draft)   // add แทนที่ของเดิมของฐานเดียวกันให้อยู่แล้ว
+            refreshQueued()     // ← จุดที่ปลด gate ให้ผู้ใช้เดินต่อได้ทั้งที่เน็ตยังไม่กลับมา
             return .saved
         } catch AppError.retryable {
             outbox.add(draft)   // เหมือน offline ทุกอย่าง — เซิร์ฟเวอร์แค่ยังไม่พร้อม ไม่ได้ปฏิเสธ payload
+            refreshQueued()
             return .saved
         } catch {
             // retry ไม่ได้แล้ว (400/401 ฯลฯ) — คืน .failed ตรงๆ ห้ามแตะคิว: draft ของ attempt นี้เอง
@@ -125,22 +145,38 @@ final class FeedbackStore: ObservableObject {
     ///
     /// ข้ามฐานที่ฟอร์มเปิดค้างอยู่ (ดู editingCheckpoint) และรอบเดียวเท่านั้นที่วิ่งได้พร้อมกัน
     /// (ดู flushing) — ทั้งสองอย่างกันคิวเก่าเขียนทับเจตนาใหม่ของผู้ใช้
-    func flush(token: String) async {
-        guard !token.isEmpty, !flushing else { return }
+    ///
+    /// **คืน true เมื่อมีของหลุดออกจากคิวจริงในรอบนี้ — ผู้เรียกต้องโหลด `progress` ใหม่ทันที**
+    ///
+    /// คิวคือสิ่งเดียวที่กัน gate ไว้ระหว่างที่ server ยังไม่รู้คำตอบ (ดู `queued`) การล้างคิว
+    /// สำเร็จจึงเปิดช่องว่างขึ้นมาช่วงหนึ่ง: ตอบฐาน 3 ตอนไม่มีสัญญาณ → กลับมามีสัญญาณ →
+    /// `scenePhase .active` โหลด progress (ยัง answered = false เพราะ server เพิ่งจะได้รู้เดี๋ยวนี้)
+    /// แล้วค่อย flush → คิวว่างลงแต่ progress ยังเป็นของเก่า → gate ยกฟอร์มฐาน 3 ขึ้นมาให้ตอบซ้ำ
+    /// ทั้งที่ผู้ใช้ตอบไปแล้ว · คืนค่าให้ผู้เรียกไปปิดช่องนั้นเอง แทนที่จะโหลด progress ทิ้ง ๆ ทุกรอบ
+    /// ที่แอปกลับมา foreground (งานจริงมีคนพร้อมกันหลักพัน request ที่ไม่มีใครต้องการมีราคาจริง)
+    @discardableResult
+    func flush(token: String) async -> Bool {
+        guard !token.isEmpty, !flushing else { return false }
         flushing = true
         defer { flushing = false }
 
+        // อ่านจาก outbox ไม่ใช่จาก `queued` — เทียบ "คิวจริงก่อน/หลัง" ต้องอ่านจากเจ้าของความจริง
+        // ตัวเดียวกันทั้งสองครั้ง
+        let before = Set(outbox.all().map(\.checkpointId))
         for draft in outbox.all() where draft.checkpointId != editingCheckpoint {
             do {
                 _ = try await submitCall(token, draft)
                 outbox.remove(clientId: draft.clientId)
             } catch AppError.offline {
-                return
+                break   // เน็ตยังไม่กลับมา — ที่เหลือพังเหมือนกันแน่ ๆ (break ไม่ใช่ return เพื่อให้
+                        // ตกไปอัปเดต queued ข้างล่างด้วย: ตัวที่ส่งไปแล้วก่อนหน้าต้องหลุดจากธง)
             } catch AppError.retryable {
                 continue   // เก็บไว้รอบหน้า · ไปต่อ เพื่อไม่ให้ตัวนี้บล็อกของที่เหลือ
             } catch {
                 outbox.remove(clientId: draft.clientId)
             }
         }
+        refreshQueued()
+        return queued != before
     }
 }

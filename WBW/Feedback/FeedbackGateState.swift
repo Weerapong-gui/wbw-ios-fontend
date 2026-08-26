@@ -12,9 +12,30 @@ enum FeedbackGateState: Equatable {
     /// ตัดสินว่า gate ต้องยึดจอด้วยอะไร — nil = ปล่อยแอปทำงานปกติ
     /// pending เรียง "เก่าก่อน" (ตอบตามลำดับที่เดินถึง) — ตรงข้าม CheckinProgress.pending
     /// ของ toast ที่ใหม่ก่อน
-    static func decide(progress: CheckinProgress?, eventDismissed: Bool) -> FeedbackGateState? {
+    ///
+    /// **`queuedCheckpoints` = ฐานที่คำตอบยังค้างอยู่ใน outbox และต้องนับว่า "ตอบแล้ว"**
+    ///
+    /// ไม่มีข้อนี้ gate จะกลายเป็นกับดักที่ออกไม่ได้ทันทีที่สัญญาณหาย: `FeedbackStore.submit`
+    /// จับ `AppError.offline` เก็บ draft เข้าคิวแล้วคืน `.saved` → ฟอร์มตั้ง `sent = true`
+    /// (ปุ่มส่งหายไป เหลืออ่านอย่างเดียว) → `progress.load` ที่ตามมาก็ล้มเหลวเงียบ ๆ ด้วยสาเหตุ
+    /// เดียวกัน (`guard let fresh = try? ... else { return }` ใน `CheckinProgressStore`) →
+    /// `answered` ยังเป็น false → decide ยกฐานเดิมขึ้นอีกรอบ · gate ไม่มีปุ่มปิด ไม่มีปุ่มข้าม
+    /// และ cache ของ progress ยกฐานเดิมกลับมาให้อีกหลังปิดแอป — บนดอยที่ไม่มีสัญญาณ ผู้ใช้จะเหลือ
+    /// ของที่กดได้บนจอชิ้นเดียวคือปุ่ม SOS
+    ///
+    /// **ความเข้มของ gate ไม่ได้ลดลง** — ผู้ใช้ยังต้องให้คะแนนและกดส่งเหมือนเดิมทุกประการ
+    /// สิ่งที่เปลี่ยนคือ "จอนี้ปิดได้ไหม" เลิกขึ้นกับว่าเน็ตติดหรือเปล่า · คิวคือคำตอบที่ผู้ใช้
+    /// ให้ไปแล้วจริง ๆ ไม่ใช่คำสัญญาว่าจะตอบทีหลัง
+    ///
+    /// ไม่มีค่าเริ่มต้นให้พารามิเตอร์นี้โดยตั้งใจ: จุดเรียกใหม่ที่ลืมส่งคิวมาคือกับดักตัวเดิม
+    /// กลับมาเงียบ ๆ ให้คอมไพล์ไม่ผ่านดีกว่าให้ผ่านแล้วขังคนไว้ในฟอร์ม
+    static func decide(progress: CheckinProgress?,
+                       queuedCheckpoints: Set<Int>,
+                       eventDismissed: Bool) -> FeedbackGateState? {
         guard let p = progress else { return nil }
-        if let first = p.checkedIn.filter({ !$0.answered }).min(by: { $0.at < $1.at }) {
+        if let first = p.checkedIn
+            .filter({ !$0.answered && !queuedCheckpoints.contains($0.checkpointId) })
+            .min(by: { $0.at < $1.at }) {
             return .base(first)
         }
         if p.complete && !p.eventFeedbackAnswered && !eventDismissed { return .event }
