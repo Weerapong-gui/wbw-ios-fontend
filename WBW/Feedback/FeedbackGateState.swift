@@ -51,7 +51,19 @@ enum FeedbackGateState: Equatable {
             .min(by: { $0.at < $1.at }) {
             return .base(first)
         }
-        if p.complete && !p.eventFeedbackAnswered && !eventDismissed { return .event }
+        // **ฟอร์มทั้งงานก็ต้องสดเหมือนกัน** — เหตุผลเดียวกับฐาน: ยึดจอได้เพราะ "เพิ่งเดินจบ"
+        // ไม่ใช่ "เคยเดินจบเมื่อสามวันก่อน" · ดูเช็คอิน **ล่าสุด** ไม่ใช่เก่าสุด เพราะจังหวะที่
+        // ฟอร์มนี้มีไว้ถามคือตอนที่เพิ่งถึงฐานสุดท้าย
+        //
+        // เคสจริงที่ข้อนี้กัน: บัญชีรีวิวของ App Store เช็คอินไว้ครบ 8 ฐานตั้งแต่ 24 ส.ค. พอ
+        // Zero Waste ถูกตัดออกจากการนับ (total 9 → 8) บัญชีนั้นกลายเป็น "เดินครบ" ทันที
+        // ผู้ตรวจล็อกอินแล้วจะเจอฟอร์มเต็มจอ = แพทเทิร์นเดียวกับที่โดน 5.1.1(iv) มาแล้วสองรอบ
+        let lastCheckin = p.checkedIn.compactMap(\.checkedInAt).max()
+        let finishedRecently = lastCheckin.map { now.timeIntervalSince($0) <= freshWindow
+                                                 && now.timeIntervalSince($0) >= 0 } ?? false
+        if p.complete && finishedRecently && !p.eventFeedbackAnswered && !eventDismissed {
+            return .event
+        }
         return nil
     }
 

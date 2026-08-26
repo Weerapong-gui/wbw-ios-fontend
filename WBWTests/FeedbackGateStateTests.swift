@@ -87,6 +87,43 @@ final class FeedbackGateStateTests: XCTestCase {
                                      eventDismissed: false, now: now))
     }
 
+    // ===== ฟอร์มทั้งงานก็ต้องสดเหมือนกัน =====
+
+    /// **เหตุผลเดียวกับฟอร์มต่อฐาน: ยึดจอได้เพราะ "เพิ่งเดินจบ" ไม่ใช่ "เคยเดินจบเมื่อสามวันก่อน"**
+    ///
+    /// เคสจริงที่ต้องกัน: บัญชีรีวิวของ App Store เช็คอินไว้ครบ 8 ฐานตั้งแต่ 24 ส.ค. พอ Zero Waste
+    /// ถูกตัดออกจากการนับ (total 9 → 8) บัญชีนั้นกลายเป็น "เดินครบ" ทันที ผู้ตรวจล็อกอินแล้วจะเจอ
+    /// ฟอร์มความเห็นทั้งงานยึดเต็มจอ = แพทเทิร์นเดียวกับที่โดน Guideline 5.1.1(iv) มาแล้วสองรอบ
+    func testAWalkFinishedDaysAgoDoesNotRaiseTheEventForm() {
+        let old = atMinutesAgo(3 * 24 * 60)
+        let p = CheckinProgress(total: 2, checkedIn: [item(1, answered: true, at: old),
+                                                      item(2, answered: true, at: old)])
+        XCTAssertNil(
+            FeedbackGateState.decide(progress: p, queuedCheckpoints: [], skippedCheckpoints: [],
+                                     eventDismissed: false, now: now),
+            "เดินจบตั้งแต่สามวันก่อน ไม่มีใครกำลังยืนอยู่ปลายทางแล้ว")
+    }
+
+    func testAWalkJustFinishedStillRaisesTheEventForm() {
+        let p = CheckinProgress(total: 2, checkedIn: [item(1, answered: true, at: atMinutesAgo(90)),
+                                                      item(2, answered: true, at: atMinutesAgo(10))])
+        XCTAssertEqual(
+            FeedbackGateState.decide(progress: p, queuedCheckpoints: [], skippedCheckpoints: [],
+                                     eventDismissed: false, now: now),
+            .event, "เพิ่งเดินจบสิบนาทีที่แล้ว = จังหวะที่ฟอร์มนี้มีไว้ถาม")
+    }
+
+    /// เช็คอินฐานเก่า แต่ฐานสุดท้ายเพิ่งจบ — ยังนับว่าสด (ดูเช็คอินล่าสุด ไม่ใช่เก่าสุด)
+    func testFreshnessLooksAtTheLastCheckinNotTheFirst() {
+        let p = CheckinProgress(total: 2, checkedIn: [
+            item(1, answered: true, at: atMinutesAgo(11 * 60)),   // เช้าวันเดียวกัน
+            item(2, answered: true, at: atMinutesAgo(5)),
+        ])
+        XCTAssertEqual(
+            FeedbackGateState.decide(progress: p, queuedCheckpoints: [], skippedCheckpoints: [],
+                                     eventDismissed: false, now: now), .event)
+    }
+
     // ===== ฟิลด์ใหม่บน CheckinProgress =====
 
     /// server ยังไม่ส่ง event_feedback_answered มา (SUS ยังไม่มี endpoint) — ขาดต้องเป็น false
