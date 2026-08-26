@@ -413,6 +413,7 @@ struct APIClient {
             "device_time": draft.deviceTime,
         ]
         if let v = draft.ratingScenery { body["rating_scenery"] = v }
+        if let v = draft.ratingArea { body["rating_area"] = v }
         if let v = draft.ratingActivity { body["rating_activity"] = v }
         if let v = draft.ratingStaff { body["rating_staff"] = v }
         if let c = draft.comment { body["comment"] = c }

@@ -18,7 +18,7 @@ struct FeedbackView: View {
     @State private var rating: Int?
     /// สามข้อที่ยกมาจากฝั่ง Android — ไม่บังคับตอบ (ดู `FeedbackDraft.canSubmit`)
     @State private var ratingScenery: Int?
-    @State private var ratingActivity: Int?
+    @State private var ratingArea: Int?
     @State private var ratingStaff: Int?
     @State private var comment = ""
     @State private var sent = false
@@ -90,12 +90,16 @@ struct FeedbackView: View {
             // แล้วผู้จัดเอาไปทำอะไรต่อไม่ได้ · ฐานที่วิวดีแต่กิจกรรมน่าเบื่อกับฐานที่ตรงข้ามกัน
             // ได้คะแนนเท่ากันทั้งที่ต้องแก้คนละเรื่อง
             //
+            // ชุดคำถามต้องตรงกับ Android เป๊ะ ไม่งั้นผู้จัดรวมคะแนนสองแอปไม่ได้: ข้อกิจกรรม
+            // ถูกย้ายไปถามระดับงานตอนจบ (ยืนอยู่ที่ฐานตอบเรื่องกิจกรรมทั้งวันไม่ได้จริง)
+            // แล้ว "พื้นที่" — ที่ว่าง ร่มเงา ที่นั่ง — เข้ามาแทน ซึ่งเป็นคนละแกนกับวิว
+            //
             // เรียงภาพรวมไว้บนสุดเพราะเป็นข้อเดียวที่บังคับ — คนที่จะตอบข้อเดียวแล้วปิดจะได้
             // เจอข้อที่ใช่ก่อน ไม่ต้องเลื่อนหาผ่านสามข้อที่ข้ามได้
             VStack(spacing: 14) {
                 questionRow("feedback_q_overall", "feedback_q_overall_hint", $rating)
                 questionRow("feedback_q_scenery", "feedback_q_scenery_hint", $ratingScenery)
-                questionRow("feedback_q_activity", "feedback_q_activity_hint", $ratingActivity)
+                questionRow("feedback_q_area", "feedback_q_area_hint", $ratingArea)
                 questionRow("feedback_q_staff", "feedback_q_staff_hint", $ratingStaff)
             }
             .padding(.top, 16)
@@ -230,7 +234,7 @@ struct FeedbackView: View {
             checkpointId: checkpointId,
             rating: rating,
             ratingScenery: ratingScenery,
-            ratingActivity: ratingActivity,
+            ratingArea: ratingArea,
             ratingStaff: ratingStaff,
             comment: trimmed.isEmpty ? nil : trimmed,
             deviceTime: ISO8601DateFormatter().string(from: Date()))

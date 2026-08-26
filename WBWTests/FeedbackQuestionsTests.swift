@@ -38,6 +38,45 @@ final class FeedbackQuestionsTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(FeedbackDraft.self, from: data), draft)
     }
 
+    /// **draft จากเวอร์ชันที่ยังถามกิจกรรมต่อฐานต้อง decode ผ่านและคำตอบกิจกรรมต้องไม่หาย**
+    ///
+    /// รอบจัดชุดคำถามให้ตรง Android (ถอดกิจกรรมออก เพิ่มพื้นที่) ห้ามลบฟิลด์ `ratingActivity`
+    /// ออกจาก struct — คนที่ตอบข้อกิจกรรมไว้ตอนไม่มีสัญญาณ คำตอบนั้นค้างอยู่ในคิว ลบฟิลด์ =
+    /// คำตอบหายเงียบทั้งที่ผู้ใช้เห็นว่า "ส่งแล้ว" ไปนานแล้ว
+    func testDraftsQueuedBeforeTheAreaQuestionKeepTheirActivityAnswer() throws {
+        let beforeArea = #"""
+        {"clientId":"c5","checkpointId":7,"rating":4,"ratingActivity":2,"deviceTime":"\#(deviceTime)"}
+        """#
+        let draft = try JSONDecoder().decode(FeedbackDraft.self, from: Data(beforeArea.utf8))
+        XCTAssertNil(draft.ratingArea)
+        XCTAssertEqual(draft.ratingActivity, 2)
+        // และตอน flush คิว คำตอบเก่านั้นต้องยังไปถึงเซิร์ฟเวอร์จริง ไม่ใช่แค่ decode รอด
+        let body = APIClient.feedbackBody(draft: draft)
+        XCTAssertEqual(body["rating_activity"] as? Int, 2)
+    }
+
+    /// คำถาม "พื้นที่" — ที่ว่าง ร่มเงา ที่นั่ง — แทนที่ข้อกิจกรรมในฟอร์มต่อฐาน (ตาม Android:
+    /// กิจกรรมย้ายไปถามระดับงานตอนจบ เพราะยืนอยู่ที่ฐานตอบเรื่องกิจกรรมทั้งวันไม่ได้จริง)
+    ///
+    /// เซิร์ฟเวอร์ยังไม่มีคอลัมน์ `rating_area` — ตั้งใจส่งล่วงหน้าแบบเดียวกับฝั่ง Android:
+    /// decoder ฝั่งนั้นไม่ปฏิเสธฟิลด์ที่ไม่รู้จัก วันที่ migration ลง ทุกเครื่องที่อยู่ในมือ
+    /// ผู้เข้าร่วมเริ่มเก็บทันที ไม่ต้องขอให้ใครอัพเดทแอปกลางงาน
+    func testTheRequestCarriesTheAreaAnswerWhenGiven() {
+        let withArea = FeedbackDraft(clientId: "c6", checkpointId: 4, rating: 5,
+                                     ratingScenery: nil, ratingArea: 3, ratingStaff: nil,
+                                     comment: nil, deviceTime: deviceTime)
+        let body = APIClient.feedbackBody(draft: withArea)
+        XCTAssertEqual(body["rating_area"] as? Int, 3)
+    }
+
+    func testTheRequestOmitsTheAreaKeyWhenSkipped() {
+        let sparse = FeedbackDraft(clientId: "c7", checkpointId: 4, rating: 5,
+                                   ratingScenery: nil, ratingStaff: nil,
+                                   comment: nil, deviceTime: deviceTime)
+        XCTAssertNil(APIClient.feedbackBody(draft: sparse)["rating_area"],
+                     "คีย์ rating_area ไม่ควรอยู่ในก้อนเมื่อผู้ใช้ไม่ได้ตอบ")
+    }
+
     // MARK: - ส่งได้เมื่อไหร่
 
     /// **ภาพรวมคือข้อเดียวที่บังคับ** — อีกสามข้อไม่ตอบก็ส่งได้ (เซิร์ฟเวอร์รับ null)

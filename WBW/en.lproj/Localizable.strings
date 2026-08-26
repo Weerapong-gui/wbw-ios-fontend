@@ -296,6 +296,10 @@
 "feedback_q_overall_hint" = "This base as a whole";
 "feedback_q_scenery" = "The scenery";
 "feedback_q_scenery_hint" = "The view and the surroundings here";
+/* ถ้อยคำต้องตรงกับ feedback_q_area ฝั่ง Android คำต่อคำ — คะแนนสองแอปถูกรวมเป็นชุดเดียว */
+"feedback_q_area" = "The area";
+"feedback_q_area_hint" = "Space, shade, seating and facilities";
+/* ฟอร์มต่อฐานเลิกถามข้อกิจกรรมแล้ว (ย้ายไปถามระดับงานตอนจบตาม Android) — คีย์เก็บไว้รอรอบ event feedback */
 "feedback_q_activity" = "The activity";
 "feedback_q_activity_hint" = "What you did at this base";
 "feedback_q_staff" = "The staff";
