@@ -115,6 +115,15 @@ struct ChatBubble: View {
                     bubble
                     if isMine { stateIcon }
                 }
+                // เวลาอยู่**ใต้ฟอง**ท้ายชุด ชิดฝั่งเดียวกับฟอง — เจ้าของงานเลือกท่านี้แทน
+                // เวลาในฟอง (2026-08-26): ไม่กินความกว้างข้อความ และไม่ต้องมีสองเลย์เอาต์
+                // สลับกันตามความยาวข้อความแบบ ViewThatFits ที่เคยใช้
+                if layout.showTime {
+                    Text(ChatFormat.time(message.displayTime))
+                        .font(.caption2)
+                        .foregroundStyle(Color.wbwOnBackdropMuted)   // นอกฟอง — วางบนภาพพื้นหลังตรง ๆ เหมือนชื่อผู้ส่ง
+                        .padding(isMine ? .trailing : .leading, 4)
+                }
             }
             if !isMine { Spacer(minLength: 48) }
         }
@@ -133,20 +142,10 @@ struct ChatBubble: View {
         }
     }
 
-    /// เวลาอยู่ **ในฟอง** มุมล่างขวา (ท่า WhatsApp/LINE) — เดิมลอยอยู่ข้างฟอง กินความกว้าง
-    /// ที่ควรเป็นของข้อความไปฟรี ๆ
-    ///
-    /// `ViewThatFits` เลือกเองว่าเวลาต่อท้ายบรรทัดเดียวกันได้ไหม — ใช้ `HStack` ตรง ๆ ทางเดียว
-    /// ไม่ได้ เพราะพอข้อความยาวมันจะไปบีบ `Text` ให้ตัดคำเร็วขึ้นเพื่อเว้นที่ให้เวลา ซึ่งเป็นอาการ
-    /// ที่มองไม่ออกว่ามาจากตรงไหนเวลาไปเจอทีหลัง · ใช้ `VStack` ทางเดียวก็ไม่ดี เพราะข้อความสั้น ๆ
-    /// อย่าง "โอเค" จะได้ฟองสูงสองบรรทัดโดยไม่จำเป็น
+    /// ฟองเหลือแต่ตัวข้อความ — เวลาย้ายไปอยู่ใต้ฟอง (ดูคอมเมนต์ใน body) จึงไม่ต้องมี
+    /// `ViewThatFits` สองเลย์เอาต์สลับตามความยาวข้อความอีก
     private var bubble: some View {
-        ViewThatFits(in: .horizontal) {
-            // ข้อความสั้นพอ = เวลาไปต่อท้ายบรรทัดเดียวกัน (ท่า WhatsApp) ฟองจึงไม่สูงเกินจำเป็น
-            HStack(alignment: .lastTextBaseline, spacing: 6) { messageText; time }
-            // ยาวกว่านั้น = เวลาลงบรรทัดใหม่ชิดขวา
-            VStack(alignment: .trailing, spacing: 2) { messageText; time }
-        }
+        messageText
         .padding(.horizontal, 12).padding(.vertical, 8)
         // ฟองฝั่งเราเป็นเขียวสถานะ ไม่ใช่ `wbwGold` — ตัวนั้นเป็น alias ของ `wbwAccent`
         // (#E9EEE0 ในโหมดมืด) คู่กับตัวอักษร `.white` ตายตัวจากยุคที่มันยังเป็นสีทอง = ขาวบนขาว
@@ -161,16 +160,6 @@ struct ChatBubble: View {
         Text(message.body)
             .font(.body)
             .foregroundStyle(isMine ? Color.wbwOnGreen : Color.wbwInk)
-    }
-
-    @ViewBuilder private var time: some View {
-        if layout.showTime {
-            Text(ChatFormat.time(message.displayTime))
-                .font(.caption2)
-                // ฝั่งเขาคง `.secondary` ได้ — เวลาตัวนี้อยู่**ใน**ฟองที่มีพื้น `wbwSurface`
-                // ต่างจากเวลาที่เผยตอนปัดซ้ายซึ่งอยู่นอกฟอง
-                .foregroundStyle(isMine ? Color.wbwOnGreen.opacity(0.7) : .secondary)
-        }
     }
 
     @ViewBuilder private var stateIcon: some View {
