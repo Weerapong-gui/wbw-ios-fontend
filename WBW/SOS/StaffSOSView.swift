@@ -81,6 +81,11 @@ final class StaffSOSStore: ObservableObject {
     /// ช่วงพักระหว่างรอบ poll — ฉีดได้เพื่อให้เทส round-trip ของ cursor ไม่ต้องรอ 1 วินาทีจริงต่อรอบ
     /// (ทรงเดียวกับ pollInterval ของ SOSStore) ค่าเริ่มต้น 1 วิเท่าของเดิมทุกประการสำหรับผู้เรียกจริง
     private let pollInterval: Duration
+    /// ถอยห่างเป็น **ทวีคูณของ `pollInterval`** ไม่ใช่วินาทีตายตัว — ที่ค่าจริง (1 วิ) ได้
+    /// 1·2·4·8·16·30 วิ เท่าที่ตั้งใจ ส่วนเทสที่ฉีด `pollInterval` เป็นมิลลิวินาทีก็ยังวิ่งจบเร็ว
+    /// เหมือนเดิม · ผูกกับ `pollInterval` แบบนี้แปลว่า "ถอยกี่รอบ" เป็นสัญญาเดียวกันทุกที่
+    /// ไม่ใช่ตัวเลขสองชุดที่ต้องมาไล่ให้ตรงกันเอง
+    private static let backoffMultipliers = [1, 2, 4, 8, 16, 30]
     /// user id ของเจ้าหน้าที่ที่ล็อกอินอยู่ตอนนี้ — ใช้กันไม่ให้เคสของตัวเองมาเด้งจอทับซ้อนกับ
     /// SOSStatusView ของตัวเอง (ดูคอมเมนต์ที่ apply() ตรง participantId == currentUserId) ค่าเริ่มต้น
     /// "" ใช้ได้กับเทสที่ไม่สนเรื่องเจ้าของเท่านั้น (ไม่มีเคสจริงไหน participantId เป็น "" อยู่แล้ว
@@ -184,16 +189,38 @@ final class StaffSOSStore: ObservableObject {
         #endif
         loop?.cancel()
         loop = Task { [weak self] in
+            // **ถอยห่างขึ้นเรื่อย ๆ ตอนยิงไม่ผ่าน ไม่ใช่ยิงรัวทุก 1 วินาทีทั้งวัน** (ทรงเดียวกับ
+            // `startStatusPoll` ของ `SOSStore` ที่ทำถูกอยู่แล้ว)
+            //
+            // จอนี้เปิดค้างทั้งงานบนเครื่องเจ้าหน้าที่ · บนดอยสัญญาณขาดเป็นช่วง ๆ เป็นเรื่องปกติ
+            // ยิงทุกวินาทีทับ dead zone เดิมไม่ได้ทำให้เคสมาถึงเร็วขึ้นสักนิด แต่กินแบตกับกิน
+            // SUS ฟรี ๆ ทั้งวัน — เครื่องเจ้าหน้าที่ที่แบตหมดตอนบ่ายคือฐานที่ไม่มีใครรับเคส SOS
+            //
+            // กลับมายิงถี่ปกติทันทีที่สำเร็จอีกครั้ง (index รีเซ็ต) — ความเร็วในการรับเคสตอน
+            // สัญญาณดีจึงไม่ต่างจากเดิมเลย
+            var errorBackoffIndex = 0
             while !Task.isCancelled {
                 guard let self else { return }
+                var failed = false
                 do {
                     self.apply(try await self.feedCall(token, self.cursor))
                     self.consecutiveFeedFailures = 0
+                    errorBackoffIndex = 0
                 } catch {
                     // แยก "พลาดไปหนึ่งรอบ" ออกจาก "ตายแล้ว" ด้วยการนับ ไม่ใช่กลืนทิ้งทั้งคู่
                     self.consecutiveFeedFailures += 1
+                    failed = true
                 }
-                try? await Task.sleep(for: self.pollInterval)
+                let wait: Duration
+                if failed {
+                    let step = Self.backoffMultipliers[min(errorBackoffIndex,
+                                                           Self.backoffMultipliers.count - 1)]
+                    wait = self.pollInterval * step
+                    errorBackoffIndex += 1
+                } else {
+                    wait = self.pollInterval
+                }
+                try? await Task.sleep(for: wait)
             }
         }
     }

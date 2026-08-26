@@ -127,7 +127,11 @@ struct SOSButton: View {
                 .stroke(.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: 58, height: 58)
-            Text("SOS").font(.wbwTitleMedium).foregroundStyle(.white)
+            // 17pt Bold ไม่ใช่โทเคน `wbwTitleMedium` (15pt SemiBold) — รอบกวาดฟอนต์ 2026-08-26
+            // แมปตามตารางแล้วปุ่มนี้เล็กลงและบางลงพร้อมกัน · ปุ่มแจ้งเหตุฉุกเฉินคือปุ่มสุดท้ายที่ควร
+            // จางลงบนจอ ขนาดกับน้ำหนักเดิมจึงเขียนตรง ๆ ไม่ผ่านโทเคน
+            Text("SOS").font(.wbwText(17, weight: .bold, relativeTo: .headline))
+                .foregroundStyle(.white)
         }
     }
 
