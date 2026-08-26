@@ -37,6 +37,25 @@
 **จอที่ตั้งใจไม่ให้ปรับตามธีม** อย่าเผลอไปเปลี่ยน: `TicketView` (บัตรจำลองกระดาษ ต้องขาวเสมอ),
 `HomeView` (ใช้ `.forestBackground()` ซึ่งมืดอยู่แล้ว), `StaffScanView` (จอสแกนพื้นมืด), `Scene3D/*`
 
+## ฟอนต์ — ข้อความทุกตัวใช้ `wbw*` ห้าม text style เปล่า
+
+แอปมีฟอนต์เดียวคือ **Anuphan** (ไม่มีหัว) เรียกผ่านโทเคน/ตัวช่วยใน `WBW/Typography.swift`
+(`.wbwBodyLarge`, `.wbwTitleMedium`, `Font.wbwText(_:weight:relativeTo:)`, `Font.wbwNumeral(...)`)
+
+- **ข้อความที่คนอ่าน → `wbw*` เสมอ**
+- **ไอคอน SF Symbol → ฟอนต์ระบบได้ แต่ต้องเขียน `.font(.system(.body))` ให้ชัด** (ยังสเกลตาม
+  Dynamic Type) ห้ามใช้ `.font(.system(size:))` กับไอคอนที่ต้องโตตามการตั้งค่าตัวอักษร
+- **ห้าม `.font(.body)` / `.font(.caption)` / `.font(.headline)` … เปล่า ๆ ทุกที่ใน `WBW/`**
+
+เหตุผลที่ต้องห้ามถึงระดับรูปแบบการเขียน ไม่ใช่แค่ "อย่าลืมใช้ฟอนต์แอป": text style เปล่าคือตัวที่
+ลากฟอนต์ไทยของ **ระบบ** (มีหัว) เข้ามา แล้วแอปกลายเป็นสองฟอนต์คนละจอ — และมันเป็นรูปเดียวที่
+grep แยก "ตั้งใจใช้ระบบเพราะเป็นไอคอน" ออกจาก "ลืมเปลี่ยน" ไม่ได้ · `Font.custom` ที่ชื่อ face ผิด
+ก็ตกกลับเป็นฟอนต์ระบบ **เงียบ ๆ** ไม่มี error ให้เห็นด้วย
+
+`WBWTests/AppFontUsageTests.swift` กวาดทั้ง `WBW/` แล้ว fail พร้อมรายชื่อ `ไฟล์:บรรทัด` ทุกจุด
+(ตอนตั้งขึ้นมาครั้งแรก 2026-08-26 เจอ 65 จุดใน 18 ไฟล์ — เจ้าของงานเห็นจากจอแชทแล้วทักมาเอง) ·
+`TypographyTests` ตรวจคนละเรื่อง: ว่าฟอนต์ลงทะเบียนแล้วและชื่อ face ถูก ไม่ได้ตรวจว่าจอไหนเรียกใช้
+
 ## Liquid Glass
 
 `func glassSurface<S: Shape>(_ shape: S, tint: Color? = nil, interactive: Bool = false)` ใน
@@ -81,16 +100,19 @@ deployment target ของโปรเจกต์คือ iOS 18 (`IPHONEOS_D
   กับ 2 มิติบน MapKit (`Map2DView`, `MapMode`, `TrailRoute`) ที่ใช้การ์ดฐานใบเดียวกัน (`MapBaseCard`)
   (`Map3DCamera`, `Map3DConfig`, `Map3DFocus`, `Map3DGeo`, `Map3DIntro`, `Map3DLocation`, `Map3DPins`,
   `Map3DScreen`, `Map3DSky`, `MapModelLoader`)
-- `WBW/Walk/` — 4 ไฟล์ (นับก้าว/ระยะ/เพซ ที่แท็บแผนที่)
-- `WBW/Chat/` — 5 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`)
-- `WBW/Feedback/` — 4 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`)
+- `WBW/Walk/` — 5 ไฟล์ (นับก้าว/ระยะ/เพซ ที่แท็บแผนที่ + ความคืบหน้าบนเส้นทางที่แผนที่ 2D เอาไปวาด)
+- `WBW/Chat/` — 8 ไฟล์ (`ChatBubble`, `ChatDTOs`, `ChatRow`, `ChatSession`, `ChatToast`,
+  `ChatDraft`, `ChatModeration`, `ChatWordFilter`)
+- `WBW/Feedback/` — 7 ไฟล์ (`CheckinToast`, `FeedbackOutbox`, `FeedbackStore`, `FeedbackView`,
+  `FeedbackGateState`, `FeedbackGateScreen`, `EventFeedbackDraft` — gate ที่ยึดจอหลังเช็คอิน
+  กับความเห็นทั้งงานตอนจบ)
 - `WBW/Conditions/` — 4 ไฟล์ (`ConditionsModels`, `ConditionsStore`, `OpenMeteoClient`,
   `TrailConditionsRow`)
 - `WBW/Bloom/` — 3 ไฟล์ (`BloomStages`, `BloomGeometry`, `BloomView`)
 - `WBW/Demo/` — 3 ไฟล์ (`DemoMode`, `DemoData`, `DemoSOS`)
 - `WBW/Scene3D/` — 7 ไฟล์ (ฉากป่า — **ปิดอยู่ตอนนี้แต่ไม่ได้ลบ** ดู `Config.forest3D` ใน
   `backend-and-config.md`)
-- `WBW/SOS/` — 11 ไฟล์ (ปุ่มฉุกเฉิน จอสถานะ จอเจ้าหน้าที่ `LocationPrimer`)
+- `WBW/SOS/` — 13 ไฟล์ (ปุ่มฉุกเฉิน จอสถานะ จอเจ้าหน้าที่ `LocationPrimer`)
 - `WBW/Resources/` — asset สามมิติ (`.usdz`, `.glb` ใต้ `models/`) ไม่ใช่โค้ด Swift
 
 ## ฉาก RealityKit ต้องมีโดมฟ้าเสมอ
