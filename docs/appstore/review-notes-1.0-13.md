@@ -16,74 +16,78 @@
 
 ---
 
-This app is the participant companion for a one-day university hiking event: 6 km on a mountain
-trail through twelve staffed checkpoints.
+Participant companion for a one-day university hiking event: 6 km on a mountain trail with
+twelve staffed checkpoints.
 
 **Signing in**
 
-Use the account in the Demo Account fields:
+Use the Demo Account fields: `6939999999` / `WbwReview2026!`
 
-- User name: `6939999999`
-- Password: `WbwReview2026!`
+There is no demonstration-mode button on the sign-in screen; this account is the way in. It signed
+in against production on 2026-08-27 (HTTP 200). If it fails, tell us in Resolution Center — we can
+restore a no-account demonstration mode within one build.
 
-The app has no demonstration mode button on the sign-in screen; this account is the way in. It
-signed in against production on 2026-08-25 (HTTP 200). If it fails for you, please tell us in
-Resolution Center — we can restore a no-account demonstration mode within one build.
+**What changed (Guideline 5.1.1(iv))**
 
-**What changed in this build (Guideline 5.1.1(iv))**
-
-The explanatory screen shown before the system location prompt now has a single button,
-"Continue", which always brings up the system prompt. The "Not now" button is gone, and the screen
-can no longer be swiped away on iPhone or dismissed by tapping outside it on iPad. It appears at
-most once per install, only while the permission is still undetermined.
+The screen shown before the system location prompt now has a single button, "Continue", which
+always brings up that prompt. "Not now" is gone, and the screen can no longer be swiped away on
+iPhone or dismissed by tapping outside on iPad. It appears at most once per install.
 
 **Location**
 
-Location is requested as "While Using the App" only, never in the background. The app explains,
-before the prompt, the three things it is used for: placing you on the event map, measuring
-walking distance when you start a walk, and attaching your position to an emergency alert. You may
-decline and still use every feature, including the emergency button — staff then see only the last
-checkpoint you checked in at. The purpose string, that screen, and our published privacy policy
-describe the same three uses.
+"While Using the App" only, never in the background. Before the prompt we name its three uses:
+placing you on the event map, measuring walking distance, and attaching your position to an
+emergency alert. Declining leaves every feature usable, emergency button included — staff then
+see only your last checkpoint. Purpose string, screen and privacy policy all say the same.
 
 **Step and distance counting**
 
-Starting a walk counts steps and distance from the device's motion coprocessor
-(`CMPedometer`). It keeps counting while the app is in the background or closed because the
-coprocessor records that data on its own; the app simply queries the elapsed window when it
-comes back. **The app declares no background modes at all** and never runs location updates
-outside the foreground. The numbers stay on the device: there is no endpoint on our server
-that receives them.
+Starting a walk reads steps and distance from the motion coprocessor (`CMPedometer`), which
+records on its own; the app queries the elapsed window on return to the foreground. **The app
+declares no background modes at all** and never runs location updates outside the foreground.
+The numbers stay on the device — our server has no endpoint for them.
 
 **Emergency help (SOS) button**
 
-The button is on the participant pass screen and needs a deliberate three-second press. **It
-alerts the event's own staff team. It is not a call to emergency services and the app never
-presents itself as one.** The status screen says so plainly and points the user to 1669
-(Thailand's ambulance number) for a real emergency. The app makes no medical claims.
+On the participant pass screen, needing a deliberate three-second press. **It alerts the event's
+own staff team, is not a call to emergency services, and never presents itself as one.** The status
+screen says so and points to 1669 (Thailand's ambulance number). No medical claims.
+
+**A form that appears right after a checkpoint scan**
+
+After a staff member scans a participant in at a checkpoint, a short rating form for it appears.
+**It takes the whole screen and has no close button by design** — the organisers get one chance to
+hear what a checkpoint was like, while the participant is standing in it (same as our Android app).
+It is never a dead end:
+
+- **It closes as soon as the rating is sent** — tap 1-5 on the first question (the rest are
+  optional), then "Send". With no network the answer queues on the device and the form still closes.
+- **If our server refuses the answer, a "Skip for now" button appears** below Send.
+- **It only appears for a check-in from the last 12 hours**; older ones are offered as a dismissible
+  notification instead. You are unlikely to see this form at all with the review account.
+
+The emergency button stays reachable throughout — its own row beneath the form, the screen edge
+glowing red while a case is open.
 
 **Group chat and user-generated content (Guideline 1.2)**
 
-Chat is limited to the members of one walking group. Every participant is a registered student
-whose identity was verified at registration: no anonymous posting, no public posting, no images,
-no discovery of strangers.
+Chat is limited to one walking group. Every participant is a registered student verified at
+registration: no anonymous or public posting, no images, no discovery of strangers.
 
-- **Filtering** — messages containing offensive language are refused at send time, in Thai and in
-  English. The sender sees an explanation above the composer and can rewrite the message.
-- **Block** — open the group chat, tap the group name at the top, tap a member, then "Block this
-  person". The same action is on a long press of any message. Blocked people's messages are hidden
-  immediately.
-- **Unblock** — Settings → "Blocked people", with an Unblock button per person.
-- **Report** — long press a message, choose "Report this message". It opens a pre-filled email to
-  student-union@lamduan.mfu.ac.th (the address published in our privacy policy and support page)
-  with the message id, sender and timestamp.
+- **Filtering** — offensive language is refused at send time in Thai and English; the sender sees
+  why, above the composer, and can rewrite.
+- **Block** — long press any message, or group name → member → "Block this person". Their messages
+  hide immediately. **Unblock** in Settings → "Blocked people".
+- **Report** — long press a message → "Report this message": a pre-filled email to
+  student-union@lamduan.mfu.ac.th (published in our privacy policy and support page) carrying the
+  message id, sender and timestamp.
 
 **Account creation and deletion (Guideline 5.1.1(v))**
 
-The app does not offer account creation. Registration closed at its 2,000-person capacity and
-happens on the organiser's website; there is no sign-up link, screen, or endpoint in the app.
-Account deletion is handled through the contact channel published in our privacy policy.
+No account creation in the app — registration happens on the organiser's website and closed at its
+2,000-person capacity; no sign-up link, screen or endpoint exists here. Deletion goes through the
+contact channel published in our privacy policy.
 
 **No purchases**
 
-No in-app purchases, no subscriptions, no payments, and no link to an external purchase mechanism.
+No in-app purchases, subscriptions, payments or external purchase links.
