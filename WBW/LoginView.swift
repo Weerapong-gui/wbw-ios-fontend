@@ -56,21 +56,32 @@ struct LoginView: View {
 
                 Spacer().frame(height: 26)
 
+                // **คู่สีเดียวกับปุ่มหลักตัวอื่นของแอป** (`wbwGreen` + `wbwOnGreen` — ปุ่มส่งในแชท
+                // กับปุ่มส่งความเห็นใช้คู่นี้ และมีเทส contrast ค้ำอยู่แล้ว)
+                //
+                // ของเดิมเป็นพื้น `wbwCream` ซึ่งเป็นชื่อเก่าของ `wbwBg` = #0F1610 เกือบดำในโหมดมืด
+                // คู่กับตัวอักษรน้ำตาลมัสตาร์ดที่พิมพ์เป็น hex ดิบไว้ตรงนี้ ได้ราว 1.35:1 · ที่หนักกว่า
+                // อ่านไม่ออกคือมันไปตรงกับสำนวน "ปุ่มปิดใช้งาน" ของจออื่น (พื้นเข้ม = กดไม่ได้)
+                // คนเปิดแอปครั้งแรกจึงสรุปว่าปุ่มยังกดไม่ได้ ทั้งที่กดได้ตั้งแต่วินาทีแรก
+                //
+                // ตอนยิงเน็ตหรี่ทั้งพื้นและตัวอักษรแทนการเปลี่ยนเป็นสีชุดอื่น — ปุ่มเดียวกันคนละสถานะ
+                // ไม่ใช่คนละปุ่ม (ท่าเดียวกับปุ่มส่งในแชท)
                 Button(action: signIn) {
                     Group {
                         if busy {
-                            ProgressView().tint(.wbwInk)
+                            ProgressView().tint(Color.wbwOnGreen)
                         } else {
                             Text("login_action_submit")
                                 .font(.wbwText(16, weight: .semibold, relativeTo: .callout))
-                                .foregroundStyle(Color(red: 0.23, green: 0.17, blue: 0.07))
+                                .foregroundStyle(Color.wbwOnGreen)
                         }
                     }
                     // กว้างได้ถึง 260 ไม่ใช่ตายตัว 200 — คำว่า "เข้าสู่ระบบ" ที่ขนาดตัวอักษรใหญ่สุด
                     // ใส่ไม่ลง 200pt แล้วถูกตัดกลางคำ
                     .frame(maxWidth: 260, minHeight: 46)
-                    .background(Color.wbwCream, in: Capsule())
+                    .background(Color.wbwGreen.opacity(busy ? 0.55 : 1), in: Capsule())
                 }
+                .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
                 .disabled(busy)
 

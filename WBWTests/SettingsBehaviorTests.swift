@@ -262,4 +262,35 @@ final class SettingsBehaviorTests: XCTestCase {
     func testSolidButtonSeparatesFromTheCardItSitsOn() {
         assertContrast(.wbwSolid, "wbwSolid", on: .wbwSurface, "wbwSurface", atLeast: 1.2)
     }
+
+    /// **ปุ่มเข้าสู่ระบบต้องใช้โทเคน ไม่ใช่ hex ดิบ** — และนี่คือเหตุผลที่เทสสีตัวอื่นมองไม่เห็นบั๊กนี้
+    ///
+    /// ของเดิมเป็นพื้น `wbwCream` (ชื่อเก่าของ `wbwBg` = #0F1610 เกือบดำในโหมดมืด) คู่กับตัวอักษร
+    /// `Color(red: 0.23, green: 0.17, blue: 0.07)` ที่พิมพ์ไว้กลางไฟล์จอ ได้ราว 1.35:1 —
+    /// อ่านไม่ออกและดันไปตรงกับสำนวน "ปุ่มปิดใช้งาน" ที่จออื่นใช้ (`wbwSolid` พื้นเข้ม = กดไม่ได้)
+    /// เจ้าของงานจึงรายงานว่าปุ่มเป็นสีเทาทั้งที่ยังไม่ได้กด (2026-08-26)
+    ///
+    /// เทสคู่สีอย่างเดียวจับไม่ได้เพราะ hex ดิบไม่ใช่โทเคนที่เทสรู้จัก — ต้องห้ามที่ระดับซอร์สด้วย
+    func testLoginButtonUsesThemeTokensNotRawHex() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("WBW/LoginView.swift")
+        // ตัดบรรทัดคอมเมนต์ทิ้งก่อนสแกน — คอมเมนต์ในไฟล์นั้นพูดถึงชื่อสีเก่าโดยตั้งใจ เพื่อบอกว่า
+        // ของเดิมคืออะไรและทำไมถึงเลิกใช้ · ห้ามทั้งคำเท่ากับห้ามอธิบายเหตุผลไว้ให้คนอ่านรอบหน้า
+        let source = try String(contentsOf: url, encoding: .utf8)
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+
+        XCTAssertFalse(source.contains("Color(red:"), """
+            สีดิบกลางไฟล์จอ = สีที่ไม่พลิกตามธีมและไม่มีเทสไหนมองเห็น
+            (กติกา ui-conventions: เพิ่มเป็น static let ใน Config.swift ก่อน)
+            """)
+        for legacy in ["wbwCream", "wbwGold"] {
+            XCTAssertFalse(source.contains(legacy), """
+                `\(legacy)` เป็นชื่อเก่าที่ Config.swift เขียนไว้เองว่าโค้ดใหม่ห้ามใช้ —
+                มันชี้ไปที่ค่าที่ความหมายกลับด้านในโหมดมืด
+                """)
+        }
+    }
 }
