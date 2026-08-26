@@ -37,4 +37,52 @@ final class FeedbackGateStateTests: XCTestCase {
         XCTAssertFalse(CheckinProgress(total: 2, checkedIn: [item(1, answered: true, at: "a")]).complete)
         XCTAssertTrue(CheckinProgress(total: 1, checkedIn: [item(1, answered: true, at: "a")]).complete)
     }
+
+    // ===== decide =====
+
+    func testNoProgressMeansNoGate() {
+        XCTAssertNil(FeedbackGateState.decide(progress: nil, eventDismissed: false))
+    }
+
+    /// ทีละฐาน เรียงตามลำดับที่เดินถึง — โดนสแกนสามฐานตอนมือถืออยู่ในกระเป๋า
+    /// ต้องเจอฟอร์มของฐานแรกก่อน ไม่ใช่ฐานล่าสุด (ตรงข้ามกับ toast)
+    func testPendingBaseComesOldestFirst() {
+        let p = CheckinProgress(total: 5, checkedIn: [
+            item(3, answered: false, at: "2026-08-29T10:30:00Z"),
+            item(1, answered: false, at: "2026-08-29T09:00:00Z"),
+            item(2, answered: true,  at: "2026-08-29T10:00:00Z"),
+        ])
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, eventDismissed: false),
+                       .base(p.checkedIn[1]), "ฐานที่ถึงก่อนต้องถูกถามก่อน")
+    }
+
+    func testAllAnsweredButRouteUnfinishedMeansNoGate() {
+        let p = CheckinProgress(total: 5, checkedIn: [item(1, answered: true, at: "a")])
+        XCTAssertNil(FeedbackGateState.decide(progress: p, eventDismissed: false))
+    }
+
+    /// ครบทุกฐาน + ตอบครบ + ยังไม่เคยตอบทั้งงาน = ถึงคิว event form
+    func testEventDueWhenRouteCompleteAndEverythingAnswered() {
+        let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: true, at: "a")])
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, eventDismissed: false), .event)
+    }
+
+    /// ฐานค้างตอบมาก่อน event เสมอ — แม้เส้นทางจะครบแล้ว
+    func testPendingBaseBeatsEventEvenWhenComplete() {
+        let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: false, at: "a")])
+        XCTAssertEqual(FeedbackGateState.decide(progress: p, eventDismissed: false),
+                       .base(p.checkedIn[0]))
+    }
+
+    func testEventAnsweredOnServerMeansNoGate() {
+        let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: true, at: "a")],
+                                eventFeedbackAnswered: true)
+        XCTAssertNil(FeedbackGateState.decide(progress: p, eventDismissed: false))
+    }
+
+    /// ข้ามไปก่อน (ส่งไม่สำเร็จ) = เงียบแค่รันนี้ — decide เคารพ flag ที่ caller ถือ
+    func testEventDismissedThisRunMeansNoGate() {
+        let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: true, at: "a")])
+        XCTAssertNil(FeedbackGateState.decide(progress: p, eventDismissed: true))
+    }
 }
