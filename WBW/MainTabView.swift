@@ -55,6 +55,14 @@ struct MainTabView: View {
     // แอปปิด (PendingPush → .openCheckinFeedback), push ตอนแอปเปิด, แตะการ์ดในหน้าแจ้งเตือน,
     // และ toast จาก poll 60 วิ · ทุกทางเข้าตั้งตัวแปรนี้ตัวเดียว ไม่มีทางลัดอื่นไป FeedbackView
     @State private var feedbackCheckpoint: FeedbackTarget?
+    /// ข้ามฟอร์มทั้งงานเฉพาะรันนี้ — **จงใจไม่เขียนดิสก์**: มันคือทางหนีจากการส่งที่ล้มเหลว
+    /// ไม่ใช่บันทึกว่าตอบแล้ว (server เป็นคนถือคำตอบผ่าน `eventFeedbackAnswered`) เปิดแอปใหม่แล้ว
+    /// ถามซ้ำคือถูกแล้ว — คนที่ยังไม่เคยตอบสำเร็จควรได้โอกาสตอบอีกครั้งตอนเน็ตกลับมา
+    @State private var eventFeedbackDismissed = false
+    #if DEBUG
+    /// บังคับ gate ขึ้นตรง ๆ ด้วยแฟลก launch (ดูชุด `-uitestGate*` ใน `.task`) — nil = ใช้ของจริง
+    @State private var uitestGateState: FeedbackGateState?
+    #endif
     // ฐานที่ toast "ยึดไว้" ให้เด้ง (ว่าง = ไม่มี) — คัดลอกมาจาก progress.newlyPending ตอนมันเปลี่ยน
     // แทนที่จะให้ view อ่าน newlyPending ตรงๆ เพราะ newlyPending ค้างค่าเดิมไว้จนกว่า load รอบถัดไป
     // จะทับ (นานสุด 60 วิ) ถ้าอ่านตรงๆ toast จะค้างคาจอเป็นนาทีแทนที่จะเป็น 3.5 วิ
@@ -225,6 +233,19 @@ struct MainTabView: View {
                 // ต้องมีเหตุมาจากข้างนอก: push, การ์ดที่แตะ, หรือฐานใหม่จาก poll)
                 let uitestFeedbackId = UserDefaults.standard.integer(forKey: "uitestFeedback")
                 if uitestFeedbackId > 0 { feedbackCheckpoint = FeedbackTarget(id: uitestFeedbackId) }
+                // บังคับ gate ขึ้นตรง ๆ — ทางเข้าจริงต้องให้ staff สแกนฐานจริง (หรือเดินครบทุกฐาน
+                // สำหรับ event) ซึ่งสร้างจากที่นี่ไม่ได้เลย · คู่กับ `-uitestDemo` เพราะฟอร์มอ่านชื่อฐาน
+                // จาก progress ที่โหลดมาจริง ไม่ได้อ่านจากของจำลองข้างล่าง
+                //
+                // ของจำลองใส่แค่ `checkpointId` ให้ครบชนิด — ฟิลด์อื่นไม่มีใครอ่าน (id ของ
+                // `FeedbackGateItem` ใช้เลขฐานตัวเดียว ส่วนหน้าตาในฟอร์มมาจาก `progress.item(...)`)
+                let uitestGateBaseId = UserDefaults.standard.integer(forKey: "uitestGateBase")
+                if uitestGateBaseId > 0 {
+                    uitestGateState = .base(CheckinProgressItem(
+                        checkpointId: uitestGateBaseId, name: "", activityName: nil, sequence: nil,
+                        at: "", answered: false, rating: nil, comment: nil))
+                }
+                if UserDefaults.standard.bool(forKey: "uitestGateEvent") { uitestGateState = .event }
                 // เปิดจอสถานะ SOS ตรงๆ พร้อมเคสจำลองหนึ่งใบ — ทางเข้าจริงคือ "กดปุ่มค้าง 3 วินาที"
                 // ซึ่งถ่ายไม่ได้เลยในสภาพแวดล้อมนี้ (ไม่มี tap tooling) · จอนี้เป็นจอที่เคยขังผู้รีวิว
                 // ไว้ออกไม่ได้ ปุ่ม "ย่อลง" ที่เพิ่งเพิ่มจึงต้องมีสกรีนช็อตยืนยันว่ามันโผล่จริง
@@ -238,6 +259,22 @@ struct MainTabView: View {
                 // เพราะจอสถานะเต็มจอจะขึ้นมาทับบัตรทันที
                 if UserDefaults.standard.bool(forKey: "uitestSOSActive") {
                     sos.raiseForScreenshot()
+                }
+                // เคสจำลองแบบ **หน่วงเวลา** — เปิดจอสถานะหลังจอแรกวาดเสร็จไปแล้ว ไม่ใช่ตอน mount
+                //
+                // มีเพราะ `-uitestSOSStatus` ข้างบนพิสูจน์สิ่งที่ต้องพิสูจน์ไม่ได้ตั้งแต่ Task 5: gate
+                // ให้คะแนนเป็น fullScreenCover ที่ยึดจออยู่ก่อน จอสถานะจึงต้องซ้อน cover ขึ้นไป
+                // **อีกชั้น** ซึ่งเป็นท่าที่ SwiftUI ทำได้เฉพาะเมื่อผูก cover ไว้กับ view ที่อยู่ใน
+                // cover ชั้นแรก (ดู FeedbackGateScreen) — ตั้งธงพร้อมกันตอน mount ไม่ได้แยกแยะว่า
+                // ตัวไหนเป็นคนเปิด และไม่ใช่ลำดับเดียวกับของจริง (กดค้าง 3 วิ ตอน gate ขึ้นค้างอยู่แล้ว)
+                // เหตุผลเดียวกับที่ `-uitestTabSequence` ต้องมีทั้งที่ `-uitestTab` มีอยู่แล้ว
+                let sosStatusDelay = UserDefaults.standard.double(forKey: "uitestSOSStatusDelay")
+                if sosStatusDelay > 0 {
+                    Task {
+                        try? await Task.sleep(for: .seconds(sosStatusDelay))
+                        sos.raiseForScreenshot()
+                        showSOSStatus = true
+                    }
                 }
                 // จำลอง "แตะสลับแท็บ" แบบ headless (ไม่มี tap tooling ในสภาพแวดล้อมนี้) ใช้ verify การสลับแท็บ
                 // "จริง" ในโปรเซสเดียวกัน ต่างจาก -uitestTab (ตั้งค่าเริ่มต้นตอน launch เท่านั้น) ตรงที่นี่คือ
@@ -506,6 +543,26 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $showSOSStatus) {
             SOSStatusView(store: sos, token: session.token ?? "")
         }
+        // **gate ให้คะแนน — จอที่ยึดหน้าจอไว้จนกว่าจะตอบ** (สเปก 2026-08-26, ยกจาก Android)
+        //
+        // ผูก item กับ `Binding(get:set:)` ที่ **เพิกเฉย setter** โดยตั้งใจ: gate เกิดและดับด้วย
+        // ข้อมูลอย่างเดียว (progress รอบใหม่บอกว่าฐานนั้นตอบแล้ว / server บอกว่าตอบทั้งงานแล้ว /
+        // ผู้ใช้กดข้ามหลังส่งพัง) ไม่ใช่ด้วยการปิดจอ — เขียน setter ให้ทำอะไรสักอย่างเมื่อไหร่
+        // ก็เท่ากับเปิดทางหนีที่ไม่มีในสเปกทันที · `fullScreenCover` ไม่มีปุ่มระบบให้ปัดหนีอยู่แล้ว
+        // `.interactiveDismissDisabled()` ติดไว้เป็นชั้นที่สอง (และเป็นคำประกาศเจตนาให้คนอ่านโค้ด)
+        //
+        // แนบ environmentObject ครบสี่ตัวด้วยเหตุผลเดียวกับ `.sheet(item: $feedbackCheckpoint)`
+        // ข้างบน — `feedback` เป็น @StateObject ของไฟล์นี้ ไม่มีใครใส่ไว้ใน environment ให้
+        .fullScreenCover(item: Binding(get: { feedbackGate }, set: { _ in })) { item in
+            FeedbackGateScreen(item: item, sos: sos, token: session.token ?? "",
+                               showSOSStatus: $showSOSStatus,
+                               onEventDone: { eventFeedbackDismissed = true })
+                .interactiveDismissDisabled()
+                .environmentObject(session)
+                .environmentObject(progress)
+                .environmentObject(checkpoints)
+                .environmentObject(feedback)
+        }
         // จออธิบายก่อนกล่องขอสิทธิ์ตำแหน่ง · **ปัดทิ้งไม่ได้แล้ว** (ตัวจอเป็นคนปิดเองด้วย
         // `interactiveDismissDisabled` ดูเหตุผลเต็มที่ `LocationPrimerSheet`) — เดิมตั้งใจให้
         // ปัดทิ้งได้เพราะการบังคับตอบทำให้คนกด "ไม่อนุญาต" แต่ Guideline 5.1.1(iv) ตีกลับ
@@ -609,6 +666,31 @@ struct MainTabView: View {
     /// toast เช็คอินได้ตามปกติ ไม่ใช่ถูกกันไว้เพราะบังเอิญ tab เท่ากับ 3
     private var canShowCheckinToast: Bool {
         !chatVisible && !showNotifications && feedbackCheckpoint == nil && chat.incoming == nil
+    }
+
+    /// ฟอร์มที่ gate ต้องยึดจอตอนนี้ (nil = ปล่อยแอปทำงานปกติ) — **คำนวณสดจาก progress ทุกครั้ง
+    /// ไม่ใช่ @State ที่ต้องมีคนคอยตั้ง** จอจึงปิดตัวเองทันทีที่ข้อมูลเปลี่ยน ไม่ว่าข้อมูลจะมาจาก
+    /// ทางไหน (ส่งฟอร์มเสร็จ, push `.checkinFeedbackArrived`, poll, หรือกลับมา foreground)
+    /// และไม่มีสถานะ "gate เปิดอยู่" ให้ค้างไม่ตรงกับความจริงได้เลย
+    private var feedbackGate: FeedbackGateItem? {
+        #if DEBUG
+        // แฟลกสกรีนช็อตชนะของจริง — ดูชุด `-uitestGate*` ใน `.task` (ต้องอยู่ **เหนือ** ด่านโหมดเดโม่
+        // ข้างล่าง เพราะสกรีนช็อตของ gate ทุกใบถ่ายในโหมดเดโม่)
+        if let uitestGateState { return FeedbackGateItem(state: uitestGateState) }
+        #endif
+        // **โหมดเดโม่ไม่มี gate — ไม่ใช่เพราะขี้เกียจทำให้รองรับ แต่เพราะที่นั่นมันปล่อยจอไม่ได้เลย**
+        // gate ปิดตัวเองด้วยข้อมูลอย่างเดียว (server ตอบว่า answered แล้ว) แต่ข้อมูลของโหมดเดโม่เป็น
+        // ค่าคงที่: `DemoData.progress` มีฐานสุดท้ายที่ยัง `answered: false` อยู่เสมอ และ
+        // `submitFeedback` ก็คืน `.saved` โดยไม่มีอะไรเปลี่ยน — ตอบฟอร์มจนจบแล้ว progress รอบใหม่
+        // ยังบอกเหมือนเดิม gate จึงเด้งกลับมาซ้ำไม่รู้จบ (ยืนยันด้วยการรันจริงตอน Task 5)
+        //
+        // ผลที่ตามมาถ้าไม่กันไว้มีสองชั้น: สกรีนช็อตชุด App Store ทุกใบถ่ายในโหมดนี้ (ถ่ายไม่ได้อีกเลย)
+        // และถ้าวันไหนปุ่ม "ดูตัวอย่างแอป (Demo)" ถูกเอากลับมาตอบ Guideline 2.1 (ดู `LoginView` —
+        // เป็นทางแก้ที่ตั้งไว้เผื่อบัญชีรีวิวล่ม) ผู้ตรวจจะเข้าแอปมาเจอฟอร์มที่ปิดไม่ได้ทันที
+        // = ตีกลับแน่นอน · **ไม่ได้กันด้วย `#if DEBUG`** ด้วยเหตุผลข้อหลังนี้
+        if DemoMode.active { return nil }
+        return FeedbackGateItem(state: FeedbackGateState.decide(progress: progress.progress,
+                                                                eventDismissed: eventFeedbackDismissed))
     }
 
     /// มาร์คแจ้งเตือนขอความเห็นของฐานนี้ว่าอ่านแล้ว — เส้นทาง push พาเข้าฟอร์มตรงๆ ไม่ผ่าน

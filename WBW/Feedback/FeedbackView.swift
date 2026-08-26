@@ -81,7 +81,7 @@ struct FeedbackView: View {
                         .contentColumn(.form)
                 }
             }
-            .navigationTitle(Text("feedback_title"))
+            .navigationTitle(Text(navTitleKey))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // blocking = gate เต็มจอ ไม่มีทางปิดเอง (ถอยเองเมื่อข้อมูลเปลี่ยนหรือกดข้ามในฟอร์ม)
@@ -94,6 +94,16 @@ struct FeedbackView: View {
         }
         .onAppear {
             syncFromServerIfNeeded()
+            #if DEBUG
+            // ถ่ายจอ ".event ส่งไม่สำเร็จ" ตรง ๆ — สาขานี้เกิดจากผลของเน็ตเท่านั้น และในโหมดเดโม่
+            // (ทางเดียวที่ถ่ายรูปได้) `submitEventFeedback` คืน `.saved` เสมอ จึงไม่มีทางเห็นปุ่ม
+            // "ข้ามไปก่อน" ด้วยวิธีอื่นเลย — ท่าเดียวกับ `-uitestNotiLoadFailed` (กติกาข้อ 8: จอที่
+            // ทำใหม่ต้องมีรูปยืนยัน) · ตั้งทั้งสองธงให้ตรงกับหลังกดส่งจริงแล้วพัง ไม่ใช่แค่ปุ่มโผล่
+            if case .event = kind, UserDefaults.standard.bool(forKey: "uitestGateEventFailed") {
+                eventSendFailed = true
+                sendError = Loc.t("feedback_send_failed")
+            }
+            #endif
             if case .base(let checkpointId) = kind {
                 // จองฐานนี้ไว้ตลอดที่ฟอร์มเปิด — กัน flush ส่ง draft เก่าของฐานเดียวกันขึ้นไปลับหลัง
                 // แล้วคำตอบจริงจาก server ย้อนกลับมาทับสิ่งที่ผู้ใช้กำลังพิมพ์ (ดู FeedbackStore.editingCheckpoint)
@@ -169,6 +179,20 @@ struct FeedbackView: View {
         // การ์ดใบนี้ไม่ใช่ "กระดาษ" แบบบัตรผู้เข้าร่วม จึงต้องเดินตามธีมเหมือนการ์ดใบอื่น
         .background(Color.wbwSurface, in: RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.wbwInk.opacity(0.07), lineWidth: 1))
+    }
+
+    /// หัวแถบบน — **`.event` ใช้ "ประเมินฐาน" ไม่ได้** (พบตอนถ่ายสกรีนช็อต gate ใน Task 5): คนที่เดิน
+    /// ครบทุกฐานแล้วจะเจอจอที่พาดหัวว่ากำลังให้คะแนน "ฐาน" ทั้งที่ในฟอร์มไม่มีฐานไหนให้พูดถึงเลย
+    ///
+    /// ใช้คีย์เดียวกับหัวการ์ด (`feedback_event_name`) แทนที่จะแต่งคำใหม่ — ถ้อยคำของฟอร์มนี้ต้อง
+    /// ตรงกับ Android คำต่อคำ (ผู้จัดรวมคะแนนสองแอปเป็นชุดเดียว) คำที่ประดิษฐ์ขึ้นเองฝั่ง iOS
+    /// ฝั่งเดียวคือคำที่ไม่มีคู่ · ซ้ำกับหัวการ์ดโดยตั้งใจ: แถบบนแบบ `.inline` ยังอยู่ตอนเลื่อนลง
+    /// ส่วนหัวการ์ดเลื่อนหายไปกับการ์ด
+    private var navTitleKey: LocalizedStringKey {
+        switch kind {
+        case .base: return "feedback_title"
+        case .event: return "feedback_event_name"
+        }
     }
 
     /// หัวการ์ด — `.base` โชว์ชื่อฐาน (+ ชื่อกิจกรรมถ้ามี) เหมือนเดิม `.event` ไม่มีฐานให้โชว์

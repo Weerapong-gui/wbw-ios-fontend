@@ -85,4 +85,27 @@ final class FeedbackGateStateTests: XCTestCase {
         let p = CheckinProgress(total: 1, checkedIn: [item(1, answered: true, at: "a")])
         XCTAssertNil(FeedbackGateState.decide(progress: p, eventDismissed: true))
     }
+
+    // ===== FeedbackGateItem — ตัวห่อให้ .fullScreenCover(item:) =====
+
+    /// **id ต้องเปลี่ยนตามฐาน** — ตอบฐานแรกเสร็จแล้วฐานถัดไปขึ้นแทนที่ในคราวเดียว (cover ไม่ได้ปิด
+    /// ระหว่างกลาง) ถ้า id เท่ากัน SwiftUI ถือว่าเป็น view เดิม @State ข้างใน (rating/comment/sent)
+    /// ไม่รีเซ็ต = คะแนนที่พิมพ์ให้ฐาน A ไหลเข้าฟอร์มฐาน B — กับดักเดียวกับที่ Android จดไว้ที่
+    /// viewModel(key:) และที่ .sheet(item:) ของ MainTabView ต้องใส่ .id(target.id) ด้วยเหตุผลเดียวกัน
+    func testItemIdIsPerCheckpoint() {
+        let a = FeedbackGateItem(state: .base(item(1, answered: false, at: "a")))
+        let b = FeedbackGateItem(state: .base(item(2, answered: false, at: "b")))
+        XCTAssertEqual(a?.id, "base-1")
+        XCTAssertNotEqual(a?.id, b?.id, "คนละฐานต้องได้ id คนละตัว ไม่งั้นฟอร์มไม่ถูกสร้างใหม่")
+    }
+
+    /// event มีได้ครั้งเดียวทั้งงาน — id คงที่ ไม่ผูกกับฐานไหน
+    func testEventItemHasStableId() {
+        XCTAssertEqual(FeedbackGateItem(state: .event)?.id, "event")
+    }
+
+    /// nil เข้า nil ออก — "ไม่มี gate" ต้องไม่กลายเป็น item ที่เปิดจอเปล่า
+    func testNoStateMeansNoItem() {
+        XCTAssertNil(FeedbackGateItem(state: nil))
+    }
 }
