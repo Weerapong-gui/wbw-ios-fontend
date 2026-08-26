@@ -19,6 +19,8 @@ struct Map2DView: View {
     @Binding var selectedSequence: Int?
     /// พิกัดผู้ใช้จาก `Map3DLocation` ที่ `Map3DScreen` เป็นเจ้าของ — ผ่านประตูกันโหมดเดโม่มาแล้ว
     let userCoordinate: CLLocationCoordinate2D?
+    /// เดินมาแล้วกี่เมตรตามเส้น — nil = ยังไม่เริ่มเดิน/ยังจับตำแหน่งบนเส้นไม่ได้ (วาดเส้นเต็มแบบเดิม)
+    var walkedMetres: Double?
 
     @EnvironmentObject private var progress: CheckinProgressStore
 
@@ -36,9 +38,34 @@ struct Map2DView: View {
                 MapPolyline(coordinates: route.coordinates)
                     .stroke(Color.wbwForestVoid, style: StrokeStyle(lineWidth: 9,
                                                                     lineCap: .round, lineJoin: .round))
-                MapPolyline(coordinates: route.coordinates)
-                    .stroke(Color.wbwGreen, style: StrokeStyle(lineWidth: 5,
-                                                               lineCap: .round, lineJoin: .round))
+
+                // **เส้นแยกสองท่อนที่ตำแหน่งคนเดิน** (ยกจาก `2c760c6` ของ Android): ข้างหลังหรี่
+                // ข้างหน้าสว่าง — สำนวนเดียวกับแอปนำทาง ที่ตอบคำถามเดียวที่คนถามกลางเนิน
+                // คือ "เหลืออีกเท่าไร" · ยังไม่เดิน (nil) = เส้นเต็มเส้นเดียวแบบเดิม เพราะเส้นที่
+                // ไม่มีใครเดินห้ามเคลมความคืบหน้า · ชั้นรองพื้นด้านบนยังเป็นเส้นเต็มเสมอ
+                // ไม่งั้นรอยต่อจะเห็นเป็นสองเส้นซ้อนคนละความยาว
+                if let walkedMetres {
+                    let split = route.splitAt(walkedMetres)
+                    if split.walked.count >= 2 {
+                        // **เทาอ่อน ไม่ใช่เขียวจาง** — ท่าเดียวกับแอปนำทางทุกตัว (ผ่านแล้วเป็นเทา
+                        // ข้างหน้าเป็นสีของแอป) · เคยลองเขียวหรี่ที่ opacity 0.4 แล้ว 0.55 ทั้งสองรอบ
+                        // ท่อนที่เดินแล้วจมหายไปกับชั้นรองพื้นเกือบดำจนเหลือแต่ขอบ (เห็นจากสกรีนช็อตจริง
+                        // สองใบ) — สีโปร่งบนพื้นเข้มยิ่งจาง ยิ่งเข้ม ไม่ใช่ยิ่งซีด · เทาอ่อนทึบตัดกับ
+                        // ภาพดาวเทียมป่าเขียวเข้มได้ และไม่ไปแย่งสายตากับท่อนข้างหน้าที่ยังต้องเดิน
+                        MapPolyline(coordinates: split.walked)
+                            .stroke(Color.white.opacity(0.5),
+                                    style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                    }
+                    if split.remaining.count >= 2 {
+                        MapPolyline(coordinates: split.remaining)
+                            .stroke(Color.wbwGreen, style: StrokeStyle(lineWidth: 5,
+                                                                       lineCap: .round, lineJoin: .round))
+                    }
+                } else {
+                    MapPolyline(coordinates: route.coordinates)
+                        .stroke(Color.wbwGreen, style: StrokeStyle(lineWidth: 5,
+                                                                   lineCap: .round, lineJoin: .round))
+                }
 
                 // จุดเริ่มทึบ จุดจบเป็นวง — การอ่านแบบที่ใช้กันทั่วไป และยังอ่านออกตอนไม่มีป้ายกำกับ
                 Annotation(Loc.t("map_route_start"), coordinate: route.start) {

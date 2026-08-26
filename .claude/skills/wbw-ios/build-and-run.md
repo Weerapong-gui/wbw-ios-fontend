@@ -104,6 +104,7 @@ xcrun simctl io booted screenshot /tmp/wbw.png
 | `-uitestNotiLoadFailed` | flag | บังคับหน้าประกาศให้แสดงสาขา "ยิงไม่ถึงเซิร์ฟเวอร์" (มีปุ่มลองใหม่) — ตัดเน็ตของซิมจากข้างนอกทำไม่ได้ | `-uitestNotifications` |
 | `-uitestCredits` | flag | เปิดหน้าเครดิต/สัญญาอนุญาตตรงๆ (จากหน้าตั้งค่า) — หน้านี้เป็นเงื่อนไขสัญญาอนุญาต ต้องถ่ายให้เห็นจริงได้ | `-uitestProfile` + `-uitestSettings` |
 | `-uitestMapHeading <องศา>` | int | ทับมุมกล้อง yaw ของแผนที่ 3D ชั่วคราว | `-uitestTab 1` |
+| `-uitestWalkedMetres <เมตร>` | double | ทับระยะที่เดินมาแล้วบนเส้น — แผนที่ 2D วาดท่อนที่ผ่านแล้วเป็นเทา ท่อนที่เหลือเป็นเขียว (เดินจริงบนซิมไม่ได้) | `-uitestTab 1` + โหมด 2D |
 | `-uitestMapPitch <องศา>` | int | ทับมุมเงยกล้องของแผนที่ 3D ชั่วคราว (ปิด intro ไปด้วย) | `-uitestTab 1` |
 | `-uitestMapDistance <ร้อยเท่า>` | int | ทับระยะกล้อง — `80` = 0.8 (ซูมเข้าสุด), `400` = 4.0 (ออกสุด) | `-uitestTab 1` |
 | `-uitestMapPin <n>` | int > 0 | บังคับให้การ์ดฐานที่ n เปิดตรงๆ บนแผนที่ (ทำงานทั้งโหมด 3 มิติและ 2 มิติ) | `-uitestTab 1` |

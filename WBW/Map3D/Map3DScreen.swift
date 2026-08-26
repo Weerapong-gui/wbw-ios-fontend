@@ -93,6 +93,19 @@ struct Map3DScreen: View {
     /// ทับค่า cameraFramingYaw ชั่วคราวตอนถ่ายเทียบมุม (ตั้งผ่าน -uitestMapHeading, DEBUG เท่านั้น)
     @State private var headingOverride: Float?
 
+    /// ระยะที่เดินมาแล้วบนเส้น ที่ส่งให้แผนที่ 2 มิติวาดเส้นสองท่อน
+    ///
+    /// ปกติมาจาก `walk.stats.routeMetres` ตรง ๆ · `-uitestWalkedMetres` ทับได้ตอนถ่ายรูป
+    /// เพราะเดินจริงบนซิมูเลเตอร์ไม่ได้ (ทรงเดียวกับ `-uitestMapHeading` ด้านบน)
+    private var walkedMetresForMap: Double? {
+        #if DEBUG
+        if UserDefaults.standard.object(forKey: "uitestWalkedMetres") != nil {
+            return UserDefaults.standard.double(forKey: "uitestWalkedMetres")
+        }
+        #endif
+        return walk.stats.routeMetres
+    }
+
     /// จุดที่กล้องจ้องอยู่ — `.zero` = กลางแผนที่ตามปกติ · ตำแหน่งหมุด = กำลังโฟกัสฐานนั้น
     ///
     /// เดิมกล้อง `look(at: .zero)` ตายตัว การหมุนวนรอบฐานจึงเป็นไปไม่ได้เลยไม่ว่าจะตั้ง yaw ยังไง
@@ -150,7 +163,8 @@ struct Map3DScreen: View {
 
             if mode == .flat {
                 Map2DView(selectedSequence: $tappedSequence,
-                          userCoordinate: location.coordinate)
+                          userCoordinate: location.coordinate,
+                          walkedMetres: walkedMetresForMap)
                 if let tappedSequence {
                     MapBaseCard(sequence: tappedSequence, userLocation: location.coordinate,
                                 onClose: { self.tappedSequence = nil })

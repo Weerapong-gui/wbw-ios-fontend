@@ -96,4 +96,45 @@ final class WalkMathTests: XCTestCase {
         XCTAssertEqual(WalkMath.stepsText(0), "0")
         XCTAssertEqual(WalkMath.stepsText(1683), "1683")
     }
+
+    // MARK: - ความคืบหน้าบนเส้นทาง (เส้น fill บนแผนที่ — port จาก 2c760c6 ของ Android)
+
+    private func straightRoute(_ metres: Double) -> TrailRoute {
+        let mPerDeg = 111_320.0
+        let points = (0...Int(metres / 10)).map {
+            CLLocationCoordinate2D(latitude: Double($0) * 10 / mPerDeg, longitude: 0)
+        }
+        return TrailRoute(coordinates: points, distanceMetres: Int(metres))
+    }
+
+    /// ตัวห่อที่ tracker เรียกจริง — กติกา "ถือค่าเดิมไว้เสมอเมื่อตอบไม่ได้" อยู่ตรงนี้
+    /// (progressFrom คืน nil ตอน off-route · ไม่มีเส้น = ไม่มีอะไรให้วัด)
+    func testRouteProgressKeepsThePreviousValueWhenOffRoute() {
+        let route = straightRoute(1_000)
+        let off = CLLocationCoordinate2D(latitude: 400 / 111_320.0, longitude: 300 / 111_320.0)
+        XCTAssertEqual(WalkMath.routeProgress(previous: 400, route: route, at: off), 400,
+                       "หลุดเส้น = ถือค่าเดิม ไม่ใช่รีเซ็ตหรือเดามั่ว")
+    }
+
+    func testRouteProgressIsNilWithoutARouteOrAFix() {
+        let off = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+        XCTAssertNil(WalkMath.routeProgress(previous: nil, route: nil, at: off),
+                     "ไม่มีเส้นให้วัด = ไม่มีความคืบหน้า ไม่ใช่ศูนย์")
+        XCTAssertEqual(WalkMath.routeProgress(previous: 250, route: nil, at: off), 250)
+    }
+
+    func testRouteProgressAcquiresOnFirstFixThenAdvances() {
+        let route = straightRoute(1_000)
+        let mPerDeg = 111_320.0
+        let first = WalkMath.routeProgress(
+            previous: nil, route: route,
+            at: CLLocationCoordinate2D(latitude: 300 / mPerDeg, longitude: 0))
+        XCTAssertNotNil(first)
+        XCTAssertEqual(first!, 300, accuracy: 15)
+
+        let second = WalkMath.routeProgress(
+            previous: first, route: route,
+            at: CLLocationCoordinate2D(latitude: 450 / mPerDeg, longitude: 0))
+        XCTAssertEqual(second!, 450, accuracy: 15)
+    }
 }

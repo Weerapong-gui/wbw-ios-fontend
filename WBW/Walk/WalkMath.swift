@@ -65,6 +65,21 @@ enum WalkMath {
         return moved >= minMoveMetres ? moved : nil
     }
 
+    /// เดินมาแล้วกี่เมตร**ตามเส้นทางของงาน** — ต่างจาก `distanceMetres` ที่นับทุกก้าวรวมทางแวะ
+    ///
+    /// ตัวห่อของ `TrailRoute.progressFrom` ที่ถือกติกา "ตอบไม่ได้ = ถือค่าเดิม" ไว้ที่เดียว:
+    /// หลุดออกนอกเส้น (คนแวะจุดชมวิว/fix เพี้ยนใต้ร่มไม้) เส้นบนแผนที่ต้องค้างอยู่ที่เดิม
+    /// ไม่ใช่ดีดกลับไปจุดเริ่ม · ยังไม่มีเส้น (ไฟล์อ่านไม่ออก) = ไม่มีความคืบหน้าให้พูดถึง
+    ///
+    /// ค่าแรกของรอบส่ง `previous: nil` — `progressFrom` จะค้นทั้งเส้น เพราะคนมา join
+    /// กลางทางได้จริง (ดูเหตุผลเต็มที่ `TrailRoute.progressFrom`)
+    static func routeProgress(previous: Double?,
+                              route: TrailRoute?,
+                              at coordinate: CLLocationCoordinate2D) -> Double? {
+        guard let route else { return previous }
+        return route.progressFrom(previous ?? -1, coordinate: coordinate) ?? previous
+    }
+
     /// ไล่เฉลี่ยความเร็วแบบ exponential — ค่าดิบจาก GPS กระโดดจนอ่านไม่ทัน
     static func smoothSpeed(previous: Double, sample: Double) -> Double {
         let clean = max(sample, 0)   // GPS คืน -1 ตอนวัดความเร็วไม่ได้

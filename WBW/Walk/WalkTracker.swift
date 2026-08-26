@@ -156,6 +156,13 @@ final class WalkTracker: NSObject, ObservableObject, CLLocationManagerDelegate {
 
         stats.speedMps = WalkMath.smoothSpeed(previous: stats.speedMps, sample: fix.speed)
 
+        // อัพเดตความคืบหน้าบนเส้น **ทุก fix ที่เชื่อถือได้** ไม่ผูกกับเกณฑ์ขยับหมุดด้านล่าง —
+        // คนยืนนิ่งรอเพื่อนที่ฐาน fix ใหม่ยังทำให้ตำแหน่งบนเส้นแม่นขึ้นได้ ขณะที่ระยะสะสม
+        // ต้องไม่ขยับ (ดูคอมเมนต์ที่ `WalkMath.advance`) — สองเลขนี้คนละเรื่องกัน
+        stats.routeMetres = WalkMath.routeProgress(previous: stats.routeMetres,
+                                                   route: TrailRoute.bundled,
+                                                   at: fix.coordinate)
+
         guard let anchor else {
             self.anchor = fix
             return
