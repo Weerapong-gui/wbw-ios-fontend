@@ -36,6 +36,20 @@ final class ChatRowTests: XCTestCase {
         XCTAssertEqual(days.count, 2)
     }
 
+    /// **กรองคนถูกบล็อกก่อนแล้วค่อยสร้างแถว** (ลำดับเดียวกับที่ GroupChatView.rows ทำจริง) —
+    /// วันที่เหลือแต่ข้อความของคนถูกบล็อกต้องไม่มีป้ายวันลอยค้างโดยไม่มีข้อความตามหลัง
+    func testDayWithOnlyBlockedMessagesLeavesNoStrandedDayPill() {
+        let messages = [
+            msg(1, "bad", date("2026-07-30T09:00:00+07:00")),      // ทั้งวัน 30 เป็นของคนถูกบล็อก
+            msg(2, "friend", date("2026-07-31T09:00:00+07:00")),
+        ]
+        let rows = ChatRowBuilder.build(ChatModeration.visible(messages, blocked: ["bad"]),
+                                        myLastReadId: 99, myId: me, calendar: cal)
+        let days = rows.filter { if case .day = $0 { return true } else { return false } }
+        XCTAssertEqual(days.count, 1, "วันที่มองไม่เห็นสักข้อความต้องไม่มีป้ายวัน")
+        XCTAssertEqual(rows.count, 2, "เหลือป้ายวันเดียว + ข้อความเดียว")
+    }
+
     func testSameDayProducesOneDayPill() {
         let rows = ChatRowBuilder.build([
             msg(1, "a", date("2026-07-31T09:00:00+07:00")),

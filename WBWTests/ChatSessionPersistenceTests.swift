@@ -164,9 +164,43 @@ final class ChatSessionPersistenceTests: XCTestCase {
         XCTAssertNotNil(chat.incoming)
     }
 
+    /// **ข้อความที่เราส่งเองวนกลับมาทาง long-poll ต้อง promote แถว pending เดิม ไม่ใช่เพิ่มแถวใหม่**
+    ///
+    /// นี่คือทางเดินปกติของทุกข้อความที่ส่งสำเร็จ: optimistic insert (serverId nil) → POST →
+    /// sync รอบถัดไปส่งแถวเดียวกันกลับมาพร้อม server id — regression ตรงนี้คือข้อความตัวเอง
+    /// ขึ้นซ้ำสองฟองทุกครั้งที่ส่ง และไม่เคยมีเทสจับสาขานี้เลย (เทส dedupe เดิมจับเฉพาะแถว
+    /// ที่ .sent ไปแล้ว)
+    func testMergePromotesMyPendingMessageInsteadOfDuplicatingIt() {
+        let chat = ChatSession()
+        chat.testSetup(groupId: 1, myId: "me", context: makeContext())
+        chat.send("สวัสดี", senderName: "ฉัน")   // token ว่าง — flush ที่ send จุดไว้จบเงียบ ไม่แตะเน็ต
+        let cid = chat.messages.first?.clientId ?? ""
+        XCTAssertNil(chat.messages.first?.serverId)
+
+        let echoed = MessageDTO(id: "42", groupId: 1, senderId: "me", clientId: cid,
+                                body: "สวัสดี", deviceTime: nil,
+                                createdAt: "2026-08-24T09:00:01.000Z", firstName: "ฉัน", lastName: nil)
+        _ = chat.merge([echoed], groupId: 1)
+
+        XCTAssertEqual(chat.messages.count, 1, "ต้องยุบเข้าแถวเดิม ไม่ใช่กลายเป็นสองฟอง")
+        XCTAssertEqual(chat.messages.first?.serverId, 42)
+        XCTAssertEqual(chat.messages.first?.state, .sent)
+    }
+
     // ===== purgeForLogout() =====
 
     func testPurgeForLogoutRemovesMessagesAcrossAllGroupsAndClearsAllChatDefaults() {
+        // purgeForLogout กวาด UserDefaults.standard จริงทั้งเครื่อง: ทุกคีย์ `chat.*` +
+        // blocklist ทุก scope — สแนปของที่คลาสอื่น (เช่น ChatModerationTests) ฝากไว้แล้วคืน
+        // ให้หลังเทส ไม่งั้นลำดับการรันข้ามคลาสตัดสินว่าใครแดง
+        let defaults = UserDefaults.standard
+        let swept = defaults.dictionaryRepresentation().filter {
+            $0.key.hasPrefix("chat.") || $0.key.hasPrefix(BlockedUsers.keyPrefix)
+        }
+        addTeardownBlock {
+            for (key, value) in swept { defaults.set(value, forKey: key) }
+        }
+
         let context = makeContext()
         let chat = ChatSession()
         chat.testSetup(groupId: 1, context: context)

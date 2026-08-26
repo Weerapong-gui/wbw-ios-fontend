@@ -21,6 +21,11 @@ final class ChatSendTransportTests: XCTestCase {
         nonisolated(unsafe) static var status = 201
         nonisolated(unsafe) static var body = Data()
         nonisolated(unsafe) static var requestCount = 0
+        /// body ของทุก POST ที่ผ่าน stub เรียงตามเวลา — ใช้พิสูจน์ลำดับการ flush คิว
+        /// (URLProtocol เห็น request เป็น httpBodyStream ไม่ใช่ httpBody — ต้องอ่านจาก stream)
+        nonisolated(unsafe) static var capturedBodies: [Data] = []
+        /// ตั้งค่าแล้ว stub จะจำลอง "เน็ตล่ม" — request ล้มด้วย error ไม่มี HTTP response เลย
+        nonisolated(unsafe) static var failsWithError = false
 
         override class func canInit(with request: URLRequest) -> Bool {
             request.url?.path.hasSuffix("/messages") == true
@@ -30,6 +35,23 @@ final class ChatSendTransportTests: XCTestCase {
 
         override func startLoading() {
             Self.requestCount += 1
+            if let stream = request.httpBodyStream {
+                var data = Data()
+                stream.open()
+                let size = 4096
+                let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
+                defer { buffer.deallocate(); stream.close() }
+                while stream.hasBytesAvailable {
+                    let read = stream.read(buffer, maxLength: size)
+                    guard read > 0 else { break }
+                    data.append(buffer, count: read)
+                }
+                Self.capturedBodies.append(data)
+            }
+            if Self.failsWithError {
+                client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+                return
+            }
             let resp = HTTPURLResponse(url: request.url!, statusCode: Self.status,
                                        httpVersion: "HTTP/1.1",
                                        headerFields: ["Content-Type": "application/json"])!
@@ -59,6 +81,8 @@ final class ChatSendTransportTests: XCTestCase {
         StubURLProtocol.status = 201
         StubURLProtocol.body = Self.createdBody(clientId: "c1")
         StubURLProtocol.requestCount = 0
+        StubURLProtocol.capturedBodies = []
+        StubURLProtocol.failsWithError = false
     }
 
     override func tearDown() {
@@ -166,6 +190,60 @@ final class ChatSendTransportTests: XCTestCase {
 
         XCTAssertEqual(s.messages.first?.state, .sent)
         XCTAssertEqual(s.messages.first?.serverId, 991)
+    }
+
+    /// **คิวต้องส่งเรียงตามเวลาที่พิมพ์** — สองข้อความที่พิมพ์ติดกันแล้วเน็ตเพิ่งกลับมา
+    /// ห้ามสลับลำดับกันขึ้นจอเพื่อน ไม่งั้นบทสนทนาอ่านกลับหัว
+    @MainActor
+    func testQueuedMessagesAreSentInCompositionOrder() async {
+        let s = session()
+        s.send("หนึ่ง", senderName: "ฉัน")
+        s.send("สอง", senderName: "ฉัน")
+
+        await s.testFlushOutbox()
+
+        let bodies = StubURLProtocol.capturedBodies.map { String(decoding: $0, as: UTF8.self) }
+        XCTAssertEqual(bodies.count, 2)
+        XCTAssertTrue(bodies[0].contains("หนึ่ง"), "ข้อความแรกที่พิมพ์ต้องออกก่อน: \(bodies)")
+        XCTAssertTrue(bodies[1].contains("สอง"))
+    }
+
+    /// **เน็ตล่มกลางคิว = หยุดทันทีและทุกอย่างคง .pending** — ตัวถัดไปห้ามถูกยิงซ้ำเติม
+    /// (ต่างจาก .failed: ไม่มีอะไรผิดที่ตัวข้อความ รอเน็ตกลับมาแล้ว flush รอบหน้าเก็บเอง)
+    @MainActor
+    func testOfflineStopsTheFlushAndKeepsEverythingPending() async {
+        let s = session()
+        StubURLProtocol.failsWithError = true
+        s.send("หนึ่ง", senderName: "ฉัน")
+        s.send("สอง", senderName: "ฉัน")
+
+        await s.testFlushOutbox()
+
+        XCTAssertEqual(s.messages.filter { $0.state == .pending }.count, 2,
+                       "เน็ตล่มต้องไม่ทำให้ใครกลายเป็น .failed")
+        XCTAssertEqual(StubURLProtocol.requestCount, 1,
+                       "ตัวแรกล้มเพราะเน็ต ตัวที่สองต้องไม่ถูกยิงต่อ")
+    }
+
+    /// ปุ่ม retry บนฟอง "ส่งไม่สำเร็จ" — พลิก .failed กลับเป็น .pending แล้วส่งจริงรอบถัดไป
+    /// (`retry` ไม่เคยถูกเรียกในเทสไหนเลยก่อนหน้านี้)
+    @MainActor
+    func testRetryRevivesAFailedMessageAndSendsIt() async {
+        let s = session()
+        StubURLProtocol.status = 413
+        StubURLProtocol.body = Data(#"{"error":"ข้อความยาวเกินไป"}"#.utf8)
+        s.send("ไง", senderName: "ฉัน")
+        await s.testFlushOutbox()
+        XCTAssertEqual(s.messages.first?.state, .failed)
+
+        let cid = s.messages.first?.clientId ?? ""
+        StubURLProtocol.status = 201
+        StubURLProtocol.body = Self.createdBody(clientId: cid)
+        s.retry(s.messages[0])
+        await s.testFlushOutbox()
+
+        XCTAssertEqual(s.messages.first?.state, .sent,
+                       "retry แล้วต้องส่งจริง ไม่ใช่แค่เปลี่ยนไอคอนกลับเป็นนาฬิกา")
     }
 
     /// 503 แล้วเน็ตกลับมาดี — flush รอบถัดไปต้องส่งของเดิมได้ ไม่ใช่ค้างเป็น .failed ถาวร

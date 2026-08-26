@@ -14,7 +14,18 @@ final class Connectivity: ObservableObject {
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "wbw.connectivity")
 
+    #if DEBUG
+    /// เทสหน่วยยิง `apply(online:)` เองอยู่แล้ว — monitor จริงห้ามวิ่งแข่ง: path update จริง
+    /// ของเครื่องโผล่เข้ามากลางเทสได้ทุกเมื่อ (ไวไฟกระตุก, VPN สลับ) แล้วเขียน `online` ทับ
+    /// ค่าที่เทสเพิ่งตั้ง assertion เลยแกว่งทั้งไฟล์โดยไม่เกี่ยวกับโค้ดที่กำลังเทสเลย
+    /// ตั้งก่อนสร้าง instance เท่านั้นถึงมีผล (อ่านครั้งเดียวใน init)
+    nonisolated(unsafe) static var monitoringDisabledForTests = false
+    #endif
+
     init() {
+        #if DEBUG
+        guard !Self.monitoringDisabledForTests else { return }
+        #endif
         monitor.pathUpdateHandler = { [weak self] path in
             let up = path.status == .satisfied
             Task { @MainActor in self?.apply(online: up) }

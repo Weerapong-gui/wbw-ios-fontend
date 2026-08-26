@@ -102,6 +102,19 @@ final class ChatSessionTests: XCTestCase {
         XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 1), Loc.t("chat_sent"))
     }
 
+    /// ขอบ `memberCount == 0` (ยังไม่รู้จำนวนสมาชิก) — pin พฤติกรรมปัจจุบันไว้กันคนแก้พังเงียบ ๆ
+    ///
+    /// readCount > 0 พร้อม memberCount 0 **เกิดไม่ได้ในทางปฏิบัติ**: cursors กับ memberCount
+    /// มากับ sync response ก้อนเดียวกันเสมอ (apply เซ็ตคู่กัน) เปิดจากแคชเย็น ๆ ได้ cursors ว่าง
+    /// = readCount 0 → "ส่งแล้ว" ซึ่งถูก · ที่ pin ไว้คือขา readCount > 0: สูตร max(-1, 0)
+    /// ทำให้ตกขา "อ่านครบ" — ถ้าวันหนึ่ง cursors ถูกแคชแยกจาก memberCount ขึ้นมา ขานี้จะ
+    /// โกหกว่าอ่านครบทั้งที่ไม่รู้ด้วยซ้ำว่ากลุ่มมีกี่คน เทสนี้คือหมุดให้คนที่ทำแบบนั้นมาเจอ
+    func testReadStatusWithUnknownMemberCount() {
+        XCTAssertEqual(ChatReadStatus.text(readCount: 0, memberCount: 0), Loc.t("chat_sent"))
+        XCTAssertEqual(ChatReadStatus.text(readCount: 2, memberCount: 0),
+                       String(format: Loc.t("chat_read_by_all"), 2))
+    }
+
     // ===== สแนปเส้น "ข้อความใหม่" ต้องเกิดก่อน markRead() เสมอ =====
 
     /// เส้น "ข้อความใหม่" คำนวณจากค่านี้ · ถ้าอ่านค่าสดจาก myLastReadId เส้นจะไม่มีวันโผล่

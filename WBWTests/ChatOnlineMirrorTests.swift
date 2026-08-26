@@ -10,6 +10,18 @@ import XCTest
 @MainActor
 final class ChatOnlineMirrorTests: XCTestCase {
 
+    // ปิด NWPathMonitor จริงตลอดคลาสนี้ — เทสยิง apply(online:) เอง monitor จริงที่วิ่งอยู่
+    // เบื้องหลังเขียนค่าทับกลางเทสได้ (path เครื่องเปลี่ยนจริงตอนรัน) ทำให้ assertion แกว่ง
+    override func setUp() {
+        super.setUp()
+        Connectivity.monitoringDisabledForTests = true
+    }
+
+    override func tearDown() {
+        Connectivity.monitoringDisabledForTests = false
+        super.tearDown()
+    }
+
     func testSessionMirrorsConnectivityBothDirections() {
         let s = ChatSession()
         XCTAssertTrue(s.online, "เริ่มต้นต้องถือว่ามีเน็ต ไม่ใช่ขึ้นแบนเนอร์ค้างตอนเปิดแอป")
