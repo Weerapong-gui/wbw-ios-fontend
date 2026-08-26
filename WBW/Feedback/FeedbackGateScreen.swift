@@ -18,8 +18,11 @@ struct FeedbackGateScreen: View {
     /// จอสถานะ SOS ของ `MainTabView` (ตัวเดียวกับที่แท็บบัตรใช้) — ดูคอมเมนต์ที่ `.fullScreenCover`
     /// ข้างล่างว่าทำไมต้องผูก cover ซ้ำตรงนี้ทั้งที่ MainTabView ก็ผูกไว้แล้ว
     @Binding var showSOSStatus: Bool
-    /// `.event` เท่านั้น: ส่งสำเร็จ หรือกด "ข้ามไปก่อน" — `.base` ไม่ใช้ (ดู `onClose` ข้างล่าง)
+    /// `.event`: ส่งสำเร็จ หรือกด "ข้ามไปก่อน"
     let onEventDone: () -> Void
+    /// `.base`: กด "ข้ามไปก่อน" หลัง server ปฏิเสธคำตอบซ้ำ ๆ — ส่งเลขฐานกลับไปให้ `MainTabView`
+    /// จำไว้ในรันนี้ (ดู `onClose` ข้างล่างว่าทำไมทางปกติถึงไม่ต้องใช้ทางนี้)
+    let onBaseSkipped: (Int) -> Void
 
     /// คนที่เปิดตัวเลือกนี้ไว้ต้องได้ขอบจอแดงที่ **นิ่ง** ไม่ใช่เต้น (ดู `SOSPulse`)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -70,11 +73,12 @@ struct FeedbackGateScreen: View {
         }
     }
 
-    /// `.base`: ไม่ทำอะไร — ฟอร์มไม่มีปุ่มปิดอยู่แล้ว (`blocking: true`) และ gate ถอยเองเมื่อ
-    /// `progress` รอบใหม่บอกว่าฐานนี้ตอบแล้ว ไม่ใช่เพราะใครสั่งปิดจอ
+    /// `.base`: ทางปกติของจอนี้ยังปิดด้วยข้อมูลเหมือนเดิม — ตอบแล้วกดส่ง `progress` รอบใหม่
+    /// บอกว่า answered แล้ว gate ถอยเอง ไม่มีใครสั่งปิด · ทางนี้ถูกเรียกทางเดียวคือปุ่ม
+    /// "ข้ามไปก่อน" ซึ่งโผล่เฉพาะหลัง server ปฏิเสธคำตอบแบบถาวร (ดู `FeedbackView.sendFailed`)
     private var onClose: () -> Void {
         switch item.state {
-        case .base: return {}
+        case .base(let base): return { onBaseSkipped(base.checkpointId) }
         case .event: return onEventDone
         }
     }

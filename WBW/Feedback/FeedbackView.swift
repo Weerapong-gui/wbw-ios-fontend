@@ -55,8 +55,13 @@ struct FeedbackView: View {
     /// (ห้ามสร้างใหม่ทุกครั้งที่กดส่งเหมือน `.base` เพราะ event feedback ไม่มี outbox คอย
     /// dedupe ด้วย checkpointId — ถ้า clientId เปลี่ยนทุกครั้ง retry จะกลายเป็นสองแถวที่ server)
     @State private var eventClientId: String?
-    /// true หลังส่ง `.event` แล้วพังแบบถาวร — โผล่ปุ่ม "ข้ามไปก่อน" ให้ผู้ใช้เดินต่อได้โดยไม่ต้องรอ
-    @State private var eventSendFailed = false
+    /// true หลังส่งพังแบบถาวร — โผล่ปุ่ม "ข้ามไปก่อน" ให้ผู้ใช้เดินต่อได้โดยไม่ต้องรอ
+    ///
+    /// **ใช้ทั้งสองโหมดตั้งแต่ 2026-08-27** เดิมมีเฉพาะ `.event` เพราะคิดว่า `.base` ออกได้เสมอ
+    /// (เน็ตหลุด = เข้าคิวแล้วนับว่าตอบ) · ที่ตกหล่นคือขาที่ **server ปฏิเสธคำตอบ** ซ้ำ ๆ —
+    /// 403 ยังไม่เช็คอิน, 400 rating เพี้ยน, 500 — คำตอบไม่ได้เข้าคิว ฟอร์มก็ไม่มีปุ่มปิด
+    /// ผู้ใช้เหลือของที่กดได้บนจอชิ้นเดียวคือปุ่ม SOS ซึ่งไม่ใช่ทางออกที่ควรบังคับให้ใครใช้
+    @State private var sendFailed = false
     @State private var eventSubmitting = false
     private let errorRed = Color(red: 0.84, green: 0.27, blue: 0.27) // แดง — เฉดเดียวกับ NotificationsView (emergency)
 
@@ -80,6 +85,10 @@ struct FeedbackView: View {
                     card.padding(.horizontal, 16).padding(.top, 12)
                         .contentColumn(.form)
                 }
+                // ฟอร์มยาวกว่าหน้าจอ ปุ่มส่งกับปุ่ม "ข้ามไปก่อน" อยู่ครึ่งล่าง — ไม่มีแฟลกนี้
+                // ก็ถ่ายรูปยืนยันไม่ได้เลยว่าทางออกของ gate มีอยู่จริง (ทรงเดียวกับ
+                // `-uitestSettingsBottom` ที่มีไว้ถ่ายปุ่มออกจากระบบ)
+                .modifier(UITestScrollToBottom(flag: "uitestGateBottom"))
             }
             .navigationTitle(Text(navTitleKey))
             .navigationBarTitleDisplayMode(.inline)
@@ -99,8 +108,10 @@ struct FeedbackView: View {
             // (ทางเดียวที่ถ่ายรูปได้) `submitEventFeedback` คืน `.saved` เสมอ จึงไม่มีทางเห็นปุ่ม
             // "ข้ามไปก่อน" ด้วยวิธีอื่นเลย — ท่าเดียวกับ `-uitestNotiLoadFailed` (กติกาข้อ 8: จอที่
             // ทำใหม่ต้องมีรูปยืนยัน) · ตั้งทั้งสองธงให้ตรงกับหลังกดส่งจริงแล้วพัง ไม่ใช่แค่ปุ่มโผล่
-            if case .event = kind, UserDefaults.standard.bool(forKey: "uitestGateEventFailed") {
-                eventSendFailed = true
+            // ใช้ได้ทั้งสองโหมดตั้งแต่ 2026-08-27 — ปุ่ม "ข้ามไปก่อน" ของ `.base` ก็ต้องมีรูปยืนยัน
+            // เหมือนกัน และสาขานั้นเกิดจากคำตอบของ server เท่านั้น (โหมดเดโม่คืน .saved เสมอ)
+            if UserDefaults.standard.bool(forKey: "uitestGateEventFailed") {
+                sendFailed = true
                 sendError = Loc.t("feedback_send_failed")
             }
             #endif
@@ -267,6 +278,15 @@ struct FeedbackView: View {
                         .padding(.top, 10)
                 }
                 sendButton.padding(.top, 14)
+                // **ทางออกของ gate เมื่อ server ไม่ยอมรับคำตอบ** — โผล่เฉพาะตอน blocking และ
+                // เฉพาะหลังส่งพังแบบถาวรจริง ๆ (เน็ตหลุดไม่นับ: คำตอบเข้าคิวแล้ว gate ถอยเอง)
+                //
+                // ในชีตปกติไม่ต้องมี เพราะมีปุ่มปิดบน toolbar อยู่แล้ว · gate ไม่มีปุ่มปิดเลย
+                // ตามดีไซน์ ถ้า server เด้ง 403/400/500 ซ้ำ ๆ ผู้ใช้จะเหลือของที่กดได้ชิ้นเดียว
+                // บนจอคือปุ่ม SOS — ปุ่มแจ้งเหตุฉุกเฉินไม่ใช่ทางออกของฟอร์มที่ส่งไม่ผ่าน
+                if blocking && sendFailed {
+                    giveUpButton.padding(.top, 8)
+                }
             }
         case .event:
             if let sendError {
@@ -278,7 +298,7 @@ struct FeedbackView: View {
             sendButton.padding(.top, 14)
             // โผล่เฉพาะหลังส่งพังแบบถาวร — ปุ่มข้ามไม่ใช่ทางออกเด่นที่ควรมีให้กดตั้งแต่แรก
             // (ฟอร์มนี้เป็นจอสุดท้ายก่อนจบทริป ควรพยายามเก็บคำตอบก่อนเสมอ)
-            if eventSendFailed {
+            if sendFailed {
                 giveUpButton.padding(.top, 8)
             }
         }
@@ -412,9 +432,11 @@ struct FeedbackView: View {
                 // แทนที่จะกลืนเงียบๆ ให้เห็นชัดว่ามีจุดที่ตรรกะพังอยู่ที่ไหนสักที่
                 sent = false
                 sendError = Loc.t("feedback_not_checked_in")
+                sendFailed = true
             case .failed:
                 sent = false
                 sendError = Loc.t("feedback_send_failed")
+                sendFailed = true
             }
             // ทริกเกอร์ที่สองของ outbox ตาม spec (อีกตัวคือ scenePhase == .active) — เพิ่งพิสูจน์ว่า
             // เน็ตเดินอยู่ ของค้างของ "ฐานอื่น" ที่คิวไว้ตอนสัญญาณหายจึงไปได้แล้ว ไม่ต้องรอผู้ใช้สลับ
@@ -455,7 +477,7 @@ struct FeedbackView: View {
             case .notCheckedIn, .failed:
                 // submitEventFeedback ไม่เคยคืน .notCheckedIn จริง (ดูคอมเมนต์ที่ APIClient) แต่ enum
                 // มีสี่ case ต้องครบทุกสาขา — ปฏิบัติเหมือน .failed ถ้าเกิดขึ้นจริงในอนาคต
-                eventSendFailed = true
+                sendFailed = true
                 sendError = Loc.t("feedback_send_failed")
             }
         }

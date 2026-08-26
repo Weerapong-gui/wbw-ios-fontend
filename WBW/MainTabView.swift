@@ -59,6 +59,10 @@ struct MainTabView: View {
     /// ไม่ใช่บันทึกว่าตอบแล้ว (server เป็นคนถือคำตอบผ่าน `eventFeedbackAnswered`) เปิดแอปใหม่แล้ว
     /// ถามซ้ำคือถูกแล้ว — คนที่ยังไม่เคยตอบสำเร็จควรได้โอกาสตอบอีกครั้งตอนเน็ตกลับมา
     @State private var eventFeedbackDismissed = false
+    /// ฐานที่ผู้ใช้กด "ข้ามไปก่อน" ในรันนี้ หลัง server ปฏิเสธคำตอบซ้ำ ๆ — เหตุผลที่ไม่เขียนลงดิสก์
+    /// เหมือนกับ `eventFeedbackDismissed` เป๊ะ: server ยังไม่เคยได้คำตอบของฐานนั้น เปิดแอปใหม่
+    /// แล้วถามซ้ำคือถูกแล้ว (ถ้าตอนนั้น server หายงอแงก็ตอบได้ตามปกติ)
+    @State private var gateSkippedBases: Set<Int> = []
     #if DEBUG
     /// บังคับ gate ขึ้นตรง ๆ ด้วยแฟลก launch (ดูชุด `-uitestGate*` ใน `.task`) — nil = ใช้ของจริง
     @State private var uitestGateState: FeedbackGateState?
@@ -593,7 +597,8 @@ struct MainTabView: View {
         .fullScreenCover(item: Binding(get: { feedbackGate }, set: { _ in })) { item in
             FeedbackGateScreen(item: item, sos: sos, token: session.token ?? "",
                                showSOSStatus: $showSOSStatus,
-                               onEventDone: { eventFeedbackDismissed = true })
+                               onEventDone: { eventFeedbackDismissed = true },
+                               onBaseSkipped: { gateSkippedBases.insert($0) })
                 // .id(item.id) ด้วยเหตุผลเดียวกับ `.sheet(item: $feedbackCheckpoint)` ข้างบน และ
                 // จำเป็นกว่าที่นั่นด้วยซ้ำ: gate สลับจากฐาน A ไปฐาน B **โดย cover ไม่ได้ปิดคั่นเลย**
                 // (ตอบ A เสร็จ progress รอบใหม่ยก B ขึ้นมาแทนในเฟรมเดียว) ถ้า identity ไม่เปลี่ยน
@@ -741,6 +746,7 @@ struct MainTabView: View {
         // ตอน progress ขยับ
         return FeedbackGateItem(state: FeedbackGateState.decide(progress: progress.progress,
                                                                 queuedCheckpoints: feedback.queued,
+                                                                skippedCheckpoints: gateSkippedBases,
                                                                 eventDismissed: eventFeedbackDismissed))
     }
 
