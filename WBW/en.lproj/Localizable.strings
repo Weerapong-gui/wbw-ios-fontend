@@ -292,8 +292,14 @@
 "checkin_toast_more" = "Tap to rate this base · %1$lld more bases to rate";
 "checkin_toast_rate" = "Tap to rate this base";
 "feedback_title" = "Rate this base";
+/* Card header for the whole-event feedback form — mirrors Android word for word */
+"feedback_event_name" = "The whole route";
 "feedback_q_overall" = "Overall";
 "feedback_q_overall_hint" = "This base as a whole";
+/* Overall question for the whole-event feedback form — shorter than feedback_q_overall_hint (per base)
+   because Android uses different wording for these two contexts */
+"feedback_q_overall_event" = "Overall";
+"feedback_q_overall_event_hint" = "The walk as a whole";
 "feedback_q_scenery" = "The scenery";
 "feedback_q_scenery_hint" = "The view and the surroundings here";
 /* ถ้อยคำต้องตรงกับ feedback_q_area ฝั่ง Android คำต่อคำ — คะแนนสองแอปถูกรวมเป็นชุดเดียว */
@@ -302,6 +308,9 @@
 /* ฟอร์มต่อฐานเลิกถามข้อกิจกรรมแล้ว (ย้ายไปถามระดับงานตอนจบตาม Android) — คีย์เก็บไว้รอรอบ event feedback */
 "feedback_q_activity" = "The activity";
 "feedback_q_activity_hint" = "What you did at this base";
+/* Hint for the activity question when used in the whole-event form (paired with the same
+   feedback_q_activity title) — mirrors Android */
+"feedback_q_activity_event_hint" = "The things you did along the route";
 "feedback_q_staff" = "The staff";
 "feedback_q_staff_hint" = "How well looked after you felt";
 "feedback_scale_low" = "Poor";
@@ -313,6 +322,8 @@
 "feedback_send" = "Send feedback";
 "feedback_not_checked_in" = "The server says you have not checked in at this base (this should not happen). Close the form and open it again";
 "feedback_send_failed" = "Not sent. Try again";
+/* Skip button for the whole-event feedback form after a permanent send failure — mirrors Android */
+"feedback_give_up" = "Continue without sending";
 "credits_3d_models" = "3D models: see WBW/Resources/models/CREDITS.md · CC BY";
 
 /* SOS — status screen for the person who pressed */

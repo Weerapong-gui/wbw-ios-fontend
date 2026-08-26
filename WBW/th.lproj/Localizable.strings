@@ -292,8 +292,14 @@
 "checkin_toast_more" = "แตะให้คะแนนฐานนี้ · ยังมีอีก %1$lld ฐานรอประเมิน";
 "checkin_toast_rate" = "แตะเพื่อให้คะแนนฐานนี้";
 "feedback_title" = "ประเมินฐาน";
+/* หัวการ์ดฟอร์มความเห็นทั้งงาน (event feedback) — คำเดียวกับ Android เป๊ะ */
+"feedback_event_name" = "ตลอดเส้นทาง";
 "feedback_q_overall" = "ภาพรวม";
 "feedback_q_overall_hint" = "ฐานนี้โดยรวม";
+/* ข้อภาพรวมของฟอร์มความเห็น "ทั้งงาน" — ถ้อยคำสั้นกว่า feedback_q_overall_hint (ต่อฐาน) เพราะ Android
+   ใช้คนละชุดคำสำหรับสองบริบทนี้ */
+"feedback_q_overall_event" = "ภาพรวม";
+"feedback_q_overall_event_hint" = "การเดินโดยรวม";
 "feedback_q_scenery" = "วิวและบรรยากาศ";
 "feedback_q_scenery_hint" = "ทิวทัศน์และสภาพแวดล้อมตรงนี้";
 /* ถ้อยคำต้องตรงกับ feedback_q_area ฝั่ง Android คำต่อคำ — คะแนนสองแอปถูกรวมเป็นชุดเดียว */
@@ -302,6 +308,8 @@
 /* ฟอร์มต่อฐานเลิกถามข้อกิจกรรมแล้ว (ย้ายไปถามระดับงานตอนจบตาม Android) — คีย์เก็บไว้รอรอบ event feedback */
 "feedback_q_activity" = "กิจกรรม";
 "feedback_q_activity_hint" = "สิ่งที่ได้ทำที่ฐานนี้";
+/* hint ของข้อกิจกรรมเมื่อใช้ในฟอร์มทั้งงาน (คู่กับหัวข้อ feedback_q_activity ตัวเดิม) — ตรงกับ Android */
+"feedback_q_activity_event_hint" = "กิจกรรมที่ได้ทำตลอดเส้นทาง";
 "feedback_q_staff" = "เจ้าหน้าที่";
 "feedback_q_staff_hint" = "การดูแลที่ได้รับ";
 "feedback_scale_low" = "น้อย";
@@ -313,6 +321,8 @@
 "feedback_send" = "ส่งความเห็น";
 "feedback_not_checked_in" = "ระบบแจ้งว่ายังไม่ได้เช็คอินฐานนี้ (ไม่ควรเกิดขึ้น) ลองปิดแล้วเปิดฟอร์มใหม่";
 "feedback_send_failed" = "ส่งไม่สำเร็จ ลองอีกครั้ง";
+/* ปุ่มข้ามฟอร์มความเห็นทั้งงานตอนส่งพังถาวร — คำเดียวกับ Android เป๊ะ */
+"feedback_give_up" = "ข้ามไปก่อน";
 "credits_3d_models" = "โมเดล 3 มิติ: ดู WBW/Resources/models/CREDITS.md · CC BY";
 
 /* SOS — จอสถานะของคนกด (ยกออกจากโค้ดที่ฮาร์ดโค้ดไว้ 2026-08-21) */
