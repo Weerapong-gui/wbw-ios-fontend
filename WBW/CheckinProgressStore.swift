@@ -22,7 +22,7 @@ final class CheckinProgressStore: ObservableObject {
 
     /// ตัวแจกลำดับให้ load แต่ละรอบ — คำตอบที่กลับมาช้ากว่ารอบที่ใหม่กว่า **ที่ลงไปแล้ว** ถูกทิ้ง
     ///
-    /// load() ถูกเรียกจากห้าที่โดยไม่มีใครคุมลำดับ: poll 60 วิ, scenePhase == .active,
+    /// load() ถูกเรียกจากห้าที่โดยไม่มีใครคุมลำดับ: poll 20 วิ, scenePhase == .active,
     /// .checkinFeedbackArrived ทุกครั้งที่มี push, FeedbackView.send และตอน mount · สอง GET ที่คาบกัน
     /// บนเน็ตแย่ๆ กลับมาสลับลำดับได้ตามปกติ (คนละ connection กัน) แล้วรอบเก่าจะเขียนทับรอบใหม่:
     /// ต้นไม้หน้า Home หดกลับไปหนึ่งขั้นให้เห็นกับตา, ฐาน B หลุดจาก lastPendingIds ทำให้ toast ที่
@@ -31,7 +31,7 @@ final class CheckinProgressStore: ObservableObject {
     ///
     /// แก้ด้วย "รอบใหม่สุดชนะ" แทนที่จะใส่ guard แบบ flushing — guard จะ **ทิ้งคำขอ** ที่มาระหว่าง
     /// รอบก่อนยังไม่จบ ซึ่งฆ่าเส้น push ทิ้ง (.checkinFeedbackArrived มาตอน poll ค้างอยู่ = ฐานที่เพิ่ง
-    /// สแกนจะไม่โผล่จนกว่าจะถึง poll รอบถัดไป นานสุด 60 วิ) วิธีนี้ทุกคำขอยังยิงจริง แค่ผลลัพธ์ที่
+    /// สแกนจะไม่โผล่จนกว่าจะถึง poll รอบถัดไป นานสุด 20 วิ) วิธีนี้ทุกคำขอยังยิงจริง แค่ผลลัพธ์ที่
     /// เก่ากว่าไม่ถูกนำมาใช้ · state จึงไม่มีทางถอยหลัง
     private var loadGeneration = 0
 
@@ -41,9 +41,9 @@ final class CheckinProgressStore: ObservableObject {
     /// พัง (เน็ตหลุดกลางทาง = เรื่องปกติบนภูเขา) มันไม่ได้พาอะไรมาเลย การให้มันไปดันตัวนับก็เท่ากับ
     /// ทิ้งของดีของรอบก่อนโดยไม่มีอะไรมาแทน
     ///
-    /// เคสจริงที่ต้องกัน: FeedbackView.send ยิง refresh (รอบ N) → poll 60 วิ เริ่มถัดมาเสี้ยววินาที (N+1)
+    /// เคสจริงที่ต้องกัน: FeedbackView.send ยิง refresh (รอบ N) → poll 20 วิ เริ่มถัดมาเสี้ยววินาที (N+1)
     /// แล้ว GET พัง → payload ของรอบ N ที่มี answered = true ถูกทิ้งทั้งที่ไม่มีอะไรใหม่กว่าลงไปเลย →
-    /// ผู้ใช้เห็นฟอร์มยังแก้ไขได้ต่ออีกนานสุด 60 วิ ทั้งที่เพิ่งส่งสำเร็จไปเมื่อกี้
+    /// ผู้ใช้เห็นฟอร์มยังแก้ไขได้ต่ออีกนานสุด 20 วิ ทั้งที่เพิ่งส่งสำเร็จไปเมื่อกี้
     private var acceptedGeneration = 0
 
     /// เรียกเน็ตจริง แยกเป็น property ฉีดแทนได้ตอนเทส — ทรงเดียวกับ FeedbackStore.submitCall
@@ -51,7 +51,7 @@ final class CheckinProgressStore: ObservableObject {
     /// เพิ่ม abstraction ใหม่ทั้งก้อน) ค่าเริ่มต้นคือของจริงเสมอ โค้ด production เรียก
     /// CheckinProgressStore() เฉยๆ ไม่ต้องรู้เรื่องนี้เลย
     ///
-    /// มีไว้เพราะ newlyPending — หัวใจของ poll 60 วิ ซึ่งเป็นทางเข้าเดียวที่เหลือใน build ที่ไม่มี
+    /// มีไว้เพราะ newlyPending — หัวใจของ poll 20 วิ ซึ่งเป็นทางเข้าเดียวที่เหลือใน build ที่ไม่มี
     /// GoogleService-Info.plist (push ปิดทั้งอัน) — เขียนได้ทางเดียวคือผ่าน load() ที่ต้องมีเน็ต
     /// ตัว diff จึงไม่เคยถูกเทสเลยสักบรรทัด
     private let progressCall: (String) async throws -> CheckinProgress

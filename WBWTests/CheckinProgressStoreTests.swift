@@ -214,7 +214,7 @@ final class CheckinProgressStoreTests: XCTestCase {
 
     // MARK: - ฐานที่ "เพิ่ง" รอประเมิน (Task 11) — toast อ่านตัวนี้
     //
-    // diff ตัวนี้คือหัวใจของ poll 60 วิ ซึ่งเป็นทางเข้าเดียวที่เหลือเมื่อ push ใช้ไม่ได้ (build ที่ไม่มี
+    // diff ตัวนี้คือหัวใจของ poll 20 วิ ซึ่งเป็นทางเข้าเดียวที่เหลือเมื่อ push ใช้ไม่ได้ (build ที่ไม่มี
     // GoogleService-Info.plist ปิด push ทั้งอัน = ทุก build ที่ CI สร้าง) เดิมไม่มีเทสเลยสักบรรทัด
     // เพราะ load() เรียก APIClient.shared ตรงๆ — ตอนนี้ฉีด progressCall แทนได้แล้ว (ทรงเดียวกับ
     // FeedbackStore.submitCall) เทสด้านล่างจึงเดินผ่าน load() ของจริงทั้งหมด ไม่มีการ assert
@@ -402,9 +402,9 @@ final class CheckinProgressStoreTests: XCTestCase {
     /// รอบที่ใหม่กว่าแต่ **พัง** ต้องไม่กลืนผลของรอบเก่าที่สำเร็จ (fix รอบ 2 ข้อ 4)
     ///
     /// ตัวนับรุ่นเดิมเป็น "รอบที่เริ่มทีหลังชนะ" ซึ่งนับรอบที่ไม่เคยได้คำตอบเลยด้วย ลำดับที่เกิดจริง:
-    /// FeedbackView.send ยิง refresh (รอบ N) → poll 60 วิ เริ่มถัดมาเสี้ยววินาที (N+1) แล้ว GET พัง →
+    /// FeedbackView.send ยิง refresh (รอบ N) → poll 20 วิ เริ่มถัดมาเสี้ยววินาที (N+1) แล้ว GET พัง →
     /// ผลของรอบ N ที่มี answered = true กลับมาทีหลังแล้วถูกทิ้งเพราะ "เก่ากว่า" ทั้งที่ไม่มีอะไรใหม่กว่า
-    /// ลงไปเลย · ผู้ใช้เห็นฟอร์มยังแก้ไขได้ต่ออีกนานสุด 60 วิ ทั้งที่ส่งสำเร็จไปแล้ว
+    /// ลงไปเลย · ผู้ใช้เห็นฟอร์มยังแก้ไขได้ต่ออีกนานสุด 20 วิ ทั้งที่ส่งสำเร็จไปแล้ว
     ///
     /// รุ่นที่ยอมรับต้องขยับเฉพาะตอน "มีคำตอบมาถึงจริง" เท่านั้น
     @MainActor
@@ -424,14 +424,14 @@ final class CheckinProgressStoreTests: XCTestCase {
             let afterSend = Task { await store.load(token: "t", backend: .susLocal) }
             while !loader.isWaiting { await Task.yield() }   // refresh ของ send ยังค้างกลางทาง
 
-            await store.load(token: "t", backend: .susLocal)  // poll 60 วิ เริ่มทีหลังแล้วพัง
+            await store.load(token: "t", backend: .susLocal)  // poll 20 วิ เริ่มทีหลังแล้วพัง
 
             loader.release()
             await afterSend.value
 
             XCTAssertEqual(loader.callCount, 3, "poll ที่พังต้องได้ยิงจริง ไม่งั้นเทสไม่ได้พิสูจน์อะไร")
             XCTAssertEqual(store.progress?.pending.map(\.checkpointId), [],
-                           "รอบที่พังไม่ใช่ 'ของใหม่กว่า' — ผลที่ส่งสำเร็จแล้วต้องลงจริง ไม่งั้นฟอร์มยังแก้ได้ต่ออีก 60 วิ")
+                           "รอบที่พังไม่ใช่ 'ของใหม่กว่า' — ผลที่ส่งสำเร็จแล้วต้องลงจริง ไม่งั้นฟอร์มยังแก้ได้ต่ออีก 20 วิ")
         }
     }
 

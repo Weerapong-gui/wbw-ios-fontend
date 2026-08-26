@@ -55,6 +55,9 @@ struct FeedbackGateScreen: View {
         // สำเร็จจะไม่เห็นอะไรเปลี่ยนเลย) · ผูกกับ view ที่อยู่ใน cover ชั้นแรกแบบนี้ SwiftUI ซ้อน
         // cover ต่อขึ้นไปอีกชั้นให้ได้ · binding เป็นตัวเดียวกับของ MainTabView โดยตั้งใจ: ปิดจอ
         // สถานะจากในนี้แล้วค่าที่แท็บบัตรอ่านอยู่ต้องตรงกัน ไม่ใช่ธงคนละใบที่ค้างไม่ตรงกันเงียบ ๆ
+        // ถ้า gate สลับฐาน (A→B) ระหว่างจอสถานะ SOS เปิดอยู่ `.id(item.id)` ที่ MainTabView ผูกไว้กับ
+        // จอนี้จะรื้อจอทั้งชุดแล้ว present ใหม่ — @State ของจอสถานะรีเซ็ต (นาฬิกา/หน้าต่างยกเลิกเริ่มใหม่)
+        // แต่ข้อมูลเคสอยู่ใน SOSStore ไม่หาย — ชนชั้นเดียวกับที่ MainTabView จดไว้ที่ outer cover, ยอมรับไว้
         .fullScreenCover(isPresented: $showSOSStatus) {
             SOSStatusView(store: sos, token: token)
         }

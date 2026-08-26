@@ -17,7 +17,7 @@ final class PushPresentationTests: XCTestCase {
         XCTAssertFalse(PushPresentation.foreground(type: "checkin_feedback", sosId: nil).showsSystemBanner)
     }
 
-    /// ฐานที่เพิ่งเช็คอินต้องส่งสัญญาณให้จอโหลดของใหม่ ไม่งั้นเงียบไปจนกว่า poll รอบถัดไป (60 วิ)
+    /// ฐานที่เพิ่งเช็คอินต้องส่งสัญญาณให้จอโหลดของใหม่ ไม่งั้นเงียบไปจนกว่า poll รอบถัดไป (20 วิ)
     func testFeedbackPushSignalsTheScreenToRefresh() {
         XCTAssertEqual(PushPresentation.foreground(type: "checkin_feedback", sosId: nil).signal,
                        .checkinFeedbackArrived)

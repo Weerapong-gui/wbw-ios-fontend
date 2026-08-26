@@ -66,7 +66,8 @@ static func decide(progress: CheckinProgress?, eventDismissed: Bool) -> Gate?
   - `kind: .base(checkpointId) / .event` — `.event` เปลี่ยนชุดคำถามเป็น ภาพรวม+กิจกรรม
     (คีย์ `feedback_q_overall_event*`, `feedback_q_activity_event_hint` — คำตรง Android)
     หัวจอเป็น `feedback_event_name` และ submit ยิง endpoint event
-  - `.event` ส่งล้มเหลว → โชว์ error + ปุ่ม "ข้ามไปก่อน" (`feedback_event_give_up`) —
+  - `.event` ส่งล้มเหลว → โชว์ error + ปุ่ม "ข้ามไปก่อน" (`feedback_give_up`
+    — สเปกเดิมพิมพ์ผิดเป็น `feedback_event_give_up` แก้ให้ตรงของจริงตอน final review) —
     โผล่เฉพาะหลัง fail ตามข้อ 5
 - **SOS บน gate** — แถวปุ่ม SOS ใต้ฟอร์ม (reuse `SOSButton` + เส้นทางเปิด `SOSStatusView`
   ที่มีอยู่) ตามข้อ 2 · รายละเอียดการ mount ไปเคาะตอน plan (จอ SOS ฝั่ง iOS เป็น
@@ -83,7 +84,8 @@ static func decide(progress: CheckinProgress?, eventDismissed: Bool) -> Gate?
 ### Localization
 
 คีย์ใหม่ (th/en คำตรง Android): `feedback_event_name`, `feedback_q_overall_event`,
-`feedback_q_overall_event_hint`, `feedback_q_activity_event_hint`, `feedback_event_give_up`,
+`feedback_q_overall_event_hint`, `feedback_q_activity_event_hint`, `feedback_give_up`
+(สเปกเดิมพิมพ์ผิดเป็น `feedback_event_give_up` แก้ให้ตรงของจริงตอน final review),
 ข้อความ error ส่ง event ไม่สำเร็จ · รัน `check-localization.sh`
 
 ### เอกสาร/สัญญา
