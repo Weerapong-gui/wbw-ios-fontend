@@ -467,6 +467,58 @@ struct APIClient {
         }
     }
 
+    /// ก้อนที่ยิงขึ้น `/me/event-feedback` — เหมือน feedbackBody แต่ไม่มี checkpoint_id เลย
+    /// (ดูเหตุผลที่ `EventFeedbackDraft.swift`: ความเห็นทั้งงานไม่ผูกกับฐานไหน)
+    static func eventFeedbackBody(draft: EventFeedbackDraft) -> [String: Any] {
+        var body: [String: Any] = [
+            "client_id": draft.clientId,
+            "rating": draft.rating,
+            "device_time": draft.deviceTime,
+        ]
+        if let v = draft.ratingActivity { body["rating_activity"] = v }
+        if let c = draft.comment { body["comment"] = c }
+        return body
+    }
+
+    /// ส่งความเห็นทั้งงาน — endpoint ที่ SUS **ยังไม่มี** ตอนเขียนโค้ดนี้ แอปส่งล่วงหน้าแบบเดียวกับ
+    /// Android เพื่อให้วันที่ migration ลง production ทุกเครื่องเริ่มส่งได้ทันทีไม่ต้องรออัปเดตแอป
+    ///
+    /// **ไม่ throw ต่างจาก submitFeedback โดยตั้งใจ** — event feedback ไม่มี outbox ให้ catch แล้ว
+    /// เก็บเข้าคิวรอรอบหน้า (ดูเหตุผลที่ `EventFeedbackDraft.swift`) ฟอร์มนี้ค้างอยู่บนจอเองจนกว่าจะ
+    /// สำเร็จหรือผู้ใช้กดข้าม จึงต้องได้ผลลัพธ์กลับมาเสมอไม่ว่าทางไหนจะพัง เพื่อโชว์ปุ่มลองใหม่/ข้าม
+    /// ได้ทันที — **รวมถึง 404** ซึ่งคือชีวิตจริงระหว่างที่ endpoint นี้ยังไม่เกิดใน SUS: ต้องเป็น
+    /// `.failed` ไม่ใช่ `.saved` ปลอม ๆ ที่ทำให้คำตอบของผู้เข้าร่วมหายเงียบ
+    ///
+    /// ไม่ตรวจ body ของ 409 เหมือน submitFeedback (isOriginFeedbackRow ฯลฯ) — endpoint นี้ยังไม่มี
+    /// รูป response จริงจาก SUS ให้ตรึงไว้ ตรวจแค่ status พอ วันที่ backend ขึ้นจริงค่อยพิจารณาใหม่
+    func submitEventFeedback(token: String, draft: EventFeedbackDraft) async -> FeedbackSubmitOutcome {
+        if DemoMode.active { return .saved }
+        guard let url = URL(string: "\(Config.apiBase)/me/event-feedback") else { return .failed }
+        let body = Self.eventFeedbackBody(draft: draft)
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else { return .failed }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = httpBody
+
+        let resp: URLResponse
+        do { (_, resp) = try await Self.send(req) }
+        catch { return .failed }   // เน็ตล่ม → .failed (ไม่มี outbox ให้เก็บรอรอบหน้า)
+
+        guard let http = resp as? HTTPURLResponse else { return .failed }
+        switch http.statusCode {
+        case 200, 201:
+            return .saved
+        case 409:
+            return .alreadyAnswered
+        default:
+            // รวม 404 (endpoint ยังไม่เกิดใน SUS) กับทุก error อื่นที่ไม่มีทางสำเร็จซ้ำด้วย draft เดิม
+            return .failed
+        }
+    }
+
     // helper: GET + decode (snake_case)
     private func getDecoded<T: Decodable>(_ path: String, token: String, _ type: T.Type, error: String) async throws -> T {
         guard let url = URL(string: "\(Config.apiBase)\(path)") else { throw AppError.message(Loc.t("error_bad_url")) }
